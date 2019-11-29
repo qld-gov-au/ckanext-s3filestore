@@ -83,8 +83,8 @@ class BaseS3Uploader(object):
                     log.warning('Could not create bucket {0}: {1}'.format(
                         bucket_name, str(e)))
         except botocore.exceptions.ClientError as e:
-            error_code = int(e.response['Error']['Code'])
-            if error_code == 404:
+            error_code = e.response['Error']['Code']
+            if error_code == '404':
                 log.warning('Bucket {0} could not be found, ' +
                             'attempting to create it...'.format(bucket_name))
                 try:
@@ -95,7 +95,7 @@ class BaseS3Uploader(object):
                 except botocore.exceptions.ClientError as e:
                     log.warning('Could not create bucket {0}: {1}'.format(
                         bucket_name, str(e)))
-            elif error_code == 403:
+            elif error_code == '403':
                 raise S3FileStoreException(
                     'Access to bucket {0} denied'.format(bucket_name))
             else:
