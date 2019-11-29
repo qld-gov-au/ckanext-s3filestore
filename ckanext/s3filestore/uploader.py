@@ -78,7 +78,7 @@ class BaseS3Uploader(object):
                     bucket = s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
                         'LocationConstraint': 'us-east-1'})
                     log.info(
-                        'Bucket {0} succesfully created'.format(bucket_name))
+                        'Bucket {0} successfully created'.format(bucket_name))
                 except botocore.exceptions.ClientError as e:
                     log.warning('Could not create bucket {0}: {1}'.format(
                         bucket_name, str(e)))
@@ -91,7 +91,7 @@ class BaseS3Uploader(object):
                     bucket = s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
                         'LocationConstraint': self.region})
                     log.info(
-                        'Bucket {0} succesfully created'.format(bucket_name))
+                        'Bucket {0} successfully created'.format(bucket_name))
                 except botocore.exceptions.ClientError as e:
                     log.warning('Could not create bucket {0}: {1}'.format(
                         bucket_name, str(e)))
@@ -117,7 +117,7 @@ class BaseS3Uploader(object):
             s3.Object(self.bucket_name, filepath).put(
                 Body=upload_file.read(), ACL=self.acl,
                 ContentType=getattr(self, 'mimetype', None))
-            log.info("Succesfully uploaded {0} to S3!".format(filepath))
+            log.info("Successfully uploaded {0} to S3!".format(filepath))
         except Exception as e:
             log.error('Something went very very wrong for {0}'.format(str(e)))
             raise e
