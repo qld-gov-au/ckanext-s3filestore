@@ -63,6 +63,10 @@ class S3Controller(base.BaseController):
                 # We are using redirect to minio's resource public URL
                 s3 = upload.get_s3_session()
                 client = s3.client(service_name='s3', endpoint_url=host_name)
+
+                # check whether the object exists in S3
+                client.head_object(Bucket=bucket_name, Key=key_path)
+
                 url = client.generate_presigned_url(ClientMethod='get_object',
                                                     Params={'Bucket': bucket.name,
                                                             'Key': key_path},
@@ -70,7 +74,7 @@ class S3Controller(base.BaseController):
                 redirect(url)
 
             except ClientError as ex:
-                if ex.response['Error']['Code'] == 'NoSuchKey':
+                if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                     # attempt fallback
                     if config.get(
                             'ckanext.s3filestore.filesystem_download_fallback',
