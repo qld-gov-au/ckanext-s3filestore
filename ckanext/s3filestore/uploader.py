@@ -246,6 +246,8 @@ class S3ResourceUploader(BaseS3Uploader):
         self.clear = resource.pop('clear_upload', None)
 
         if isinstance(upload_field_storage, ALLOWED_UPLOAD_TYPES):
+            self.filesize = 0  # bytes
+
             self.filename = upload_field_storage.filename
             self.filename = munge.munge_filename(self.filename)
             resource['url'] = self.filename
@@ -258,6 +260,10 @@ class S3ResourceUploader(BaseS3Uploader):
                 except Exception:
                     pass
             self.upload_file = _get_underlying_file(upload_field_storage)
+            self.upload_file.seek(0, os.SEEK_END)
+            self.filesize = self.upload_file.tell()
+            # go back to the beginning of the file buffer
+            self.upload_file.seek(0, os.SEEK_SET)
         elif self.clear and resource.get('id'):
             # New, not yet created resources can be marked for deletion if the
             # users cancels an upload and enters a URL instead.
