@@ -78,24 +78,24 @@ class BaseS3Uploader(object):
                     bucket = s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
                         'LocationConstraint': 'us-east-1'})
                     log.info(
-                        'Bucket {0} succesfully created'.format(bucket_name))
+                        'Bucket {0} successfully created'.format(bucket_name))
                 except botocore.exceptions.ClientError as e:
                     log.warning('Could not create bucket {0}: {1}'.format(
                         bucket_name, str(e)))
         except botocore.exceptions.ClientError as e:
-            error_code = int(e.response['Error']['Code'])
-            if error_code == 404:
+            error_code = e.response['Error']['Code']
+            if error_code == '404':
                 log.warning('Bucket {0} could not be found, ' +
                             'attempting to create it...'.format(bucket_name))
                 try:
                     bucket = s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
                         'LocationConstraint': self.region})
                     log.info(
-                        'Bucket {0} succesfully created'.format(bucket_name))
+                        'Bucket {0} successfully created'.format(bucket_name))
                 except botocore.exceptions.ClientError as e:
                     log.warning('Could not create bucket {0}: {1}'.format(
                         bucket_name, str(e)))
-            elif error_code == 403:
+            elif error_code == '403':
                 raise S3FileStoreException(
                     'Access to bucket {0} denied'.format(bucket_name))
             else:
@@ -117,7 +117,7 @@ class BaseS3Uploader(object):
             s3.Object(self.bucket_name, filepath).put(
                 Body=upload_file.read(), ACL=self.acl,
                 ContentType=getattr(self, 'mimetype', None))
-            log.info("Succesfully uploaded {0} to S3!".format(filepath))
+            log.info("Successfully uploaded {0} to S3!".format(filepath))
         except Exception as e:
             log.error('Something went very very wrong for {0}'.format(str(e)))
             raise e
@@ -246,6 +246,8 @@ class S3ResourceUploader(BaseS3Uploader):
         self.clear = resource.pop('clear_upload', None)
 
         if isinstance(upload_field_storage, ALLOWED_UPLOAD_TYPES):
+            self.filesize = 0  # bytes
+
             self.filename = upload_field_storage.filename
             self.filename = munge.munge_filename(self.filename)
             resource['url'] = self.filename
@@ -258,6 +260,10 @@ class S3ResourceUploader(BaseS3Uploader):
                 except Exception:
                     pass
             self.upload_file = _get_underlying_file(upload_field_storage)
+            self.upload_file.seek(0, os.SEEK_END)
+            self.filesize = self.upload_file.tell()
+            # go back to the beginning of the file buffer
+            self.upload_file.seek(0, os.SEEK_SET)
         elif self.clear and resource.get('id'):
             # New, not yet created resources can be marked for deletion if the
             # users cancels an upload and enters a URL instead.
