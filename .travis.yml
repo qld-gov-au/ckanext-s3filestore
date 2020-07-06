@@ -1,9 +1,18 @@
 language: python
+dist: bionic
 python:
     - "2.7"
+    - "3.6"
 env:
-    - PGVERSION=9.1 CKAN_BRANCH=master
-    - PGVERSION=9.1 CKAN_BRANCH=release-v2.5.1
+    - PGVERSION=11 CKAN_BRANCH=master CKAN_GIT_REPO=ckan/ckan
+    - PGVERSION=11 CKAN_BRANCH=2.8 CKAN_GIT_REPO=ckan/ckan
+jobs:
+  exclude:
+  - python: 3.6
+    env: PGVERSION=11 CKAN_BRANCH=2.8 CKAN_GIT_REPO=ckan/ckan
+  - python: 2.7
+    env: PGVERSION=11 CKAN_BRANCH=master CKAN_GIT_REPO=ckan/ckan
+
 install:
     - bash bin/travis-build.bash
     - pip install coveralls -U
