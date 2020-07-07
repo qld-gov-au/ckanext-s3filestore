@@ -1,8 +1,9 @@
 import sys
-import boto3
-import botocore
+
 from ckantoolkit import config
 import ckantoolkit as toolkit
+import ckanext.s3filestore.uploader
+
 
 
 class TestConnection(toolkit.CkanCommand):
@@ -43,26 +44,13 @@ class TestConnection(toolkit.CkanCommand):
 
         print('All configuration options defined')
         bucket_name = config.get('ckanext.s3filestore.aws_bucket_name')
-        public_key = config.get('ckanext.s3filestore.aws_access_key_id')
-        secret_key = config.get('ckanext.s3filestore.aws_secret_access_key')
-        region_name = config.get('ckanext.s3filestore.region_name')
 
-        S3_conn = boto3.client('s3', aws_access_key_id=public_key, aws_secret_access_key=secret_key)
-
-        # Check if bucket exists
         try:
-            S3_conn.meta.client.head_bucket(Bucket=bucket_name)
-        except botocore.exceptions.ClientError as e:
-            # If a client error is thrown, then check that it was a 404 error.
-            # If it was a 404 error, then the bucket does not exist.
-            error_code = e.response['Error']['Code']
-            if error_code == '404':
-                try:
-                    S3_conn.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
-    'LocationConstraint': region_name})
-                except boto3.exception.StandardError as ex:
-                    print('An error was found while creating the bucket:')
-                    print(str(ex))
-                    sys.exit(1)
+            ckanext.s3filestore.uploader.BaseS3Uploader().get_s3_bucket(bucket_name)
+        except ckanext.S3FileStoreException as ex:
+            print('An error was found while finding or creating the bucket:')
+            print(str(ex))
+            sys.exit(1)
+
 
         print('Configuration OK!')

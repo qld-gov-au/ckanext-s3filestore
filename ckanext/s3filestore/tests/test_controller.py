@@ -2,7 +2,6 @@ import os
 
 from nose.tools import (assert_equal,
                         assert_true)
-from ckantoolkit import config
 
 import ckan.tests.helpers as helpers
 import ckan.tests.factories as factories
@@ -19,7 +18,10 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
 
     @mock_s3
     def __init__(self):
-        conn = boto3.resource('s3', region_name='ap-southeast-2')
+        self.botoSession = boto3.Session(region_name='ap-southeast-2',
+                                         aws_access_key_id='access-key-id',
+                                         aws_secret_access_key='secret-key')
+        conn = self.botoSession.resource('s3')
         # We need to create the bucket since this is all in Moto's 'virtual' AWS account
         conn.create_bucket(Bucket='my-bucket')
 
@@ -95,7 +97,7 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
             .format(resource['package_id'], resource['id'])
         assert_equal(resource_show['url'], 'http://example')
 
-        s3 = boto3.client('s3')
+        s3 = self.botoSession.resource('s3')
         bucket = s3.bucket('my-bucket')
         #conn = boto3.connect_s3()
         #bucket = conn.get_bucket('my-bucket')

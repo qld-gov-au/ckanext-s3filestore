@@ -36,7 +36,10 @@ class TestS3Uploader(helpers.FunctionalTestBase):
 
     @mock_s3
     def __init__(self):
-        conn = boto3.resource('s3', region_name='ap-southeast-2')
+        self.botoSession = boto3.Session(region_name='ap-southeast-2',
+                              aws_access_key_id='access-key-id',
+                              aws_secret_access_key='secret-key')
+        conn = self.botoSession.resource('s3')
         # We need to create the bucket since this is all in Moto's 'virtual' AWS account
         conn.create_bucket(Bucket='my-bucket')
 
@@ -69,7 +72,7 @@ class TestS3Uploader(helpers.FunctionalTestBase):
         key = '{0}/storage/uploads/group/2001-01-29-000000{1}' \
             .format(config.get('ckanext.s3filestore.aws_storage_path'), file_name)
 
-        s3 = boto3.client('s3')
+        s3 = self.botoSession.client('s3')
 
 
         # check whether the object exists in S3
@@ -112,7 +115,7 @@ class TestS3Uploader(helpers.FunctionalTestBase):
         key = '{0}/storage/uploads/group/2001-01-29-000000{1}' \
             .format(config.get('ckanext.s3filestore.aws_storage_path'), file_name)
 
-        s3 = boto3.client('s3')
+        s3 = self.botoSession.client('s3')
 
         # check whether the object exists in S3
         # will throw exception if not existing
@@ -158,7 +161,7 @@ class TestS3ResourceUploader(helpers.FunctionalTestBase):
             .format(resource['id'],
                     config.get('ckanext.s3filestore.aws_storage_path'))
 
-        s3 = boto3.client('s3')
+        s3 = self.botoSession.client('s3')
 
         # check whether the object exists in S3
         # will throw exception if not existing
@@ -192,7 +195,7 @@ class TestS3ResourceUploader(helpers.FunctionalTestBase):
             .format(resource['id'],
                     config.get('ckanext.s3filestore.aws_storage_path'))
 
-        s3 = boto3.client('s3')
+        s3 = self.botoSession.client('s3')
 
         # check whether the object exists in S3
         # will throw exception if not existing

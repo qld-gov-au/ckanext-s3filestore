@@ -46,7 +46,8 @@ class BaseS3Uploader(object):
         self.signature = config.get('ckanext.s3filestore.signature_version')
         self.host_name = config.get('ckanext.s3filestore.host_name')
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
-        self.bucket = self.get_s3_bucket(self.bucket_name)
+        self.session = None
+        #self.get_s3_bucket(self.bucket_name)
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
@@ -57,14 +58,23 @@ class BaseS3Uploader(object):
                                      aws_secret_access_key=self.s_key,
                                      region_name=self.region)
 
+    def get_s3_resource(self):
+        return self.get_s3_session().resource('s3', endpoint_url=self.host_name,
+                                     config=botocore.client.Config(
+                                     signature_version=self.signature))
+
+    def get_s3_client(self):
+        return self.get_s3_session().client('s3', endpoint_url=self.host_name,
+                                     config=botocore.client.Config(
+                                     signature_version=self.signature))
+
+
     def get_s3_bucket(self, bucket_name):
         '''Return a boto bucket, creating it if it doesn't exist.'''
 
         # make s3 connection using boto3
+        s3 = self.get_s3_resource()
 
-        s3 = self.get_s3_session().resource('s3', endpoint_url=self.host_name,
-                                            config=botocore.client.Config(
-                                             signature_version=self.signature))
         bucket = s3.Bucket(bucket_name)
         try:
             if s3.Bucket(bucket.name) in s3.buckets.all():
@@ -108,13 +118,8 @@ class BaseS3Uploader(object):
         '''Uploads the `upload_file` to `filepath` on `self.bucket`.'''
         upload_file.seek(0)
 
-        session = boto3.session.Session(aws_access_key_id=self.p_key,
-                                        aws_secret_access_key=self.s_key,
-                                        region_name=self.region)
-        s3 = session.resource('s3', endpoint_url=self.host_name,
-                              config=botocore.client.Config(signature_version=self.signature))
         try:
-            s3.Object(self.bucket_name, filepath).put(
+            self.get_s3_client().Object(self.bucket_name, filepath).put(
                 Body=upload_file.read(), ACL=self.acl,
                 ContentType=getattr(self, 'mimetype', None))
             log.info("Successfully uploaded {0} to S3!".format(filepath))
@@ -124,13 +129,8 @@ class BaseS3Uploader(object):
 
     def clear_key(self, filepath):
         '''Deletes the contents of the key at `filepath` on `self.bucket`.'''
-        session = boto3.session.Session(aws_access_key_id=self.p_key,
-                                    aws_secret_access_key=self.s_key,
-                                    region_name=self.region)
-        s3 = session.resource('s3', endpoint_url=self.host_name, config=botocore.client.Config(
-                             signature_version=self.signature))
         try:
-            s3.Object(self.bucket_name, filepath).delete()
+            self.get_s3_client().Object(self.bucket_name, filepath).delete()
         except Exception as e:
             raise e
 
