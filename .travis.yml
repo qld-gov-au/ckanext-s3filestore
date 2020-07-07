@@ -2,10 +2,12 @@ language: python
 dist: bionic
 python:
     - "2.7"
-    - "3.6"
+#    - "3.6"
 env:
-    - PGVERSION=11 CKAN_BRANCH=master CKAN_GIT_REPO=ckan/ckan
+#    - PGVERSION=11 CKAN_BRANCH=master CKAN_GIT_REPO=ckan/ckan
     - PGVERSION=11 CKAN_BRANCH=2.8 CKAN_GIT_REPO=ckan/ckan
+    - PGVERSION=11 CKAN_BRANCH=qgov-master CKAN_GIT_REPO=qld-gov-au/ckan
+    - PGVERSION=11 CKAN_BRANCH=updateUploaderForDeleteAndGetFileFunctions CKAN_GIT_REPO=qld-gov-au/ckan
 jobs:
   exclude:
   - python: 3.6
