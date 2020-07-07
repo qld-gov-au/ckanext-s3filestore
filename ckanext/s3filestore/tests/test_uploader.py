@@ -8,7 +8,8 @@ from nose.tools import (assert_equal,
 
 import ckanapi
 from ckantoolkit import config
-import boto
+import boto3
+
 from moto import mock_s3
 from webtest import Upload
 
@@ -62,10 +63,17 @@ class TestS3Uploader(helpers.FunctionalTestBase):
         key = '{0}/storage/uploads/group/2001-01-29-000000{1}' \
             .format(config.get('ckanext.s3filestore.aws_storage_path'), file_name)
 
-        conn = boto.connect_s3()
-        bucket = conn.get_bucket('my-bucket')
+        s3 = boto3.client('s3')
+
+
+        # check whether the object exists in S3
+        # will throw exception if not existing
+        s3.head_object(Bucket='my-bucket', Key=key)
+
+        #conn = boto3.connect_s3()
+        #bucket = conn.get_bucket('my-bucket')
         # test the key exists
-        assert_true(bucket.lookup(key))
+        #assert_true(bucket.lookup(key))
 
         # requesting image redirects to s3
         app = self._get_test_app()
@@ -98,10 +106,16 @@ class TestS3Uploader(helpers.FunctionalTestBase):
         key = '{0}/storage/uploads/group/2001-01-29-000000{1}' \
             .format(config.get('ckanext.s3filestore.aws_storage_path'), file_name)
 
-        conn = boto.connect_s3()
-        bucket = conn.get_bucket('my-bucket')
+        s3 = boto3.client('s3')
+
+        # check whether the object exists in S3
+        # will throw exception if not existing
+        s3.head_object(Bucket='my-bucket', Key=key)
+
+        #conn = boto.connect_s3()
+        #bucket = conn.get_bucket('my-bucket')
         # test the key exists
-        assert_true(bucket.lookup(key))
+        #assert_true(bucket.lookup(key))
 
         # clear upload
         helpers.call_action('group_update', context=context,
@@ -109,7 +123,13 @@ class TestS3Uploader(helpers.FunctionalTestBase):
                             image_url="http://asdf", clear_upload=True)
 
         # key shouldn't exist
-        assert_false(bucket.lookup(key))
+        #assert_false(bucket.lookup(key))
+        try:
+            s3.head_object(Bucket='my-bucket', Key=key)
+            assert_false(True, "file should not exist")
+        except:
+            # passed
+            assert_true(True, "passed")
 
 
 class TestS3ResourceUploader(helpers.FunctionalTestBase):
@@ -132,13 +152,20 @@ class TestS3ResourceUploader(helpers.FunctionalTestBase):
             .format(resource['id'],
                     config.get('ckanext.s3filestore.aws_storage_path'))
 
-        conn = boto.connect_s3()
-        bucket = conn.get_bucket('my-bucket')
+        s3 = boto3.client('s3')
+
+        # check whether the object exists in S3
+        # will throw exception if not existing
+        s3.head_object(Bucket='my-bucket', Key=key)
+
+        #conn = boto.connect_s3()
+        #bucket = conn.get_bucket('my-bucket')
         # test the key exists
-        assert_true(bucket.lookup(key))
+        #assert_true(bucket.lookup(key))
         # test the file contains what's expected
-        assert_equal(bucket.get_key(key).get_contents_as_string(),
-                     open(file_path).read())
+        obj = s3.get_object(Bucket='my-bucket', Key=key)
+        data = obj['Body'].read()
+        assert_equal(data, open(file_path).read())
 
     @mock_s3
     def test_resource_upload_then_clear(self):
@@ -159,10 +186,16 @@ class TestS3ResourceUploader(helpers.FunctionalTestBase):
             .format(resource['id'],
                     config.get('ckanext.s3filestore.aws_storage_path'))
 
-        conn = boto.connect_s3()
-        bucket = conn.get_bucket('my-bucket')
+        s3 = boto3.client('s3')
+
+        # check whether the object exists in S3
+        # will throw exception if not existing
+        s3.head_object(Bucket='my-bucket', Key=key)
+
+        #conn = boto.connect_s3()
+        #bucket = conn.get_bucket('my-bucket')
         # test the key exists
-        assert_true(bucket.lookup(key))
+        #assert_true(bucket.lookup(key))
 
         # clear upload
         url = toolkit.url_for(controller='package', action='resource_edit',
@@ -173,7 +206,13 @@ class TestS3ResourceUploader(helpers.FunctionalTestBase):
                  extra_environ=env)
 
         # key shouldn't exist
-        assert_false(bucket.lookup(key))
+        try:
+            s3.head_object(Bucket='my-bucket', Key=key)
+            assert_false(True, "file should not exist")
+        except:
+            # passed
+            assert_true(True, "passed")
+        #assert_false(bucket.lookup(key))
 
     @mock_s3
     def test_uploader_get_path(self):

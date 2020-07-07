@@ -12,7 +12,6 @@ from ckan.common import _, request, c, response
 from botocore.exceptions import ClientError
 
 from ckanext.s3filestore.uploader import S3Uploader
-import webob
 
 import logging
 log = logging.getLogger(__name__)
@@ -60,7 +59,7 @@ class S3Controller(base.BaseController):
 
             try:
                 # Small workaround to manage downloading of large files
-                # We are using redirect to minio's resource public URL
+                # We are using redirect to resource public URL
                 s3 = upload.get_s3_session()
                 client = s3.client(service_name='s3', endpoint_url=host_name)
 
@@ -140,10 +139,7 @@ class S3Controller(base.BaseController):
             host_name = host_name[:-1]
         storage_path = S3Uploader.get_storage_path(upload_to)
         filepath = os.path.join(storage_path, filename)
-        #host = config.get('ckanext.s3.filestore.hostname')
-        # redirect_url = 'https://{bucket_name}.minio.omc.ckan.io/{filepath}' \
-        #     .format(bucket_name=config.get('ckanext.s3filestore.aws_bucket_name'),
-        #             filepath=filepath)
+
         redirect_url = '{host_name}/{bucket_name}/{filepath}'\
                           .format(bucket_name=config.get('ckanext.s3filestore.aws_bucket_name'),
                           filepath=filepath,

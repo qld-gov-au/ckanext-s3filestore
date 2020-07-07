@@ -8,7 +8,7 @@ import ckan.tests.helpers as helpers
 import ckan.tests.factories as factories
 
 import ckanapi
-import boto
+import boto3
 from moto import mock_s3
 
 import logging
@@ -89,9 +89,11 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
             .format(resource['package_id'], resource['id'])
         assert_equal(resource_show['url'], 'http://example')
 
-        conn = boto.connect_s3()
-        bucket = conn.get_bucket('my-bucket')
-        assert_equal(bucket.get_all_keys(), [])
+        s3 = boto3.client('s3')
+        bucket = s3.bucket('my-bucket')
+        #conn = boto3.connect_s3()
+        #bucket = conn.get_bucket('my-bucket')
+        assert_equal(bucket.objects.all(), [])
 
         # attempt redirect to linked url
         r = app.get(resource_file_url, status=[302, 301])
