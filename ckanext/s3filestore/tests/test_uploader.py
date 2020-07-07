@@ -36,9 +36,7 @@ class TestS3Uploader(helpers.FunctionalTestBase):
 
     @mock_s3
     def __init__(self):
-        self.botoSession = boto3.Session(region_name='ap-southeast-2',
-                              aws_access_key_id='access-key-id',
-                              aws_secret_access_key='secret-key')
+        self.botoSession = boto3.Session(region_name='ap-southeast-2')
         conn = self.botoSession.resource('s3')
         # We need to create the bucket since this is all in Moto's 'virtual' AWS account
         conn.create_bucket(Bucket='my-bucket')

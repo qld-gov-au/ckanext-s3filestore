@@ -44,10 +44,9 @@ class BaseS3Uploader(object):
         self.s_key = config.get('ckanext.s3filestore.aws_secret_access_key', None)
         self.region = config.get('ckanext.s3filestore.region_name')
         self.signature = config.get('ckanext.s3filestore.signature_version')
-        self.host_name = config.get('ckanext.s3filestore.host_name')
+        self.host_name = config.get('ckanext.s3filestore.host_name', None)
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
         self.session = None
-        #self.get_s3_bucket(self.bucket_name)
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
@@ -133,6 +132,19 @@ class BaseS3Uploader(object):
             self.get_s3_client().Object(self.bucket_name, filepath).delete()
         except Exception as e:
             raise e
+
+    def get_signed_url_to_key(self, key_path, expiredin=60):
+        # Small workaround to manage downloading of large files
+        # We are using redirect to resource public URL
+        client = self.get_s3_client()
+
+        # check whether the object exists in S3
+        client.head_object(Bucket=self.bucket_name, Key=key_path)
+
+        return client.generate_presigned_url(ClientMethod='get_object',
+                                            Params={'Bucket': self.bucket_name,
+                                                    'Key': key_path},
+                                            ExpiresIn=expiredin)
 
 
 class S3Uploader(BaseS3Uploader):
