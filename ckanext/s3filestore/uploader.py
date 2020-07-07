@@ -118,7 +118,7 @@ class BaseS3Uploader(object):
         upload_file.seek(0)
 
         try:
-            self.get_s3_client().Object(self.bucket_name, filepath).put(
+            self.get_s3_resource().Object(self.bucket_name, filepath).put(
                 Body=upload_file.read(), ACL=self.acl,
                 ContentType=getattr(self, 'mimetype', None))
             log.info("Successfully uploaded {0} to S3!".format(filepath))
@@ -129,7 +129,7 @@ class BaseS3Uploader(object):
     def clear_key(self, filepath):
         '''Deletes the contents of the key at `filepath` on `self.bucket`.'''
         try:
-            self.get_s3_client().Object(self.bucket_name, filepath).delete()
+            self.get_s3_bucket().Object(self.bucket_name, filepath).delete()
         except Exception as e:
             raise e
 
