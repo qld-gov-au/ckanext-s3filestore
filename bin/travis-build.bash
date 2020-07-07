@@ -52,5 +52,9 @@ echo "Moving test.ini into a subdir..."
 mkdir subdir
 mv test.ini subdir
 
+# Run s3 moto local client just in case we can't mock direclty via tests
+pip install "moto[server]"
+moto_server s3 &
+
 echo "travis-build.bash is done."
 

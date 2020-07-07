@@ -8,18 +8,17 @@ import ckan.tests.factories as factories
 
 import ckanapi
 import boto3
-from moto import mock_s3
 
 import logging
 log = logging.getLogger(__name__)
 
-
+# moto s3 client is started externally on localhost:5000
 class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
+    endpoint_url = 'http://localhost:5000'
 
-    @mock_s3
     def __init__(self):
-        self.botoSession = boto3.Session(region_name='ap-southeast-2')
-        conn = self.botoSession.resource('s3')
+        self.botoSession = boto3.Session(region_name='ap-southeast-2', aws_access_key_id='a', aws_secret_access_key='b')
+        conn = self.botoSession.resource('s3', endpoint_url=self.endpoint_url)
         # We need to create the bucket since this is all in Moto's 'virtual' AWS account
         conn.create_bucket(Bucket='my-bucket')
 
@@ -36,7 +35,6 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
                                                url='file.txt')
         return resource, demo, app
 
-    @mock_s3
     @helpers.change_config('ckan.site_url', 'http://mytest.ckan.net')
     def test_resource_show_url(self):
         '''The resource_show url is expected for uploaded resource file.'''
@@ -51,7 +49,6 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
 
         assert_equal(resource_show['url'], expected_url)
 
-    @mock_s3
     def test_resource_download_s3(self):
         '''A resource uploaded to S3 can be downloaded.'''
 
@@ -64,7 +61,6 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
         assert_equal(file_response.content_type, 'text/csv')
         assert_true('date,price' in file_response.body)
 
-    @mock_s3
     def test_resource_download_s3_no_filename(self):
         '''A resource uploaded to S3 can be downloaded when no filename in
         url.'''
@@ -79,7 +75,6 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
         assert_equal(file_response.content_type, 'text/csv')
         assert_true('date,price' in file_response.body)
 
-    @mock_s3
     def test_resource_download_url_link(self):
         '''A resource with a url (not file) is redirected correctly.'''
         factories.Sysadmin(apikey="my-test-key")
@@ -95,7 +90,7 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
             .format(resource['package_id'], resource['id'])
         assert_equal(resource_show['url'], 'http://example')
 
-        s3 = self.botoSession.resource('s3')
+        s3 = self.botoSession.resource('s3', endpoint_url=self.endpoint_url)
         bucket = s3.bucket('my-bucket')
         #conn = boto3.connect_s3()
         #bucket = conn.get_bucket('my-bucket')
