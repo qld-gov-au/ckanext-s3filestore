@@ -129,7 +129,7 @@ class BaseS3Uploader(object):
     def clear_key(self, filepath):
         '''Deletes the contents of the key at `filepath` on `self.bucket`.'''
         try:
-            self.get_s3_bucket().Object(self.bucket_name, filepath).delete()
+            self.get_s3_resource().Object(self.bucket_name, filepath).delete()
         except Exception as e:
             raise e
 

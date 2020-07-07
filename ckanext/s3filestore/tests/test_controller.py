@@ -91,7 +91,7 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
         assert_equal(resource_show['url'], 'http://example')
 
         s3 = self.botoSession.resource('s3', endpoint_url=self.endpoint_url)
-        bucket = s3.bucket('my-bucket')
+        bucket = s3.Bucket('my-bucket')
         #conn = boto3.connect_s3()
         #bucket = conn.get_bucket('my-bucket')
         assert_equal(bucket.objects.all(), [])
