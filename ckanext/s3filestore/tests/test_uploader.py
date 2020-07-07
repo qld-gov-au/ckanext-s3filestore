@@ -35,6 +35,12 @@ class Uploader(Upload):
 class TestS3Uploader(helpers.FunctionalTestBase):
 
     @mock_s3
+    def __init__(self):
+        conn = boto3.resource('s3', region_name='ap-southeast-2')
+        # We need to create the bucket since this is all in Moto's 'virtual' AWS account
+        conn.create_bucket(Bucket='my-bucket')
+
+    @mock_s3
     def test_uploader_storage_path(self):
         '''S3Uploader get_storage_path returns as expected'''
         returned_path = S3Uploader.get_storage_path('myfiles')

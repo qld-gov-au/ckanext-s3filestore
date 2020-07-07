@@ -17,6 +17,12 @@ log = logging.getLogger(__name__)
 
 class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
 
+    @mock_s3
+    def __init__(self):
+        conn = boto3.resource('s3', region_name='ap-southeast-2')
+        # We need to create the bucket since this is all in Moto's 'virtual' AWS account
+        conn.create_bucket(Bucket='my-bucket')
+
     def _upload_resource(self):
         factories.Sysadmin(apikey="my-test-key")
 
