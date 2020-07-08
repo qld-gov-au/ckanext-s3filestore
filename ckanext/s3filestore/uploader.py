@@ -116,6 +116,8 @@ class BaseS3Uploader(object):
     def upload_to_key(self, filepath, upload_file, make_public=False):
         '''Uploads the `upload_file` to `filepath` on `self.bucket`.'''
         upload_file.seek(0)
+        logging.debug("ckanext.s3filestore.uploader: going to upload {0} to bucket {1} with mimetype {2}".format(
+            filepath, self.bucket_name, getattr(self, 'mimetype', None)))
 
         try:
             self.get_s3_resource().Object(self.bucket_name, filepath).put(
@@ -179,6 +181,7 @@ class S3Uploader(BaseS3Uploader):
         return os.path.join(path, 'storage', 'uploads', upload_to)
 
     def update_data_dict(self, data_dict, url_field, file_field, clear_field):
+        logging.debug("ckanext.s3filestore.uploader: update_data_dic: {0}, url {1}, file {2}, clear {3}".format(data_dict, url_field, file_field, clear_field))
         '''Manipulate data from the data_dict. This needs to be called before it
         reaches any validators.
 
@@ -205,14 +208,21 @@ class S3Uploader(BaseS3Uploader):
             self.filepath = os.path.join(self.storage_path, self.filename)
             data_dict[url_field] = self.filename
             self.upload_file = _get_underlying_file(self.upload_field_storage)
+            logging.debug("ckanext.s3filestore.uploader: is allowed upload type: filanem: {0}, upload_file: {1}, data_dict: {2}".format(self.filename, self.upload_file, data_dict))
         # keep the file if there has been no change
         elif self.old_filename and not self.old_filename.startswith('http'):
             if not self.clear:
                 data_dict[url_field] = self.old_filename
             if self.clear and self.url == self.old_filename:
                 data_dict[url_field] = ''
+        else:
+            logging.debug(
+                "ckanext.s3filestore.uploader: is not allowed upload type: filename: {0}, upload_file: {1}, data_dict: {2}".format(
+                    self.filename, self.upload_file, data_dict))
 
     def upload(self, max_size=2):
+        logging.debug(
+            "upload: {0}, {1}, max_size {2}".format(self.filename, max_size, self.filepath))
         '''Actually upload the file.
 
         This should happen just before a commit but after the data has been

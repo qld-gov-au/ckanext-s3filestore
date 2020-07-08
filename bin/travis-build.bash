@@ -5,10 +5,17 @@ echo "This is travis-build.bash..."
 
 echo "Installing the packages that CKAN requires..."
 sudo apt-get update -qq
-sudo apt-get install postgresql-$PGVERSION solr-jetty openjdk-8-jdk libcommons-fileupload-java:amd64
+sudo apt-get install postgresql-$PGVERSION solr-jetty openjdk-8-jdk libcommons-fileupload-java:amd64 redis-server
 echo "Start postgres"
 sudo service postgresql start
 
+echo "Start redis"
+sudo service redis-server start
+
+echo "Start s3 mock"
+# Run s3 moto local client just in case we can't mock direclty via tests
+pip install "moto[server]"
+moto_server s3 &
 
 echo "Installing CKAN and its Python dependencies..."
 git clone https://github.com/$CKAN_GIT_REPO
@@ -52,9 +59,7 @@ echo "Moving test.ini into a subdir..."
 mkdir subdir
 mv test.ini subdir
 
-# Run s3 moto local client just in case we can't mock direclty via tests
-pip install "moto[server]"
-moto_server s3 &
+
 
 echo "travis-build.bash is done."
 

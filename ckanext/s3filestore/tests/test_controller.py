@@ -3,6 +3,8 @@ import os
 from nose.tools import (assert_equal,
                         assert_true)
 
+import requests
+
 import ckan.tests.helpers as helpers
 import ckan.tests.factories as factories
 
@@ -57,9 +59,13 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
         resource_file_url = resource_show['url']
 
         file_response = app.get(resource_file_url)
-
-        assert_equal(file_response.content_type, 'text/csv')
-        assert_true('date,price' in file_response.body)
+        location = file_response.headers['Location']
+        #logging.info("ckanext.s3filestore.tests: response is: {0}, {1}".format(location, file_response))
+        assert_equal(302, file_response.status_int)
+        file_response = requests.get(location)
+        assert_equal("text/csv", file_response.content_type)
+        body = file_response.body
+        assert_true('date,price' in body)
 
     def test_resource_download_s3_no_filename(self):
         '''A resource uploaded to S3 can be downloaded when no filename in
@@ -71,9 +77,13 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
             .format(resource['package_id'], resource['id'])
 
         file_response = app.get(resource_file_url)
+        location = file_response.headers['Location']
+        assert_equal(302, file_response.status_int)
+        file_response = requests.get(location)
 
-        assert_equal(file_response.content_type, 'text/csv')
-        assert_true('date,price' in file_response.body)
+        assert_equal("text/csv", file_response.content_type)
+        body = file_response.body;
+        assert_true('date,price' in body)
 
     def test_resource_download_url_link(self):
         '''A resource with a url (not file) is redirected correctly.'''
@@ -90,12 +100,61 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
             .format(resource['package_id'], resource['id'])
         assert_equal(resource_show['url'], 'http://example')
 
-        s3 = self.botoSession.resource('s3', endpoint_url=self.endpoint_url)
+        s3 = self.botoSession.client('s3', endpoint_url=self.endpoint_url)
         bucket = s3.Bucket('my-bucket')
         #conn = boto3.connect_s3()
         #bucket = conn.get_bucket('my-bucket')
-        assert_equal(bucket.objects.all(), [])
+        keys = self.get_matching_s3_keys(s3, bucket);
+        logging.info("keysInS3 {}".format(keys))
+        assert_equal(keys, [])
 
         # attempt redirect to linked url
         r = app.get(resource_file_url, status=[302, 301])
         assert_equal(r.location, 'http://example')
+
+    def get_matching_s3_objects(self, s3client, bucket, prefix="", suffix=""):
+        """
+        Generate objects in an S3 bucket.
+
+        :param bucket: Name of the S3 bucket.
+        :param prefix: Only fetch objects whose key starts with
+            this prefix (optional).
+        :param suffix: Only fetch objects whose keys end with
+            this suffix (optional).
+        """
+        paginator = s3client.get_paginator("list_objects_v2")
+
+        kwargs = {'Bucket': bucket}
+
+        # We can pass the prefix directly to the S3 API.  If the user has passed
+        # a tuple or list of prefixes, we go through them one by one.
+        if isinstance(prefix, str):
+            prefixes = (prefix, )
+        else:
+            prefixes = prefix
+
+        for key_prefix in prefixes:
+            kwargs["Prefix"] = key_prefix
+
+            for page in paginator.paginate(**kwargs):
+                try:
+                    contents = page["Contents"]
+                except KeyError:
+                    break
+
+                for obj in contents:
+                    key = obj["Key"]
+                    if key.endswith(suffix):
+                        yield obj
+
+
+    def get_matching_s3_keys(self, s3client, bucket, prefix="", suffix=""):
+        """
+        Generate the keys in an S3 bucket.
+
+        :param bucket: Name of the S3 bucket.
+        :param prefix: Only fetch keys that start with this prefix (optional).
+        :param suffix: Only fetch keys that end with this suffix (optional).
+        """
+        for obj in self.get_matching_s3_objects(s3client, bucket, prefix, suffix):
+            yield obj["Key"]
