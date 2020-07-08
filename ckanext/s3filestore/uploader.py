@@ -198,6 +198,7 @@ class S3Uploader(BaseS3Uploader):
         self.clear = data_dict.pop(clear_field, None)
         self.file_field = file_field
         self.upload_field_storage = data_dict.pop(file_field, None)
+        self.upload_file = None
 
         if not self.storage_path:
             return
@@ -206,6 +207,12 @@ class S3Uploader(BaseS3Uploader):
             self.filename = str(datetime.datetime.utcnow()) + self.filename
             self.filename = munge.munge_filename_legacy(self.filename)
             self.filepath = os.path.join(self.storage_path, self.filename)
+            self.mimetype = self.upload_field_storage.mimetype
+            if not self.mimetype:
+                try:
+                    self.mimetype = mimetypes.guess_type(self.filename, strict=False)[0]
+                except Exception:
+                    pass
             data_dict[url_field] = self.filename
             self.upload_file = _get_underlying_file(self.upload_field_storage)
             logging.debug("ckanext.s3filestore.uploader: is allowed upload type: filanem: {0}, upload_file: {1}, data_dict: {2}".format(self.filename, self.upload_file, data_dict))

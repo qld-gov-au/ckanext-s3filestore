@@ -10,7 +10,7 @@ import ckanapi
 from ckantoolkit import config
 import boto3
 
-from webtest import Upload
+from werkzeug.datastructures import FileStorage as FlaskFileStorage
 
 import ckantoolkit as toolkit
 import ckan.tests.helpers as helpers
@@ -21,18 +21,6 @@ from ckanext.s3filestore.uploader import (S3Uploader,
 
 
 # moto s3 client is started externally on localhost:5000
-class Uploader(Upload):
-
-
-    '''
-    Extend webtest's Upload class a bit more so it actually stores file data.
-    '''
-
-    def __init__(self, *args, **kwargs):
-        self.file = kwargs.pop('file')
-        super(Uploader, self).__init__(*args, **kwargs)
-
-
 class TestS3Uploader(helpers.FunctionalTestBase):
     endpoint_url = 'http://localhost:5000'
 
@@ -54,7 +42,7 @@ class TestS3Uploader(helpers.FunctionalTestBase):
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
         file_name = 'somename.png'
 
-        img_uploader = Uploader(file_name, file=open(file_path))
+        img_uploader = FlaskFileStorage(filename=file_name, stream=open(file_path), content_type='image/png')
 
         with mock.patch('ckanext.s3filestore.uploader.datetime') as mock_date:
             mock_date.datetime.utcnow.return_value = \
@@ -86,7 +74,7 @@ class TestS3Uploader(helpers.FunctionalTestBase):
         # attempt redirect to linked url
         image_file_url = '/uploads/group/{0}'.format(file_name)
         r = app.get(image_file_url, status=[302, 301])
-        assert_equal(r.location, 'https://my-bucket.s3.amazonaws.com/my-path/storage/uploads/group/{0}'
+        assert_equal(r.location, 'http://localhost:5000/my-bucket/my-path/storage/uploads/group/{0}'
                                  .format(file_name))
 
     def test_group_image_upload_then_clear(self):
@@ -97,7 +85,7 @@ class TestS3Uploader(helpers.FunctionalTestBase):
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
         file_name = "somename.png"
 
-        img_uploader = Uploader(file_name, file=open(file_path))
+        img_uploader = FlaskFileStorage(filename=file_name, stream=open(file_path), content_type='image/png')
 
         with mock.patch('ckanext.s3filestore.uploader.datetime') as mock_date:
             mock_date.datetime.utcnow.return_value = \
