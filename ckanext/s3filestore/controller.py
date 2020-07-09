@@ -41,7 +41,9 @@ class S3Controller(base.BaseController):
         except NotAuthorized:
             abort(401, _('Unauthorized to read resource %s') % id)
 
-        if rsc.get('url_type') == 'upload':
+        if 'url' not in rsc:
+            abort(404, _('No download is available'))
+        elif rsc.get('url_type') == 'upload':
             upload = uploader.get_resource_uploader(rsc)
             bucket_name = config.get('ckanext.s3filestore.aws_bucket_name')
 
@@ -76,6 +78,7 @@ class S3Controller(base.BaseController):
                     abort(404, _('Resource data not found'))
                 else:
                     raise ex
+        redirect(rsc['url'])
 
     def filesystem_resource_download(self, id, resource_id, filename=None):
         """
