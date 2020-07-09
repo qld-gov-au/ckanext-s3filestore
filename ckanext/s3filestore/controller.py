@@ -12,7 +12,6 @@ from ckan.common import _, request, c, response
 from botocore.exceptions import ClientError
 
 from ckanext.s3filestore.uploader import S3Uploader
-import webob
 
 import logging
 log = logging.getLogger(__name__)
@@ -42,35 +41,22 @@ class S3Controller(base.BaseController):
         except NotAuthorized:
             abort(401, _('Unauthorized to read resource %s') % id)
 
-        if rsc.get('url_type') == 'upload':
+        if 'url' not in rsc:
+            abort(404, _('No download is available'))
+        elif rsc.get('url_type') == 'upload':
             upload = uploader.get_resource_uploader(rsc)
             bucket_name = config.get('ckanext.s3filestore.aws_bucket_name')
-            region = config.get('ckanext.s3filestore.region_name')
-            host_name = config.get('ckanext.s3filestore.host_name')
-            bucket = upload.get_s3_bucket(bucket_name)
 
             if filename is None:
                 filename = os.path.basename(rsc['url'])
             key_path = upload.get_path(rsc['id'], filename)
-            key = filename
 
-            if key is None:
+            if filename is None:
                 log.warn('Key \'{0}\' not found in bucket \'{1}\''
                          .format(key_path, bucket_name))
 
             try:
-                # Small workaround to manage downloading of large files
-                # We are using redirect to minio's resource public URL
-                s3 = upload.get_s3_session()
-                client = s3.client(service_name='s3', endpoint_url=host_name)
-
-                # check whether the object exists in S3
-                client.head_object(Bucket=bucket_name, Key=key_path)
-
-                url = client.generate_presigned_url(ClientMethod='get_object',
-                                                    Params={'Bucket': bucket.name,
-                                                            'Key': key_path},
-                                                    ExpiresIn=60)
+                url = upload.get_signed_url_to_key(key_path, 60)
                 redirect(url)
 
             except ClientError as ex:
@@ -92,6 +78,7 @@ class S3Controller(base.BaseController):
                     abort(404, _('Resource data not found'))
                 else:
                     raise ex
+        redirect(rsc['url'])
 
     def filesystem_resource_download(self, id, resource_id, filename=None):
         """
@@ -134,16 +121,13 @@ class S3Controller(base.BaseController):
 
     def uploaded_file_redirect(self, upload_to, filename):
         '''Redirect static file requests to their location on S3.'''
-        host_name = config.get('ckanext.s3filestore.host_name')
+        host_name = config.get('ckanext.s3filestore.host_name', 'https://s3.' + config.get('ckanext.s3filestore.region_name') + '.amazonaws.com')
         # Remove last characted if it's a slash
         if host_name[-1] == '/':
             host_name = host_name[:-1]
         storage_path = S3Uploader.get_storage_path(upload_to)
         filepath = os.path.join(storage_path, filename)
-        #host = config.get('ckanext.s3.filestore.hostname')
-        # redirect_url = 'https://{bucket_name}.minio.omc.ckan.io/{filepath}' \
-        #     .format(bucket_name=config.get('ckanext.s3filestore.aws_bucket_name'),
-        #             filepath=filepath)
+
         redirect_url = '{host_name}/{bucket_name}/{filepath}'\
                           .format(bucket_name=config.get('ckanext.s3filestore.aws_bucket_name'),
                           filepath=filepath,

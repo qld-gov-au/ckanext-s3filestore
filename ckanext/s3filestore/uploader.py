@@ -44,9 +44,9 @@ class BaseS3Uploader(object):
         self.s_key = config.get('ckanext.s3filestore.aws_secret_access_key', None)
         self.region = config.get('ckanext.s3filestore.region_name')
         self.signature = config.get('ckanext.s3filestore.signature_version')
-        self.host_name = config.get('ckanext.s3filestore.host_name')
+        self.host_name = config.get('ckanext.s3filestore.host_name', None)
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
-        self.bucket = self.get_s3_bucket(self.bucket_name)
+        self.session = None
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
@@ -57,14 +57,23 @@ class BaseS3Uploader(object):
                                      aws_secret_access_key=self.s_key,
                                      region_name=self.region)
 
+    def get_s3_resource(self):
+        return self.get_s3_session().resource('s3', endpoint_url=self.host_name,
+                                     config=botocore.client.Config(
+                                     signature_version=self.signature))
+
+    def get_s3_client(self):
+        return self.get_s3_session().client('s3', endpoint_url=self.host_name,
+                                     config=botocore.client.Config(
+                                     signature_version=self.signature))
+
+
     def get_s3_bucket(self, bucket_name):
         '''Return a boto bucket, creating it if it doesn't exist.'''
 
         # make s3 connection using boto3
+        s3 = self.get_s3_resource()
 
-        s3 = self.get_s3_session().resource('s3', endpoint_url=self.host_name,
-                                            config=botocore.client.Config(
-                                             signature_version=self.signature))
         bucket = s3.Bucket(bucket_name)
         try:
             if s3.Bucket(bucket.name) in s3.buckets.all():
@@ -107,14 +116,11 @@ class BaseS3Uploader(object):
     def upload_to_key(self, filepath, upload_file, make_public=False):
         '''Uploads the `upload_file` to `filepath` on `self.bucket`.'''
         upload_file.seek(0)
+        logging.debug("ckanext.s3filestore.uploader: going to upload {0} to bucket {1} with mimetype {2}".format(
+            filepath, self.bucket_name, getattr(self, 'mimetype', None)))
 
-        session = boto3.session.Session(aws_access_key_id=self.p_key,
-                                        aws_secret_access_key=self.s_key,
-                                        region_name=self.region)
-        s3 = session.resource('s3', endpoint_url=self.host_name,
-                              config=botocore.client.Config(signature_version=self.signature))
         try:
-            s3.Object(self.bucket_name, filepath).put(
+            self.get_s3_resource().Object(self.bucket_name, filepath).put(
                 Body=upload_file.read(), ACL=self.acl,
                 ContentType=getattr(self, 'mimetype', None))
             log.info("Successfully uploaded {0} to S3!".format(filepath))
@@ -124,15 +130,23 @@ class BaseS3Uploader(object):
 
     def clear_key(self, filepath):
         '''Deletes the contents of the key at `filepath` on `self.bucket`.'''
-        session = boto3.session.Session(aws_access_key_id=self.p_key,
-                                    aws_secret_access_key=self.s_key,
-                                    region_name=self.region)
-        s3 = session.resource('s3', endpoint_url=self.host_name, config=botocore.client.Config(
-                             signature_version=self.signature))
         try:
-            s3.Object(self.bucket_name, filepath).delete()
+            self.get_s3_resource().Object(self.bucket_name, filepath).delete()
         except Exception as e:
             raise e
+
+    def get_signed_url_to_key(self, key_path, expiredin=60):
+        # Small workaround to manage downloading of large files
+        # We are using redirect to resource public URL
+        client = self.get_s3_client()
+
+        # check whether the object exists in S3
+        client.head_object(Bucket=self.bucket_name, Key=key_path)
+
+        return client.generate_presigned_url(ClientMethod='get_object',
+                                            Params={'Bucket': self.bucket_name,
+                                                    'Key': key_path},
+                                            ExpiresIn=expiredin)
 
 
 class S3Uploader(BaseS3Uploader):
@@ -167,6 +181,7 @@ class S3Uploader(BaseS3Uploader):
         return os.path.join(path, 'storage', 'uploads', upload_to)
 
     def update_data_dict(self, data_dict, url_field, file_field, clear_field):
+        logging.debug("ckanext.s3filestore.uploader: update_data_dic: {0}, url {1}, file {2}, clear {3}".format(data_dict, url_field, file_field, clear_field))
         '''Manipulate data from the data_dict. This needs to be called before it
         reaches any validators.
 
@@ -183,6 +198,7 @@ class S3Uploader(BaseS3Uploader):
         self.clear = data_dict.pop(clear_field, None)
         self.file_field = file_field
         self.upload_field_storage = data_dict.pop(file_field, None)
+        self.upload_file = None
 
         if not self.storage_path:
             return
@@ -191,16 +207,29 @@ class S3Uploader(BaseS3Uploader):
             self.filename = str(datetime.datetime.utcnow()) + self.filename
             self.filename = munge.munge_filename_legacy(self.filename)
             self.filepath = os.path.join(self.storage_path, self.filename)
+            self.mimetype = self.upload_field_storage.mimetype
+            if not self.mimetype:
+                try:
+                    self.mimetype = mimetypes.guess_type(self.filename, strict=False)[0]
+                except Exception:
+                    pass
             data_dict[url_field] = self.filename
             self.upload_file = _get_underlying_file(self.upload_field_storage)
+            logging.debug("ckanext.s3filestore.uploader: is allowed upload type: filanem: {0}, upload_file: {1}, data_dict: {2}".format(self.filename, self.upload_file, data_dict))
         # keep the file if there has been no change
         elif self.old_filename and not self.old_filename.startswith('http'):
             if not self.clear:
                 data_dict[url_field] = self.old_filename
             if self.clear and self.url == self.old_filename:
                 data_dict[url_field] = ''
+        else:
+            logging.debug(
+                "ckanext.s3filestore.uploader: is not allowed upload type: filename: {0}, upload_file: {1}, data_dict: {2}".format(
+                    self.filename, self.upload_file, data_dict))
 
     def upload(self, max_size=2):
+        logging.debug(
+            "upload: {0}, {1}, max_size {2}".format(self.filename, max_size, self.filepath))
         '''Actually upload the file.
 
         This should happen just before a commit but after the data has been
