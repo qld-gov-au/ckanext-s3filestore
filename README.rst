@@ -23,7 +23,7 @@ Use Amazon S3 or Minio<https://minio.io/> as a filestore for resources.
 Requirements
 ------------
 
-Requires CKAN 2.5+
+Requires CKAN 2.8+
 
 
 ------------
@@ -170,3 +170,52 @@ To publish a new version to PyPI follow these steps:
 
        git tag 0.0.2
        git push --tags
+
+-----------
+Change Log
+-----------
+
+0.3.0
+   Update from boto to boto3
+   Update to Ckan version 2.8+
+
+0.2.0
+   Support for AMI Roles
+   ACL for uploaded file can be configured
+   don't assume that error codes are numeric
+   fix filesystem fallback, resolves #28
+   set explicit ContentType on boto Put command and store the mimetype in CKAN resource table
+
+0.1.1
+   Support for Flask-based requests
+
+0.1.0
+   Fix downloading large files
+
+0.0.9
+   Add populating of resources' last_modified field
+
+0.0.8
+   Add option for fallback to local filesytem from s3
+
+0.0.7
+   redirect always get string intead of unicode
+
+0.0.6
+   Allow minio s3 like datastore
+
+0.0.5
+   Add boto to install requires
+
+0.0.4
+    Avoid exception when resources marked for clearing but not yet exist
+    New, not yet created resources can be marked for deletion (with `clear_upload`) if the user cancels an upload and enters a URL instead. Check if resources have an id or if an old name is provided before trying to clear a file.
+
+0.0.3
+   Requires CKAN 2.5+ as IUploader now in CKAN2.5
+
+0.0.2
+   Change the resource file names to lower case
+
+0.0.1
+   Alpha release of plugin
