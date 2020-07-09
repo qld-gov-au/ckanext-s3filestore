@@ -63,12 +63,12 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
         #logging.info("ckanext.s3filestore.tests: response is: {0}, {1}".format(location, file_response))
         assert_equal(302, file_response.status_int)
         file_response = requests.get(location)
-        if 'content_type' in file_response:
+        if hasattr(file_response, 'content_type'):
             content_type = file_response.content_type
         else:
             content_type = file_response.headers.get('Content-Type')
         assert_equal("text/csv", content_type)
-        if 'text' in file_response:
+        if hasattr(file_response, 'text'):
             body = file_response.text
         else:
             body = file_response.body
@@ -89,7 +89,7 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
         file_response = requests.get(location)
         logging.info("ckanext.s3filestore.tests: response is: {0}, {1}".format(location, file_response))
 
-        if 'text' in file_response:
+        if hasattr(file_response, 'text'):
             body = file_response.text
         else:
             body = file_response.body
