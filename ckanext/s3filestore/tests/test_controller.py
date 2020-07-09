@@ -63,8 +63,15 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
         #logging.info("ckanext.s3filestore.tests: response is: {0}, {1}".format(location, file_response))
         assert_equal(302, file_response.status_int)
         file_response = requests.get(location)
-        assert_equal("text/csv", file_response.content_type)
-        body = file_response.body
+        if 'content_type' in file_response:
+            content_type = file_response.content_type
+        else:
+            content_type = file_response.headers.get('Content-Type')
+        assert_equal("text/csv", content_type)
+        if 'text' in file_response:
+            body = file_response.text
+        else:
+            body = file_response.body
         assert_true('date,price' in body)
 
     def test_resource_download_s3_no_filename(self):
@@ -82,7 +89,10 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
         file_response = requests.get(location)
         logging.info("ckanext.s3filestore.tests: response is: {0}, {1}".format(location, file_response))
 
-        body = file_response.body;
+        if 'text' in file_response:
+            body = file_response.text
+        else:
+            body = file_response.body
         assert_true('date,price' in body)
         #assert_equal("text/csv", file_response.content_type)
 
