@@ -3,14 +3,19 @@ import cgi
 import logging
 import datetime
 import mimetypes
+import errno
 
 import boto3
 import botocore
 import ckantoolkit as toolkit
+import ckan.lib.helpers as h
+
 
 
 import ckan.model as model
 import ckan.lib.munge as munge
+redirect = toolkit.redirect_to
+from botocore.exceptions import ClientError
 
 if toolkit.check_ckan_version(min_version='2.7.0'):
     from werkzeug.datastructures import FileStorage as FlaskFileStorage
@@ -248,6 +253,43 @@ class S3Uploader(BaseS3Uploader):
                 and not self.old_filename.startswith('http')):
             self.clear_key(self.old_filepath)
 
+    def delete(self, filename):
+        ''' Delete file we are pointing at'''
+        key_path = os.path.join(self.storage_path, filename)
+        try:
+            self.clear_key(key_path)
+        except ClientError as ex:
+            log.warning('Key \'{0}\' not found in bucket \'{1}\' for delete'
+                        .format(key_path, self.bucket_name))
+            pass
+
+    def download(self, filename):
+        '''
+        Provide a download by either redirecting the user to the url stored or
+        downloading the uploaded file from S3.
+        '''
+
+        key_path = os.path.join(self.storage_path, filename)
+
+        if key_path is None:
+            log.warning('Key \'{0}\' not found in bucket \'{1}\''
+                     .format(key_path, self.bucket_name))
+
+        try:
+            # Small workaround to manage downloading of large files
+            client = self.get_s3_client()
+
+            # check whether the object exists in S3
+            client.head_object(Bucket=self.bucket_name, Key=key_path)
+
+            url = client.generate_presigned_url(ClientMethod='get_object',
+                                                Params={'Bucket': self.bucket_name,
+                                                        'Key': key_path},
+                                                ExpiresIn=60)
+            h.redirect_to(url)
+
+        except ClientError:
+            raise OSError(errno.ENOENT)
 
 class S3ResourceUploader(BaseS3Uploader):
 
@@ -270,6 +312,7 @@ class S3ResourceUploader(BaseS3Uploader):
         self.storage_path = os.path.join(path, 'resources')
         self.filename = None
         self.old_filename = None
+        self.url = resource['url']
 
         upload_field_storage = resource.pop('upload', None)
         self.clear = resource.pop('clear_upload', None)
@@ -331,3 +374,68 @@ class S3ResourceUploader(BaseS3Uploader):
         if self.clear and self.old_filename:
             filepath = self.get_path(id, self.old_filename)
             self.clear_key(filepath)
+
+    def delete(self, id, filename=None):
+        ''' Delete file we are pointing at'''
+
+        if filename is None:
+            filename = os.path.basename(self.url)
+        key_path = self.get_path(id, filename)
+        try:
+            self.clear_key(key_path)
+        except ClientError as ex:
+            log.warning('Key \'{0}\' not found in bucket \'{1}\' for delete'
+                        .format(key_path, self.bucket_name))
+            pass
+
+    def download(self, id, filename=None):
+        '''
+        Provide a download by either redirecting the user to the url stored or
+        downloading the uploaded file from S3.
+        '''
+
+
+        if filename is None:
+            filename = os.path.basename(self.url)
+        key_path = self.get_path(id, filename)
+        key = filename
+
+        if key is None:
+            log.warning('Key \'{0}\' not found in bucket \'{1}\''
+                     .format(key_path, self.bucket_name))
+
+        try:
+            # Small workaround to manage downloading of large files
+            # We are using redirect to minio's resource public URL
+            client = self.get_s3_client()
+
+            # check whether the object exists in S3
+            client.head_object(Bucket=self.bucket_name, Key=key_path)
+
+            url = client.generate_presigned_url(ClientMethod='get_object',
+                                                Params={'Bucket': self.bucket_name,
+                                                        'Key': key_path},
+                                                ExpiresIn=60)
+            h.redirect_to(url)
+
+        except ClientError as ex:
+            if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
+                # attempt fallback
+                # TODO: use ckan.lib.uploader:ResourceUpload to get download link
+                if config.get(
+                        'ckanext.s3filestore.filesystem_download_fallback',
+                        False):
+                    log.info('Attempting filesystem fallback for resource {0}'
+                             .format(id))
+                    url = toolkit.url_for(
+                        controller='ckanext.s3filestore.controller:S3Controller',
+                        action='filesystem_resource_download',
+                        id=id,
+                        resource_id=id,
+                        filename=filename)
+                    h.redirect_to(url)
+
+                # Controller will raise 404 for us
+                raise OSError(errno.ENOENT)
+            else:
+                raise ex
