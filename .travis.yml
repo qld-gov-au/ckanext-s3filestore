@@ -6,6 +6,7 @@ python:
 env:
     - PGVERSION=11 CKAN_GIT_REPO=ckan/ckan CKAN_BRANCH=2.8
     - PGVERSION=11 CKAN_GIT_REPO=qld-gov-au/ckan CKAN_BRANCH=qgov-master
+    - PGVERSION=11 CKAN_GIT_REPO=qld-gov-au/ckan CKAN_BRANCH=updateUploaderForDeleteAndGetFileFunctions
 jobs:
   include:
     - name: "python 3.6 ckan master"
