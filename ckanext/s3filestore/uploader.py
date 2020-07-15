@@ -204,12 +204,14 @@ class S3Uploader(BaseS3Uploader):
         self.file_field = file_field
         self.upload_field_storage = data_dict.pop(file_field, None)
         self.upload_file = None
+        self.preserve_filename = data_dict.get('preserve_filename', None)
 
         if not self.storage_path:
             return
         if isinstance(self.upload_field_storage, ALLOWED_UPLOAD_TYPES):
             self.filename = self.upload_field_storage.filename
-            self.filename = str(datetime.datetime.utcnow()) + self.filename
+            if not self.preserve_filename:
+                self.filename = str(datetime.datetime.utcnow()) + self.filename
             self.filename = munge.munge_filename_legacy(self.filename)
             self.filepath = os.path.join(self.storage_path, self.filename)
             self.mimetype = self.upload_field_storage.mimetype
@@ -344,7 +346,7 @@ class S3ResourceUploader(BaseS3Uploader):
             self.old_filename = old_resource.url
             resource['url_type'] = ''
 
-    def get_path(self, id, filename):
+    def get_path(self, id, filename=None):
         '''Return the key used for this resource in S3.
 
         Keys are in the form:
@@ -353,6 +355,10 @@ class S3ResourceUploader(BaseS3Uploader):
         e.g.:
         my_storage_path/resources/165900ba-3c60-43c5-9e9c-9f8acd0aa93f/data.csv
         '''
+
+        if filename is None:
+            filename = os.path.basename(self.url)
+
         directory = self.get_directory(id, self.storage_path)
         filepath = os.path.join(directory, filename)
         return filepath
