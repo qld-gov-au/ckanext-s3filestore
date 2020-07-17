@@ -1,5 +1,6 @@
 import os
 import cgi
+import hashlib
 import logging
 import datetime
 import mimetypes
@@ -293,6 +294,14 @@ class S3Uploader(BaseS3Uploader):
         except ClientError:
             raise OSError(errno.ENOENT)
 
+    def get_download_metadata(self, filename):
+        '''
+        Provide metadata about the download, such as might be obtained from a HTTP HEAD request.
+        Returns a dict that includes 'ContentType', 'ContentLength', 'Hash', and 'LastModified',
+        and may include other keys depending on the implementation.
+        '''
+        key_path = os.path.join(self.storage_path, filename)
+
 class S3ResourceUploader(BaseS3Uploader):
 
     '''
@@ -445,3 +454,69 @@ class S3ResourceUploader(BaseS3Uploader):
                 raise OSError(errno.ENOENT)
             else:
                 raise ex
+
+    def download_metadata(self, id, filename=None):
+        if filename is None:
+            filename = os.path.basename(self.url)
+        key_path = self.get_path(id, filename)
+        key = filename
+
+        if key is None:
+            log.warning('Key \'{0}\' not found in bucket \'{1}\''
+                     .format(key_path, self.bucket_name))
+
+        try:
+            # Small workaround to manage downloading of large files
+            # We are using redirect to minio's resource public URL
+            client = self.get_s3_client()
+
+            metadata = client.head_object(Bucket=self.bucket_name, Key=key_path)
+            metadata['Hash'] = metadata['ETag']
+            return metadata
+        except ClientError as ex:
+            if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
+                if config.get(
+                        'ckanext.s3filestore.filesystem_download_fallback',
+                        False):
+                    log.info('Attempting filesystem fallback for resource %s', id)
+                    filepath = self.get_path(id)
+                    hash, length = _file_hashnlength(filepath)
+
+                    mimetype = None
+                    headers = {}
+                    content_type, content_encoding = mimetypes.guess_type(filepath)
+                    if content_type:
+                        mimetype = _clean_content_type(content_type)
+
+                    return {'ContentType': mimetype,
+                            'ContentLength': length,
+                            'Hash': hash}
+                else:
+                    raise OSError(errno.ENOENT)
+            else:
+                raise ex
+
+def _file_hashnlength(local_path):
+    BLOCKSIZE = 65536
+    hasher = hashlib.sha1()
+    length = 0
+
+    with open(local_path, 'rb') as afile:
+        buf = afile.read(BLOCKSIZE)
+        while len(buf) > 0:
+            hasher.update(buf)
+            length += len(buf)
+
+            buf = afile.read(BLOCKSIZE)
+
+    return (unicode(hasher.hexdigest()), length)
+
+
+def _clean_content_type(ct):
+    # For now we should remove the charset from the content type and
+    # handle it better, differently, later on.
+    if 'charset' in ct:
+        return ct[:ct.index(';')]
+    return ct
+
+
