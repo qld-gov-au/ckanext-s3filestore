@@ -11,7 +11,7 @@ import botocore
 import ckantoolkit as toolkit
 import ckan.lib.helpers as h
 
-
+from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as DefaultUpload
 
 import ckan.model as model
 import ckan.lib.munge as munge
@@ -172,6 +172,9 @@ class S3Uploader(BaseS3Uploader):
 
         super(S3Uploader, self).__init__()
 
+        #Store path if we need to fall back
+        self.upload_to = upload_to
+
         self.storage_path = self.get_storage_path(upload_to)
 
         self.filename = None
@@ -291,7 +294,17 @@ class S3Uploader(BaseS3Uploader):
                                                 ExpiresIn=60)
             h.redirect_to(url)
 
-        except ClientError:
+
+        except ClientError as ex:
+            if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
+                if config.get(
+                        'ckanext.s3filestore.filesystem_download_fallback',
+                        False):
+                    log.info('Attempting filesystem fallback for resource %s', id)
+                    default_upload = DefaultUpload(self.upload_to)
+                    return default_upload.download(filename)
+
+            # Uploader interface does not know about s3 errors
             raise OSError(errno.ENOENT)
 
     def metadata(self, filename):
@@ -301,6 +314,36 @@ class S3Uploader(BaseS3Uploader):
         and may include other keys depending on the implementation.
         '''
         key_path = os.path.join(self.storage_path, filename)
+        key = filename
+
+        if key is None:
+            log.warning('Key \'{0}\' not found in bucket \'{1}\''
+                     .format(key_path, self.bucket_name))
+
+        try:
+            # Small workaround to manage downloading of large files
+            # We are using redirect to minio's resource public URL
+            client = self.get_s3_client()
+
+            metadata = client.head_object(Bucket=self.bucket_name, Key=key_path)
+            metadata['content_type'] = metadata['ContentType']
+            metadata['size'] = metadata['ContentLength']
+            metadata['hash'] = metadata['ETag']
+            return metadata
+        except ClientError as ex:
+            if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
+                if config.get(
+                        'ckanext.s3filestore.filesystem_download_fallback',
+                        False):
+                    log.info('Attempting filesystem fallback for resource %s', id)
+
+                    default_upload = DefaultUpload(self.upload_to)
+                    return default_upload.metadata(filename)
+
+            #Uploader interface does not know about s3 errors
+            raise OSError(errno.ENOENT)
+
+
 
 class S3ResourceUploader(BaseS3Uploader):
 
@@ -324,6 +367,8 @@ class S3ResourceUploader(BaseS3Uploader):
         self.filename = None
         self.old_filename = None
         self.url = resource['url']
+        # Hold onto resource just in case we need to fallback to Default ResourceUpload from core ckan.lib.uploader
+        self.resource = resource
 
         upload_field_storage = resource.pop('upload', None)
         self.clear = resource.pop('clear_upload', None)
@@ -436,24 +481,11 @@ class S3ResourceUploader(BaseS3Uploader):
         except ClientError as ex:
             if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                 # attempt fallback
-                # TODO: use ckan.lib.uploader:ResourceUpload to get download link
-                if config.get(
-                        'ckanext.s3filestore.filesystem_download_fallback',
-                        False):
-                    log.info('Attempting filesystem fallback for resource {0}'
-                             .format(id))
-                    url = toolkit.url_for(
-                        controller='ckanext.s3filestore.controller:S3Controller',
-                        action='filesystem_resource_download',
-                        id=id,
-                        resource_id=id,
-                        filename=filename)
-                    h.redirect_to(url)
-
+                default_resource_upload = DefaultResourceUpload(self.resource)
+                return default_resource_upload.download(id, self.filename)
+            else:
                 # Controller will raise 404 for us
                 raise OSError(errno.ENOENT)
-            else:
-                raise ex
 
     def metadata(self, id, filename=None):
         if filename is None:
@@ -481,44 +513,11 @@ class S3ResourceUploader(BaseS3Uploader):
                         'ckanext.s3filestore.filesystem_download_fallback',
                         False):
                     log.info('Attempting filesystem fallback for resource %s', id)
-                    filepath = self.get_path(id)
-                    hash, length = _file_hashnlength(filepath)
 
-                    mimetype = None
-                    headers = {}
-                    content_type, content_encoding = mimetypes.guess_type(filepath)
-                    if content_type:
-                        mimetype = _clean_content_type(content_type)
+                    default_resource_upload = DefaultResourceUpload(self.resource)
+                    return default_resource_upload.metadata(id)
 
-                    return {'content_type': mimetype,
-                            'size': length,
-                            'hash': hash}
-                else:
-                    raise OSError(errno.ENOENT)
-            else:
-                raise ex
-
-def _file_hashnlength(local_path):
-    BLOCKSIZE = 65536
-    hasher = hashlib.sha1()
-    length = 0
-
-    with open(local_path, 'rb') as afile:
-        buf = afile.read(BLOCKSIZE)
-        while len(buf) > 0:
-            hasher.update(buf)
-            length += len(buf)
-
-            buf = afile.read(BLOCKSIZE)
-
-    return (unicode(hasher.hexdigest()), length)
-
-
-def _clean_content_type(ct):
-    # For now we should remove the charset from the content type and
-    # handle it better, differently, later on.
-    if 'charset' in ct:
-        return ct[:ct.index(';')]
-    return ct
+            #Uploader interface does not know about s3 errors
+            raise OSError(errno.ENOENT)
 
 
