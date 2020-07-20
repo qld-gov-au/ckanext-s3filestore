@@ -1,6 +1,5 @@
 import os
 import cgi
-import hashlib
 import logging
 import datetime
 import mimetypes
