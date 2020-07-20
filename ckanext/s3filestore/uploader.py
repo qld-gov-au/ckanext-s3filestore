@@ -294,7 +294,7 @@ class S3Uploader(BaseS3Uploader):
         except ClientError:
             raise OSError(errno.ENOENT)
 
-    def get_download_metadata(self, filename):
+    def metadata(self, filename):
         '''
         Provide metadata about the download, such as might be obtained from a HTTP HEAD request.
         Returns a dict that includes 'ContentType', 'ContentLength', 'Hash', and 'LastModified',
@@ -455,7 +455,7 @@ class S3ResourceUploader(BaseS3Uploader):
             else:
                 raise ex
 
-    def download_metadata(self, id, filename=None):
+    def metadata(self, id, filename=None):
         if filename is None:
             filename = os.path.basename(self.url)
         key_path = self.get_path(id, filename)
@@ -471,7 +471,9 @@ class S3ResourceUploader(BaseS3Uploader):
             client = self.get_s3_client()
 
             metadata = client.head_object(Bucket=self.bucket_name, Key=key_path)
-            metadata['Hash'] = metadata['ETag']
+            metadata['content_type'] = metadata['ContentType']
+            metadata['size'] = metadata['ContentLength']
+            metadata['hash'] = metadata['ETag']
             return metadata
         except ClientError as ex:
             if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
@@ -488,9 +490,9 @@ class S3ResourceUploader(BaseS3Uploader):
                     if content_type:
                         mimetype = _clean_content_type(content_type)
 
-                    return {'ContentType': mimetype,
-                            'ContentLength': length,
-                            'Hash': hash}
+                    return {'content_type': mimetype,
+                            'size': length,
+                            'hash': hash}
                 else:
                     raise OSError(errno.ENOENT)
             else:
