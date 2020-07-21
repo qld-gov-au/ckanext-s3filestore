@@ -153,6 +153,11 @@ class BaseS3Uploader(object):
                                                     'Key': key_path},
                                             ExpiresIn=expiredin)
 
+    def as_clean_dict(self, dict):
+        for k, v in dict:
+            if isinstance(v, datetime.datetime):
+                dict[k] = v.isoformat()
+        return dict
 
 class S3Uploader(BaseS3Uploader):
 
@@ -328,7 +333,7 @@ class S3Uploader(BaseS3Uploader):
             metadata['content_type'] = metadata['ContentType']
             metadata['size'] = metadata['ContentLength']
             metadata['hash'] = metadata['ETag']
-            return metadata
+            return self.as_clean_dict(metadata)
         except ClientError as ex:
             if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                 if config.get(
@@ -503,9 +508,20 @@ class S3ResourceUploader(BaseS3Uploader):
 
             metadata = client.head_object(Bucket=self.bucket_name, Key=key_path)
             metadata['content_type'] = metadata['ContentType']
+
+            # Drop non public metadata
+            metadata.pop('ServerSideEncryption', None)
+            metadata.pop('SSECustomerAlgorithm', None)
+            metadata.pop('SSECustomerKeyMD5', None)
+            metadata.pop('SSEKMSKeyId', None)
+            metadata.pop('StorageClass', None)
+            metadata.pop('RequestCharged', None)
+            metadata.pop('ReplicationStatus', None)
+            metadata.pop('ObjectLockLegalHoldStatus', None)
+
             metadata['size'] = metadata['ContentLength']
             metadata['hash'] = metadata['ETag']
-            return metadata
+            return self.as_clean_dict(metadata)
         except ClientError as ex:
             if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                 if config.get(
