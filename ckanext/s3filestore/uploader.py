@@ -153,6 +153,13 @@ class BaseS3Uploader(object):
                                                     'Key': key_path},
                                             ExpiresIn=expiredin)
 
+    def as_clean_dict(self, dict):
+        for k, v in dict:
+            value = v
+            if isinstance(value, datetime.datetime):
+                value = value.isoformat()
+                dict[k] = value
+        return dict
 
 class S3Uploader(BaseS3Uploader):
 
@@ -328,7 +335,7 @@ class S3Uploader(BaseS3Uploader):
             metadata['content_type'] = metadata['ContentType']
             metadata['size'] = metadata['ContentLength']
             metadata['hash'] = metadata['ETag']
-            return metadata
+            return self.as_clean_dict(metadata)
         except ClientError as ex:
             if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                 if config.get(
@@ -505,7 +512,7 @@ class S3ResourceUploader(BaseS3Uploader):
             metadata['content_type'] = metadata['ContentType']
             metadata['size'] = metadata['ContentLength']
             metadata['hash'] = metadata['ETag']
-            return metadata
+            return self.as_clean_dict(metadata)
         except ClientError as ex:
             if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                 if config.get(
