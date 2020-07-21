@@ -155,10 +155,8 @@ class BaseS3Uploader(object):
 
     def as_clean_dict(self, dict):
         for k, v in dict:
-            value = v
-            if isinstance(value, datetime.datetime):
-                value = value.isoformat()
-                dict[k] = value
+            if isinstance(v, datetime.datetime):
+                dict[k] = v.isoformat()
         return dict
 
 class S3Uploader(BaseS3Uploader):
@@ -510,6 +508,17 @@ class S3ResourceUploader(BaseS3Uploader):
 
             metadata = client.head_object(Bucket=self.bucket_name, Key=key_path)
             metadata['content_type'] = metadata['ContentType']
+
+            # Drop non public metadata
+            metadata.pop('ServerSideEncryption', None)
+            metadata.pop('SSECustomerAlgorithm', None)
+            metadata.pop('SSECustomerKeyMD5', None)
+            metadata.pop('SSEKMSKeyId', None)
+            metadata.pop('StorageClass', None)
+            metadata.pop('RequestCharged', None)
+            metadata.pop('ReplicationStatus', None)
+            metadata.pop('ObjectLockLegalHoldStatus', None)
+
             metadata['size'] = metadata['ContentLength']
             metadata['hash'] = metadata['ETag']
             return self.as_clean_dict(metadata)
