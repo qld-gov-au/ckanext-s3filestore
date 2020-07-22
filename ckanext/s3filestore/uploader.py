@@ -154,7 +154,7 @@ class BaseS3Uploader(object):
                                             ExpiresIn=expiredin)
 
     def as_clean_dict(self, dict):
-        for k, v in dict:
+        for k, v in dict.items():
             if isinstance(v, datetime.datetime):
                 dict[k] = v.isoformat()
         return dict
