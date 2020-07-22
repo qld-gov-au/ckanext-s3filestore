@@ -265,6 +265,7 @@ class S3Uploader(BaseS3Uploader):
 
     def delete(self, filename):
         ''' Delete file we are pointing at'''
+        filename = munge.munge_filename_legacy(filename)
         key_path = os.path.join(self.storage_path, filename)
         try:
             self.clear_key(key_path)
@@ -279,6 +280,7 @@ class S3Uploader(BaseS3Uploader):
         downloading the uploaded file from S3.
         '''
 
+        filename = munge.munge_filename_legacy(filename)
         key_path = os.path.join(self.storage_path, filename)
 
         if key_path is None:
@@ -317,6 +319,7 @@ class S3Uploader(BaseS3Uploader):
         Returns a dict that includes 'ContentType', 'ContentLength', 'Hash', and 'LastModified',
         and may include other keys depending on the implementation.
         '''
+        filename = munge.munge_filename_legacy(filename)
         key_path = os.path.join(self.storage_path, filename)
         key = filename
 
@@ -416,6 +419,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
         if filename is None:
             filename = os.path.basename(self.url)
+        filename = munge.munge_filename(filename)
 
         directory = self.get_directory(id, self.storage_path)
         filepath = os.path.join(directory, filename)
@@ -444,6 +448,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
         if filename is None:
             filename = os.path.basename(self.url)
+        filename = munge.munge_filename(filename)
         key_path = self.get_path(id, filename)
         try:
             self.clear_key(key_path)
@@ -461,6 +466,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
         if filename is None:
             filename = os.path.basename(self.url)
+        filename = munge.munge_filename(filename)
         key_path = self.get_path(id, filename)
         key = filename
 
@@ -494,6 +500,7 @@ class S3ResourceUploader(BaseS3Uploader):
     def metadata(self, id, filename=None):
         if filename is None:
             filename = os.path.basename(self.url)
+        filename = munge.munge_filename(filename)
         key_path = self.get_path(id, filename)
         key = filename
 
