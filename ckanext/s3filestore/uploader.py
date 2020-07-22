@@ -128,7 +128,7 @@ class BaseS3Uploader(object):
             self.get_s3_resource().Object(self.bucket_name, filepath).put(
                 Body=upload_file.read(), ACL=self.acl,
                 ContentType=getattr(self, 'mimetype', None))
-            log.info("Successfully uploaded {0} to S3!".format(filepath))
+            log.info("Successfully uploaded %s to S3!", filepath)
         except Exception as e:
             log.error('Something went very very wrong for {0}'.format(str(e)))
             raise e
@@ -230,7 +230,7 @@ class S3Uploader(BaseS3Uploader):
                     pass
             data_dict[url_field] = self.filename
             self.upload_file = _get_underlying_file(self.upload_field_storage)
-            logging.debug("ckanext.s3filestore.uploader: is allowed upload type: filanem: {0}, upload_file: {1}, data_dict: {2}".format(self.filename, self.upload_file, data_dict))
+            logging.debug("ckanext.s3filestore.uploader: is allowed upload type: filename: {0}, upload_file: {1}, data_dict: {2}".format(self.filename, self.upload_file, data_dict))
         # keep the file if there has been no change
         elif self.old_filename and not self.old_filename.startswith('http'):
             if not self.clear:
@@ -265,6 +265,7 @@ class S3Uploader(BaseS3Uploader):
 
     def delete(self, filename):
         ''' Delete file we are pointing at'''
+        filename = munge.munge_filename_legacy(filename)
         key_path = os.path.join(self.storage_path, filename)
         try:
             self.clear_key(key_path)
@@ -279,6 +280,7 @@ class S3Uploader(BaseS3Uploader):
         downloading the uploaded file from S3.
         '''
 
+        filename = munge.munge_filename_legacy(filename)
         key_path = os.path.join(self.storage_path, filename)
 
         if key_path is None:
@@ -317,6 +319,7 @@ class S3Uploader(BaseS3Uploader):
         Returns a dict that includes 'ContentType', 'ContentLength', 'Hash', and 'LastModified',
         and may include other keys depending on the implementation.
         '''
+        filename = munge.munge_filename_legacy(filename)
         key_path = os.path.join(self.storage_path, filename)
         key = filename
 
@@ -416,6 +419,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
         if filename is None:
             filename = os.path.basename(self.url)
+        filename = munge.munge_filename(filename)
 
         directory = self.get_directory(id, self.storage_path)
         filepath = os.path.join(directory, filename)
@@ -444,6 +448,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
         if filename is None:
             filename = os.path.basename(self.url)
+        filename = munge.munge_filename(filename)
         key_path = self.get_path(id, filename)
         try:
             self.clear_key(key_path)
@@ -461,6 +466,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
         if filename is None:
             filename = os.path.basename(self.url)
+        filename = munge.munge_filename(filename)
         key_path = self.get_path(id, filename)
         key = filename
 
@@ -494,6 +500,7 @@ class S3ResourceUploader(BaseS3Uploader):
     def metadata(self, id, filename=None):
         if filename is None:
             filename = os.path.basename(self.url)
+        filename = munge.munge_filename(filename)
         key_path = self.get_path(id, filename)
         key = filename
 
