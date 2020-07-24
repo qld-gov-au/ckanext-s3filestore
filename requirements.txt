@@ -1,2 +1,2 @@
-boto3>=1.4.4
-ckantoolkit
+boto3>=1.14.17
+ckantoolkit>=0.0.4

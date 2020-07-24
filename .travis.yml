@@ -1,13 +1,23 @@
+os: linux
 language: python
+dist: bionic
 python:
     - "2.7"
 env:
-    - PGVERSION=9.1 CKAN_BRANCH=master
-    - PGVERSION=9.1 CKAN_BRANCH=release-v2.5.1
+    - PGVERSION=11 CKAN_GIT_REPO=ckan/ckan CKAN_BRANCH=2.8
+    - PGVERSION=11 CKAN_GIT_REPO=qld-gov-au/ckan CKAN_BRANCH=qgov-master
+jobs:
+  include:
+    - name: "python 3.6 ckan master"
+      python: "3.6"
+      env: PGVERSION=11 CKAN_GIT_REPO=ckan/ckan CKAN_BRANCH=master
+  allow_failures:
+    - python: 3.6
+      env: PGVERSION=11 CKAN_BRANCH=master CKAN_GIT_REPO=ckan/ckan
+
 install:
     - bash bin/travis-build.bash
     - pip install coveralls -U
 script: sh bin/travis-run.sh
 after_success:
     - coveralls
-sudo: required
