@@ -11,6 +11,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IUploader)
     plugins.implements(plugins.IRoutes, inherit=True)
 
+
     # IConfigurer
 
     def update_config(self, config_):
@@ -44,7 +45,6 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
             ckanext.s3filestore.uploader.BaseS3Uploader().get_s3_bucket(
                 config.get('ckanext.s3filestore.aws_bucket_name'))
 
-        self.use_filename = toolkit.asbool(config.get('ckanext.s3filestore.use_filename', False))
 
     # IUploader
 
@@ -71,7 +71,8 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                           '/dataset/{id}/resource/{resource_id}/download/{filename}',
                           action='resource_download')
             #Allow fallback to access old files
-            if not self.use_filename:
+            use_filename = toolkit.asbool(toolkit.config.get('ckanext.s3filestore.use_filename', False))
+            if not use_filename:
                 m.connect('resource_download',
                           '/dataset/{id}/resource/{resource_id}/orig_download/{filename}',
                           action='resource_download')
