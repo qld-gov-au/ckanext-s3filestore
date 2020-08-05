@@ -369,6 +369,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
         super(S3ResourceUploader, self).__init__()
 
+        self.use_filename = toolkit.asbool(config.get('ckanext.s3filestore.use_filename', False))
         path = config.get('ckanext.s3filestore.aws_storage_path', '')
         self.storage_path = os.path.join(path, 'resources')
         self.filename = None
@@ -463,8 +464,7 @@ class S3ResourceUploader(BaseS3Uploader):
         downloading the uploaded file from S3.
         '''
 
-
-        if filename is None:
+        if not self.use_filename or filename is None:
             filename = os.path.basename(self.url)
         filename = munge.munge_filename(filename)
         key_path = self.get_path(id, filename)

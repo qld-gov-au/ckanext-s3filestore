@@ -87,6 +87,11 @@ Optional::
     # To change the acl of the uploaded file. Default is public-read.
     ckanext.s3filestore.acl = private
 
+    # To use user provided filepath and not use internal url basename on download
+    # Set to False to be backwards compatible to ckan file store, set to True if already using s3plugin
+    # If False /dataset/{id}/resource/{resource_id}/orig_download/{filename} will be available
+    ckanext.s3filestore.use_filename = True
+
 
 ------------------------
 Development Installation
