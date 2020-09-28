@@ -35,9 +35,8 @@ class TestConnection(toolkit.CkanCommand):
                               'ckanext.s3filestore.aws_secret_access_key')
         for key in required_keys:
             if not config.get(key):
-                print
-                'You must set the "{0}" option in your ini file'.format(
-                    key)
+                print('You must set the "{0}" option in your ini file'.format(
+                    key))
                 exit = True
         if exit:
             sys.exit(1)

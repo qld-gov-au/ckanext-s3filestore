@@ -89,11 +89,11 @@ class S3Controller(base.BaseController):
         filesystem. A copy of the action from
         `ckan.controllers.package:PackageController.resource_download`.
 
-        Provides a direct download by either redirecting the user to the url
+        Provide a direct download by either redirecting the user to the url
         stored or downloading an uploaded file directly.
         """
         context = {'model': model, 'session': model.Session,
-                   'user': c.user, 'auth_user_obj': c.userobj}
+                   'user': c.user or c.author, 'auth_user_obj': c.userobj}
 
         try:
             rsc = get_action('resource_show')(context, {'id': resource_id})
