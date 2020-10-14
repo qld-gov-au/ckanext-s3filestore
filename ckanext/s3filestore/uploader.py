@@ -277,16 +277,7 @@ class S3Uploader(BaseS3Uploader):
                      .format(key_path, self.bucket_name))
 
         try:
-            # Small workaround to manage downloading of large files
-            client = self.get_s3_client()
-
-            # check whether the object exists in S3
-            client.head_object(Bucket=self.bucket_name, Key=key_path)
-
-            url = client.generate_presigned_url(ClientMethod='get_object',
-                                                Params={'Bucket': self.bucket_name,
-                                                        'Key': key_path},
-                                                ExpiresIn=60)
+            url = self.get_signed_url_to_key(key_path)
             h.redirect_to(url)
 
 
@@ -464,17 +455,7 @@ class S3ResourceUploader(BaseS3Uploader):
                      .format(key_path, self.bucket_name))
 
         try:
-            # Small workaround to manage downloading of large files
-            # We are using redirect to minio's resource public URL
-            client = self.get_s3_client()
-
-            # check whether the object exists in S3
-            client.head_object(Bucket=self.bucket_name, Key=key_path)
-
-            url = client.generate_presigned_url(ClientMethod='get_object',
-                                                Params={'Bucket': self.bucket_name,
-                                                        'Key': key_path},
-                                                ExpiresIn=60)
+            url = self.get_signed_url_to_key(key_path)
             h.redirect_to(url)
 
         except ClientError as ex:
