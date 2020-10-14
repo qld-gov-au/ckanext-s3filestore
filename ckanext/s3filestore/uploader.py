@@ -83,21 +83,8 @@ class BaseS3Uploader(object):
 
         bucket = s3.Bucket(bucket_name)
         try:
-            if s3.Bucket(bucket.name) in s3.buckets.all():
-                log.info('Bucket {0} found!'.format(bucket_name))
-
-            else:
-                log.warning(
-                    'Bucket {0} could not be found,\
-                    attempting to create it...'.format(bucket_name))
-                try:
-                    bucket = s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
-                        'LocationConstraint': 'us-east-1'})
-                    log.info(
-                        'Bucket {0} successfully created'.format(bucket_name))
-                except botocore.exceptions.ClientError as e:
-                    log.warning('Could not create bucket {0}: {1}'.format(
-                        bucket_name, str(e)))
+            s3.meta.client.head_bucket(Bucket=bucket_name)
+            log.info('Bucket {0} found!'.format(bucket_name))
         except botocore.exceptions.ClientError as e:
             error_code = e.response['Error']['Code']
             if error_code == '404':
