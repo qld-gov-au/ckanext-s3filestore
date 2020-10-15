@@ -61,7 +61,6 @@ Required::
 
 
     ckanext.s3filestore.aws_bucket_name = a-bucket-to-store-your-stuff
-    ckanext.s3filestore.host_name = host-to-S3-cloud storage 
     ckanext.s3filestore.region_name = region-name
     ckanext.s3filestore.signature_version = signature (s3v4)
 
