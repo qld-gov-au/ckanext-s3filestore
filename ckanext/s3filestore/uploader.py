@@ -4,6 +4,7 @@ import logging
 import datetime
 import mimetypes
 import errno
+import re
 
 import boto3
 import botocore
@@ -26,9 +27,11 @@ else:
 config = toolkit.config
 log = logging.getLogger(__name__)
 
-_storage_path = None
-_max_resource_size = None
-_max_image_size = None
+storage_path = None
+max_resource_size = None
+max_image_size = None
+
+URL_HOST = re.compile('^https?://[^/]*/')
 
 
 def _get_underlying_file(wrapper):
@@ -63,13 +66,15 @@ class BaseS3Uploader(object):
                                      region_name=self.region)
 
     def get_s3_resource(self):
-        return self.get_s3_session().resource('s3', endpoint_url=self.host_name,
+        return self.get_s3_session().resource('s3',
                                      config=botocore.client.Config(
+                                     s3={'addressing_style': 'virtual'},
                                      signature_version=self.signature))
 
     def get_s3_client(self):
-        return self.get_s3_session().client('s3', endpoint_url=self.host_name,
+        return self.get_s3_session().client('s3',
                                      config=botocore.client.Config(
+                                     s3={'addressing_style': 'virtual'},
                                      signature_version=self.signature))
 
 
@@ -81,21 +86,8 @@ class BaseS3Uploader(object):
 
         bucket = s3.Bucket(bucket_name)
         try:
-            if s3.Bucket(bucket.name) in s3.buckets.all():
-                log.info('Bucket {0} found!'.format(bucket_name))
-
-            else:
-                log.warning(
-                    'Bucket {0} could not be found,\
-                    attempting to create it...'.format(bucket_name))
-                try:
-                    bucket = s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
-                        'LocationConstraint': 'us-east-1'})
-                    log.info(
-                        'Bucket {0} successfully created'.format(bucket_name))
-                except botocore.exceptions.ClientError as e:
-                    log.warning('Could not create bucket {0}: {1}'.format(
-                        bucket_name, str(e)))
+            s3.meta.client.head_bucket(Bucket=bucket_name)
+            log.info('Bucket {0} found!'.format(bucket_name))
         except botocore.exceptions.ClientError as e:
             error_code = e.response['Error']['Code']
             if error_code == '404':
@@ -148,10 +140,13 @@ class BaseS3Uploader(object):
         # check whether the object exists in S3
         client.head_object(Bucket=self.bucket_name, Key=key_path)
 
-        return client.generate_presigned_url(ClientMethod='get_object',
+        url = client.generate_presigned_url(ClientMethod='get_object',
                                             Params={'Bucket': self.bucket_name,
                                                     'Key': key_path},
                                             ExpiresIn=expiredin)
+        if self.host_name:
+            url = URL_HOST.sub(self.host_name + '/', url, 1)
+        return url
 
     def as_clean_dict(self, dict):
         for k, v in dict.items():
@@ -288,16 +283,7 @@ class S3Uploader(BaseS3Uploader):
                      .format(key_path, self.bucket_name))
 
         try:
-            # Small workaround to manage downloading of large files
-            client = self.get_s3_client()
-
-            # check whether the object exists in S3
-            client.head_object(Bucket=self.bucket_name, Key=key_path)
-
-            url = client.generate_presigned_url(ClientMethod='get_object',
-                                                Params={'Bucket': self.bucket_name,
-                                                        'Key': key_path},
-                                                ExpiresIn=60)
+            url = self.get_signed_url_to_key(key_path)
             h.redirect_to(url)
 
 
@@ -475,17 +461,7 @@ class S3ResourceUploader(BaseS3Uploader):
                      .format(key_path, self.bucket_name))
 
         try:
-            # Small workaround to manage downloading of large files
-            # We are using redirect to minio's resource public URL
-            client = self.get_s3_client()
-
-            # check whether the object exists in S3
-            client.head_object(Bucket=self.bucket_name, Key=key_path)
-
-            url = client.generate_presigned_url(ClientMethod='get_object',
-                                                Params={'Bucket': self.bucket_name,
-                                                        'Key': key_path},
-                                                ExpiresIn=60)
+            url = self.get_signed_url_to_key(key_path)
             h.redirect_to(url)
 
         except ClientError as ex:

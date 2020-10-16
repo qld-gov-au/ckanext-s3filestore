@@ -61,7 +61,6 @@ Required::
 
 
     ckanext.s3filestore.aws_bucket_name = a-bucket-to-store-your-stuff
-    ckanext.s3filestore.host_name = host-to-S3-cloud storage 
     ckanext.s3filestore.region_name = region-name
     ckanext.s3filestore.signature_version = signature (s3v4)
 
@@ -91,6 +90,11 @@ Optional::
     # Set to False to be backwards compatible to ckan file store, set to True if already using s3plugin
     # If False /dataset/{id}/resource/{resource_id}/orig_download/{filename} will be available
     ckanext.s3filestore.use_filename = True
+
+    # To mask the S3 endpoint with your own domain/endpoint when serving URLs to end users.
+    # This endpoint should be capable of serving S3 objects as if it were an actual bucket.
+    # The real S3 endpoint will still be used for uploading files.
+    ckanext.s3filestore.host_name = https://example.com/my-bucket/
 
 
 ------------------------
