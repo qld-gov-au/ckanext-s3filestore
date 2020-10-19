@@ -94,7 +94,7 @@ Optional::
     # To mask the S3 endpoint with your own domain/endpoint when serving URLs to end users.
     # This endpoint should be capable of serving S3 objects as if it were an actual bucket.
     # The real S3 endpoint will still be used for uploading files.
-    ckanext.s3filestore.host_name = https://example.com/my-bucket/
+    ckanext.s3filestore.download_proxy = https://example.com/my-bucket/
 
 
 ------------------------

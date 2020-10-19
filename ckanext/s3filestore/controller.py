@@ -114,7 +114,7 @@ class S3Controller(base.BaseController):
 
     def uploaded_file_redirect(self, upload_to, filename):
         '''Redirect static file requests to their location on S3.'''
-        host_name = config.get('ckanext.s3filestore.host_name',
+        host_name = config.get('ckanext.s3filestore.download_proxy',
             'https://{bucket_name}.s3.{region_name}.amazonaws.com'.format(
                 bucket_name=config.get('ckanext.s3filestore.aws_bucket_name'),
                 region_name=config.get('ckanext.s3filestore.region_name'))
