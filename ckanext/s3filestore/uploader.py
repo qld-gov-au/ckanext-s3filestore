@@ -132,7 +132,7 @@ class BaseS3Uploader(object):
         except Exception as e:
             raise e
 
-    def get_signed_url_to_key(self, key_path, expiredin=60):
+    def get_signed_url_to_key(self, key_path, expiredin=3600):
         # Small workaround to manage downloading of large files
         # We are using redirect to resource public URL
         client = self.get_s3_client()
