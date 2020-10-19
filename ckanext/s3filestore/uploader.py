@@ -52,7 +52,7 @@ class BaseS3Uploader(object):
         self.s_key = config.get('ckanext.s3filestore.aws_secret_access_key', None)
         self.region = config.get('ckanext.s3filestore.region_name')
         self.signature = config.get('ckanext.s3filestore.signature_version')
-        self.host_name = config.get('ckanext.s3filestore.host_name', None)
+        self.download_proxy = config.get('ckanext.s3filestore.download_proxy', None)
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
         self.session = None
 
@@ -144,8 +144,8 @@ class BaseS3Uploader(object):
                                             Params={'Bucket': self.bucket_name,
                                                     'Key': key_path},
                                             ExpiresIn=expiredin)
-        if self.host_name:
-            url = URL_HOST.sub(self.host_name + '/', url, 1)
+        if self.download_proxy:
+            url = URL_HOST.sub(self.download_proxy + '/', url, 1)
         return url
 
     def as_clean_dict(self, dict):
