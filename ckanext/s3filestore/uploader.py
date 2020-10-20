@@ -2,13 +2,17 @@ import os
 import cgi
 import logging
 import datetime
+import math
 import mimetypes
 import errno
+import re
+import tzlocal
 
 import boto3
 import botocore
 import ckantoolkit as toolkit
 import ckan.lib.helpers as h
+import freezegun
 
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as DefaultUpload
 
@@ -26,9 +30,11 @@ else:
 config = toolkit.config
 log = logging.getLogger(__name__)
 
-_storage_path = None
-_max_resource_size = None
-_max_image_size = None
+storage_path = None
+max_resource_size = None
+max_image_size = None
+
+URL_HOST = re.compile('^https?://[^/]*/')
 
 
 def _get_underlying_file(wrapper):
@@ -49,7 +55,7 @@ class BaseS3Uploader(object):
         self.s_key = config.get('ckanext.s3filestore.aws_secret_access_key', None)
         self.region = config.get('ckanext.s3filestore.region_name')
         self.signature = config.get('ckanext.s3filestore.signature_version')
-        self.host_name = config.get('ckanext.s3filestore.host_name', None)
+        self.download_proxy = config.get('ckanext.s3filestore.download_proxy', None)
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
         self.session = None
 
@@ -63,13 +69,15 @@ class BaseS3Uploader(object):
                                      region_name=self.region)
 
     def get_s3_resource(self):
-        return self.get_s3_session().resource('s3', endpoint_url=self.host_name,
+        return self.get_s3_session().resource('s3',
                                      config=botocore.client.Config(
+                                     s3={'addressing_style': 'virtual'},
                                      signature_version=self.signature))
 
     def get_s3_client(self):
-        return self.get_s3_session().client('s3', endpoint_url=self.host_name,
+        return self.get_s3_session().client('s3',
                                      config=botocore.client.Config(
+                                     s3={'addressing_style': 'virtual'},
                                      signature_version=self.signature))
 
 
@@ -81,21 +89,8 @@ class BaseS3Uploader(object):
 
         bucket = s3.Bucket(bucket_name)
         try:
-            if s3.Bucket(bucket.name) in s3.buckets.all():
-                log.info('Bucket {0} found!'.format(bucket_name))
-
-            else:
-                log.warning(
-                    'Bucket {0} could not be found,\
-                    attempting to create it...'.format(bucket_name))
-                try:
-                    bucket = s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
-                        'LocationConstraint': 'us-east-1'})
-                    log.info(
-                        'Bucket {0} successfully created'.format(bucket_name))
-                except botocore.exceptions.ClientError as e:
-                    log.warning('Could not create bucket {0}: {1}'.format(
-                        bucket_name, str(e)))
+            s3.meta.client.head_bucket(Bucket=bucket_name)
+            log.info('Bucket {0} found!'.format(bucket_name))
         except botocore.exceptions.ClientError as e:
             error_code = e.response['Error']['Code']
             if error_code == '404':
@@ -140,18 +135,50 @@ class BaseS3Uploader(object):
         except Exception as e:
             raise e
 
-    def get_signed_url_to_key(self, key_path, expiredin=60):
-        # Small workaround to manage downloading of large files
-        # We are using redirect to resource public URL
+    def get_signed_url_to_key(self, key_path, expiredin=3600, cache_window=30):
+        '''Generates a pre-signed URL giving access to an S3 object.
+
+        To enable effective caching, the timestamp used in the signature
+        is rounded to the previous half hour (by default),
+        so that a consistent URL will be returned for 30 minutes.
+        Eg a URL generated at 12:34 might have a signature timestamp
+        of 12:30.
+
+        Cacheability can be controlled by setting the 'expiredin' value,
+        which controls how long a signed URL is valid, and the
+        'cache_window' value, which controls how far back the timestamp
+        will be truncated. Note that 'expiredin' uses seconds, while
+        'cache_window' uses minutes. The expiry must be longer than the
+        truncation (not equal); otherwise, a URL may expire before a new
+        one is available. The default expiry is one hour.
+
+        If a download_proxy is configured, then the URL will be
+        generated using the true S3 host, and then the hostname will be
+        rewritten afterward. Note that the Host header is part of a
+        version 4 signature, so the resulting request, as it stands,
+        will fail signature verification; the download_proxy server must
+        be configured to set the Host header back to the true value when
+        forwarding the request (CloudFront does this automatically).
+        '''
         client = self.get_s3_client()
 
         # check whether the object exists in S3
         client.head_object(Bucket=self.bucket_name, Key=key_path)
 
-        return client.generate_presigned_url(ClientMethod='get_object',
-                                            Params={'Bucket': self.bucket_name,
-                                                    'Key': key_path},
-                                            ExpiresIn=expiredin)
+        signature_time = datetime.datetime.now(tzlocal.get_localzone())
+        cache_minute = int((math.floor(signature_time.minute / cache_window))) * cache_window
+        signature_time = signature_time.replace(
+            minute=cache_minute,
+            second=0,
+            microsecond=0)
+        with freezegun.freeze_time(signature_time):
+            url = client.generate_presigned_url(ClientMethod='get_object',
+                                                Params={'Bucket': self.bucket_name,
+                                                        'Key': key_path},
+                                                ExpiresIn=expiredin)
+        if self.download_proxy:
+            url = URL_HOST.sub(self.download_proxy + '/', url, 1)
+        return url
 
     def as_clean_dict(self, dict):
         for k, v in dict.items():
@@ -288,16 +315,7 @@ class S3Uploader(BaseS3Uploader):
                      .format(key_path, self.bucket_name))
 
         try:
-            # Small workaround to manage downloading of large files
-            client = self.get_s3_client()
-
-            # check whether the object exists in S3
-            client.head_object(Bucket=self.bucket_name, Key=key_path)
-
-            url = client.generate_presigned_url(ClientMethod='get_object',
-                                                Params={'Bucket': self.bucket_name,
-                                                        'Key': key_path},
-                                                ExpiresIn=60)
+            url = self.get_signed_url_to_key(key_path)
             h.redirect_to(url)
 
 
@@ -475,17 +493,7 @@ class S3ResourceUploader(BaseS3Uploader):
                      .format(key_path, self.bucket_name))
 
         try:
-            # Small workaround to manage downloading of large files
-            # We are using redirect to minio's resource public URL
-            client = self.get_s3_client()
-
-            # check whether the object exists in S3
-            client.head_object(Bucket=self.bucket_name, Key=key_path)
-
-            url = client.generate_presigned_url(ClientMethod='get_object',
-                                                Params={'Bucket': self.bucket_name,
-                                                        'Key': key_path},
-                                                ExpiresIn=60)
+            url = self.get_signed_url_to_key(key_path)
             h.redirect_to(url)
 
         except ClientError as ex:

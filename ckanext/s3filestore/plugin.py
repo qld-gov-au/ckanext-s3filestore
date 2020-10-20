@@ -27,8 +27,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         required_options = (
             'ckanext.s3filestore.aws_bucket_name',
             'ckanext.s3filestore.region_name',
-            'ckanext.s3filestore.signature_version',
-            'ckanext.s3filestore.host_name'
+            'ckanext.s3filestore.signature_version'
         )
         if not config.get('ckanext.s3filestore.aws_use_ami_role'):
             required_options += ('ckanext.s3filestore.aws_access_key_id',
