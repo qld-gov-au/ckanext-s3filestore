@@ -1,98 +1,95 @@
-import os
+# encoding: utf-8
+import six
+import requests
 
-from nose.tools import (assert_equal,
-                        assert_true)
+import pytest
+
 from ckantoolkit import config
-
-import ckan.tests.helpers as helpers
 import ckan.tests.factories as factories
-
-import ckanapi
-import boto
-from moto import mock_s3
-
-import logging
-log = logging.getLogger(__name__)
+from ckan.lib.helpers import url_for
 
 
-class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
+@pytest.mark.usefixtures(u'clean_db', u'clean_index')
+class TestS3Controller(object):
 
-    def _upload_resource(self):
-        factories.Sysadmin(apikey="my-test-key")
+    @classmethod
+    def setup_class(cls):
+        cls.bucket_name = config.get(u'ckanext.s3filestore.aws_bucket_name')
 
-        app = self._get_test_app()
-        demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
-        factories.Dataset(name="my-dataset")
+    def test_resource_download_url(self, resource_with_upload):
+        u'''The resource url is expected for uploaded resource file.'''
 
-        file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
-        resource = demo.action.resource_create(package_id='my-dataset',
-                                               upload=open(file_path),
-                                               url='file.txt')
-        return resource, demo, app
+        expected_url = u'http://test.ckan.net/dataset/{0}/resource/{1}/download/test.csv'\
+            .format(resource_with_upload[u'package_id'], resource_with_upload[u'id'])
 
-    @mock_s3
-    @helpers.change_config('ckan.site_url', 'http://mytest.ckan.net')
-    def test_resource_show_url(self):
-        '''The resource_show url is expected for uploaded resource file.'''
+        assert resource_with_upload['url'] == expected_url
 
-        resource, demo, _ = self._upload_resource()
+    def test_resource_download(self, app, resource_with_upload):
+        u'''When trying to download resource from CKAN it should redirect to S3.'''
 
-        # does resource_show have the expected resource file url?
-        resource_show = demo.action.resource_show(id=resource['id'])
+        user = factories.Sysadmin()
+        env = {u'REMOTE_USER': six.ensure_str(user[u'name'])}
 
-        expected_url = 'http://mytest.ckan.net/dataset/{0}/resource/{1}/download/data.csv' \
-            .format(resource['package_id'], resource['id'])
+        response = app.get(
+            url_for(
+                u'dataset_resource.download',
+                id=resource_with_upload[u'package_id'],
+                resource_id=resource_with_upload[u'id'],
+            ),
+            extra_environ=env,
+            follow_redirects=False
+        )
+        assert 302 == response.status_code
 
-        assert_equal(resource_show['url'], expected_url)
-
-    @mock_s3
-    def test_resource_download_s3(self):
-        '''A resource uploaded to S3 can be downloaded.'''
-
-        resource, demo, app = self._upload_resource()
-        resource_show = demo.action.resource_show(id=resource['id'])
-        resource_file_url = resource_show['url']
-
-        file_response = app.get(resource_file_url)
-
-        assert_equal(file_response.content_type, 'text/csv')
-        assert_true('date,price' in file_response.body)
-
-    @mock_s3
-    def test_resource_download_s3_no_filename(self):
+    def test_resource_download_no_filename(self, app, resource_with_upload):
         '''A resource uploaded to S3 can be downloaded when no filename in
         url.'''
+        resource_file_url = u'/dataset/{0}/resource/{1}/download' \
+            .format(resource_with_upload[u'package_id'], resource_with_upload[u'id'])
 
-        resource, demo, app = self._upload_resource()
+        response = app.get(resource_file_url,
+                           follow_redirects=False)
 
-        resource_file_url = '/dataset/{0}/resource/{1}/download' \
-            .format(resource['package_id'], resource['id'])
+        assert 302 == response.status_code
 
-        file_response = app.get(resource_file_url)
+    def test_s3_download_link(self, app, s3_client, resource_with_upload):
+        u'''A resource download from s3 test.'''
 
-        assert_equal(file_response.content_type, 'text/csv')
-        assert_true('date,price' in file_response.body)
+        user = factories.Sysadmin()
+        env = {u'REMOTE_USER': six.ensure_str(user[u'name'])}
 
-    @mock_s3
-    def test_resource_download_url_link(self):
-        '''A resource with a url (not file) is redirected correctly.'''
-        factories.Sysadmin(apikey="my-test-key")
+        response = app.get(
+            url_for(
+                u'dataset_resource.download',
+                id=resource_with_upload[u'package_id'],
+                resource_id=resource_with_upload[u'id'],
+            ),
+            extra_environ=env,
+            follow_redirects=False
+        )
+        assert 302 == response.status_code
+        assert response.location
+        downloaded_file = requests.get(response.location)
+        assert u'Snow Course Name, Number, Elev. metres,' in downloaded_file.text
 
-        app = self._get_test_app()
-        demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
-        dataset = factories.Dataset()
+    def test_s3_resource_mimetype(self, resource_with_upload):
+        u'''A resource mimetype test.'''
 
-        resource = demo.action.resource_create(package_id=dataset['id'],
-                                               url='http://example')
-        resource_show = demo.action.resource_show(id=resource['id'])
-        resource_file_url = '/dataset/{0}/resource/{1}/download' \
-            .format(resource['package_id'], resource['id'])
-        assert_equal(resource_show['url'], 'http://example')
+        assert u'text/csv' == resource_with_upload[u'mimetype']
 
-        conn = boto.connect_s3()
-        bucket = conn.get_bucket('my-bucket')
-        assert_equal(bucket.get_all_keys(), [])
+    def test_organization_image_redirects_to_s3(self, app, organization_with_image):
+        url = u'/uploads/group/{0}'.format(organization_with_image[u'image_url'])
+        response = app.get(url,
+                           follow_redirects=False)
+        assert 302 == response.status_code
 
-        # attempt redirect to linked url
-        r = app.get(resource_file_url, status=[302, 301])
-        assert_equal(r.location, 'http://example')
+    def test_organization_image_download_from_s3(self, app, organization_with_image):
+        url = u'/uploads/group/{0}'.format(organization_with_image[u'image_url'])
+        response = app.get(url,
+                           follow_redirects=False)
+        assert 302 == response.status_code
+        assert response.location
+        image = requests.get(response.location)
+        assert image.content == b"\0\0\0"
+
+
