@@ -2,17 +2,14 @@ import os
 import cgi
 import logging
 import datetime
-import math
 import mimetypes
 import errno
 import re
-import tzlocal
 
 import boto3
 import botocore
 import ckantoolkit as toolkit
 import ckan.lib.helpers as h
-import freezegun
 
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as DefaultUpload
 
@@ -135,22 +132,11 @@ class BaseS3Uploader(object):
         except Exception as e:
             raise e
 
-    def get_signed_url_to_key(self, key_path, expiredin=3600, cache_window=30):
+    def get_signed_url_to_key(self, key_path, expiredin=3600):
         '''Generates a pre-signed URL giving access to an S3 object.
 
-        To enable effective caching, the timestamp used in the signature
-        is rounded to the previous half hour (by default),
-        so that a consistent URL will be returned for 30 minutes.
-        Eg a URL generated at 12:34 might have a signature timestamp
-        of 12:30.
-
         Cacheability can be controlled by setting the 'expiredin' value,
-        which controls how long a signed URL is valid, and the
-        'cache_window' value, which controls how far back the timestamp
-        will be truncated. Note that 'expiredin' uses seconds, while
-        'cache_window' uses minutes. The expiry must be longer than the
-        truncation (not equal); otherwise, a URL may expire before a new
-        one is available. The default expiry is one hour.
+        which controls how long a signed URL is valid (default 1 hour).
 
         If a download_proxy is configured, then the URL will be
         generated using the true S3 host, and then the hostname will be
@@ -165,17 +151,10 @@ class BaseS3Uploader(object):
         # check whether the object exists in S3
         client.head_object(Bucket=self.bucket_name, Key=key_path)
 
-        signature_time = datetime.datetime.now(tzlocal.get_localzone())
-        cache_minute = int((math.floor(signature_time.minute / cache_window))) * cache_window
-        signature_time = signature_time.replace(
-            minute=cache_minute,
-            second=0,
-            microsecond=0)
-        with freezegun.freeze_time(signature_time):
-            url = client.generate_presigned_url(ClientMethod='get_object',
-                                                Params={'Bucket': self.bucket_name,
-                                                        'Key': key_path},
-                                                ExpiresIn=expiredin)
+        url = client.generate_presigned_url(ClientMethod='get_object',
+                                            Params={'Bucket': self.bucket_name,
+                                                    'Key': key_path},
+                                            ExpiresIn=expiredin)
         if self.download_proxy:
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
         return url
