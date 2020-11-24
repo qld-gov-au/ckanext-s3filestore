@@ -87,20 +87,20 @@ class BaseS3Uploader(object):
         bucket = s3.Bucket(bucket_name)
         try:
             s3.meta.client.head_bucket(Bucket=bucket_name)
-            log.info('Bucket {0} found!'.format(bucket_name))
+            log.info('Bucket %s found!', bucket_name)
         except botocore.exceptions.ClientError as e:
             error_code = e.response['Error']['Code']
             if error_code == '404':
-                log.warning('Bucket {0} could not be found, ' +
-                            'attempting to create it...'.format(bucket_name))
+                log.warning('Bucket %s could not be found, attempting to create it...',
+                        bucket_name)
                 try:
                     bucket = s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
                         'LocationConstraint': self.region})
                     log.info(
-                        'Bucket {0} successfully created'.format(bucket_name))
+                        'Bucket %s successfully created', bucket_name)
                 except botocore.exceptions.ClientError as e:
-                    log.warning('Could not create bucket {0}: {1}'.format(
-                        bucket_name, str(e)))
+                    log.warning('Could not create bucket %s: %s',
+                        bucket_name, str(e))
             elif error_code == '403':
                 raise S3FileStoreException(
                     'Access to bucket {0} denied'.format(bucket_name))
@@ -113,8 +113,8 @@ class BaseS3Uploader(object):
     def upload_to_key(self, filepath, upload_file, make_public=False):
         '''Uploads the `upload_file` to `filepath` on `self.bucket`.'''
         upload_file.seek(0)
-        logging.debug("ckanext.s3filestore.uploader: going to upload {0} to bucket {1} with mimetype {2}".format(
-            filepath, self.bucket_name, getattr(self, 'mimetype', None)))
+        log.debug("ckanext.s3filestore.uploader: going to upload %s to bucket %s with mimetype %s",
+            filepath, self.bucket_name, getattr(self, 'mimetype', None))
 
         try:
             self.get_s3_resource().Object(self.bucket_name, filepath).put(
@@ -122,7 +122,7 @@ class BaseS3Uploader(object):
                 ContentType=getattr(self, 'mimetype', None))
             log.info("Successfully uploaded %s to S3!", filepath)
         except Exception as e:
-            log.error('Something went very very wrong for {0}'.format(str(e)))
+            log.error('Something went very very wrong for %s', str(e))
             raise e
 
     def clear_key(self, filepath):
@@ -200,7 +200,7 @@ class S3Uploader(BaseS3Uploader):
         return os.path.join(path, 'storage', 'uploads', upload_to)
 
     def update_data_dict(self, data_dict, url_field, file_field, clear_field):
-        logging.debug("ckanext.s3filestore.uploader: update_data_dic: {0}, url {1}, file {2}, clear {3}".format(data_dict, url_field, file_field, clear_field))
+        log.debug("ckanext.s3filestore.uploader: update_data_dic: %s, url %s, file %s, clear %s", data_dict, url_field, file_field, clear_field)
         '''Manipulate data from the data_dict. This needs to be called before it
         reaches any validators.
 
@@ -236,7 +236,7 @@ class S3Uploader(BaseS3Uploader):
                     pass
             data_dict[url_field] = self.filename
             self.upload_file = _get_underlying_file(self.upload_field_storage)
-            logging.debug("ckanext.s3filestore.uploader: is allowed upload type: filename: {0}, upload_file: {1}, data_dict: {2}".format(self.filename, self.upload_file, data_dict))
+            log.debug("ckanext.s3filestore.uploader: is allowed upload type: filename: %s, upload_file: %s, data_dict: %s", self.filename, self.upload_file, data_dict)
         # keep the file if there has been no change
         elif self.old_filename and not self.old_filename.startswith('http'):
             if not self.clear:
@@ -244,13 +244,13 @@ class S3Uploader(BaseS3Uploader):
             if self.clear and self.url == self.old_filename:
                 data_dict[url_field] = ''
         else:
-            logging.debug(
-                "ckanext.s3filestore.uploader: is not allowed upload type: filename: {0}, upload_file: {1}, data_dict: {2}".format(
-                    self.filename, self.upload_file, data_dict))
+            log.debug(
+                "ckanext.s3filestore.uploader: is not allowed upload type: filename: %s, upload_file: %s, data_dict: %s",
+                    self.filename, self.upload_file, data_dict)
 
     def upload(self, max_size=2):
-        logging.debug(
-            "upload: {0}, {1}, max_size {2}".format(self.filename, max_size, self.filepath))
+        log.debug(
+            "upload: %s, %s, max_size %s", self.filename, max_size, self.filepath)
         '''Actually upload the file.
 
         This should happen just before a commit but after the data has been
@@ -276,8 +276,8 @@ class S3Uploader(BaseS3Uploader):
         try:
             self.clear_key(key_path)
         except ClientError as ex:
-            log.warning('Key \'{0}\' not found in bucket \'{1}\' for delete'
-                        .format(key_path, self.bucket_name))
+            log.warning('Key \'%s\' not found in bucket \'%s\' for delete',
+                        key_path, self.bucket_name)
             pass
 
     def download(self, filename):
@@ -290,8 +290,8 @@ class S3Uploader(BaseS3Uploader):
         key_path = os.path.join(self.storage_path, filename)
 
         if key_path is None:
-            log.warning('Key \'{0}\' not found in bucket \'{1}\''
-                     .format(key_path, self.bucket_name))
+            log.warning("Key '%s' not found in bucket '%s'",
+                     key_path, self.bucket_name)
 
         try:
             url = self.get_signed_url_to_key(key_path)
@@ -321,8 +321,8 @@ class S3Uploader(BaseS3Uploader):
         key = filename
 
         if key is None:
-            log.warning('Key \'{0}\' not found in bucket \'{1}\''
-                     .format(key_path, self.bucket_name))
+            log.warning("Key '%s' not found in bucket '%s'",
+                     key_path, self.bucket_name)
 
         try:
             # Small workaround to manage downloading of large files
@@ -451,8 +451,8 @@ class S3ResourceUploader(BaseS3Uploader):
         try:
             self.clear_key(key_path)
         except ClientError as ex:
-            log.warning('Key \'{0}\' not found in bucket \'{1}\' for delete'
-                        .format(key_path, self.bucket_name))
+            log.warning("Key '%s' not found in bucket '%s' for delete",
+                        key_path, self.bucket_name)
             pass
 
     def download(self, id, filename=None):
@@ -468,8 +468,8 @@ class S3ResourceUploader(BaseS3Uploader):
         key = filename
 
         if key is None:
-            log.warning('Key \'{0}\' not found in bucket \'{1}\''
-                     .format(key_path, self.bucket_name))
+            log.warning("Key '%s' not found in bucket '%s'",
+                     key_path, self.bucket_name)
 
         try:
             url = self.get_signed_url_to_key(key_path)
@@ -492,8 +492,8 @@ class S3ResourceUploader(BaseS3Uploader):
         key = filename
 
         if key is None:
-            log.warning('Key \'{0}\' not found in bucket \'{1}\''
-                     .format(key_path, self.bucket_name))
+            log.warning("Key '%s' not found in bucket '%s'",
+                     key_path, self.bucket_name)
 
         try:
             # Small workaround to manage downloading of large files
