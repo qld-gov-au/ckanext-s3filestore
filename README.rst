@@ -98,9 +98,11 @@ Optional::
 
     # Cache control for signed URLs. Values are in seconds.
     # 'signed_url_expiry': How long a URL is valid (default 1 hour).
-    # 'signed_url_cache_window': How long a URL will be reused (default 30 min).
-    # The expiry must be longer than the window (not equal);
+    # 'signed_url_cache_window': How long a URL will be reused,
+    # if it is not updated in the meantime (default 30 min).
+    # The expiry should be longer than the window (not equal);
     # otherwise, a URL may expire before a new one is available.
+    # If either value is zero or negative, then URL caching is disabled.
     ckanext.s3filestore.signed_url_expiry = 3600
     ckanext.s3filestore.signed_url_cache_window = 1800
 

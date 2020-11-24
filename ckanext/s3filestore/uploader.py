@@ -36,6 +36,9 @@ max_image_size = None
 URL_HOST = re.compile('^https?://[^/]*/')
 REDIS_PREFIX = 'ckanext-s3filestore:'
 
+def _get_cache_key(path):
+    return REDIS_PREFIX + path
+
 def _get_underlying_file(wrapper):
     if isinstance(wrapper, FlaskFileStorage):
         return wrapper.stream
@@ -59,6 +62,9 @@ class BaseS3Uploader(object):
         self.signed_url_cache_window = int(config.get('ckanext.s3filestore.signed_url_cache_window', '1800'))
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
         self.session = None
+
+    def is_url_caching_enabled(self):
+        return self.signed_url_cache_window and self.signed_url_cache_window > 0 and self.signed_url_expiry and self.signed_url_expiry > 0
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
@@ -125,7 +131,8 @@ class BaseS3Uploader(object):
                 Body=upload_file.read(), ACL=self.acl,
                 ContentType=getattr(self, 'mimetype', None))
             log.info("Successfully uploaded %s to S3!", filepath)
-            connect_to_redis().delete(REDIS_PREFIX + filepath)
+            if self.is_url_caching_enabled():
+                connect_to_redis().delete(_get_cache_key(filepath))
         except Exception as e:
             log.error('Something went very very wrong for %s', str(e))
             raise e
@@ -135,7 +142,8 @@ class BaseS3Uploader(object):
         try:
             self.get_s3_resource().Object(self.bucket_name, filepath).delete()
             log.info("Removed %s from S3", filepath)
-            connect_to_redis().delete(REDIS_PREFIX + filepath)
+            if self.is_url_caching_enabled():
+                connect_to_redis().delete(_get_cache_key(filepath))
         except Exception as e:
             raise e
 
@@ -155,20 +163,15 @@ class BaseS3Uploader(object):
         # check whether the object exists in S3
         client.head_object(Bucket=self.bucket_name, Key=key_path)
 
-        current_time = time.time()
-        redis_conn = connect_to_redis()
-        cache_key = REDIS_PREFIX + key_path
-        cache_value = redis_conn.get(cache_key)
-        if cache_value:
-            cache_time, cache_url = cache_value.split('|', 1)
-            cache_time = int(float(cache_time))
-            if current_time - cache_time < self.signed_url_cache_window:
+        if self.is_url_caching_enabled():
+            redis_conn = connect_to_redis()
+            cache_key = _get_cache_key(key_path)
+            cache_url = redis_conn.get(cache_key)
+            if cache_url:
                 log.debug('Returning cached URL for path %s', key_path)
                 return cache_url
             else:
-                log.debug('Cache for path %s has expired, generating a new URL', key_path)
-        else:
-            log.debug('No cache found for %s; generating a new URL', key_path)
+                log.debug('No cache found for %s; generating a new URL', key_path)
 
         url = client.generate_presigned_url(ClientMethod='get_object',
                                             Params={'Bucket': self.bucket_name,
@@ -177,7 +180,9 @@ class BaseS3Uploader(object):
         if self.download_proxy:
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
 
-        redis_conn.set(cache_key, '{}|{}'.format(round(current_time), url))
+        if self.is_url_caching_enabled():
+            redis_conn.set(cache_key, url)
+            redis_conn.expire(cache_key, self.signed_url_cache_window)
         return url
 
     def as_clean_dict(self, dict):
