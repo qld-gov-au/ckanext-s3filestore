@@ -181,8 +181,7 @@ class BaseS3Uploader(object):
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
 
         if self.is_url_caching_enabled():
-            redis_conn.set(cache_key, url)
-            redis_conn.expire(cache_key, self.signed_url_cache_window)
+            redis_conn.set(cache_key, url, ex=self.signed_url_cache_window)
         return url
 
     def as_clean_dict(self, dict):
