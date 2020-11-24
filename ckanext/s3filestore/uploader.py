@@ -5,11 +5,13 @@ import datetime
 import mimetypes
 import errno
 import re
+import time
 
 import boto3
 import botocore
 import ckantoolkit as toolkit
 import ckan.lib.helpers as h
+from ckan.lib.redis import connect_to_redis
 
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as DefaultUpload
 
@@ -32,7 +34,7 @@ max_resource_size = None
 max_image_size = None
 
 URL_HOST = re.compile('^https?://[^/]*/')
-
+REDIS_PREFIX = 'ckanext-s3filestore:'
 
 def _get_underlying_file(wrapper):
     if isinstance(wrapper, FlaskFileStorage):
@@ -121,6 +123,7 @@ class BaseS3Uploader(object):
                 Body=upload_file.read(), ACL=self.acl,
                 ContentType=getattr(self, 'mimetype', None))
             log.info("Successfully uploaded %s to S3!", filepath)
+            connect_to_redis().delete(REDIS_PREFIX + filepath)
         except Exception as e:
             log.error('Something went very very wrong for %s', str(e))
             raise e
@@ -129,14 +132,20 @@ class BaseS3Uploader(object):
         '''Deletes the contents of the key at `filepath` on `self.bucket`.'''
         try:
             self.get_s3_resource().Object(self.bucket_name, filepath).delete()
+            log.info("Removed %s from S3", filepath)
+            connect_to_redis().delete(REDIS_PREFIX + filepath)
         except Exception as e:
             raise e
 
-    def get_signed_url_to_key(self, key_path, expiredin=3600):
+    def get_signed_url_to_key(self, key_path, expiredin=3600, cache_window=1800):
         '''Generates a pre-signed URL giving access to an S3 object.
 
         Cacheability can be controlled by setting the 'expiredin' value,
-        which controls how long a signed URL is valid (default 1 hour).
+        which controls how long a signed URL is valid (default 1 hour),
+        and the 'cache_window' value, which controls how long a URL
+        will be kept and reused (default 30 min). Both are in seconds.
+        The expiry must be longer than the window (not equal);
+        otherwise, a URL may expire before a new one is available.
 
         If a download_proxy is configured, then the URL will be
         generated using the true S3 host, and then the hostname will be
@@ -151,12 +160,28 @@ class BaseS3Uploader(object):
         # check whether the object exists in S3
         client.head_object(Bucket=self.bucket_name, Key=key_path)
 
+        current_time = time.time()
+        redis_conn = connect_to_redis()
+        cache_key = REDIS_PREFIX + key_path
+        cache_value = redis_conn.get(cache_key)
+        if cache_value:
+            cache_time, cache_url = cache_value.split('|', 1)
+            if current_time - int(float(cache_time)) < cache_window:
+                log.debug('Returning cached URL for path %s', key_path)
+                return cache_url
+            else:
+                log.debug('Cache for path %s has expired, generating a new URL', key_path)
+        else:
+            log.debug('No cache found for %s; generating a new URL', key_path)
+
         url = client.generate_presigned_url(ClientMethod='get_object',
                                             Params={'Bucket': self.bucket_name,
                                                     'Key': key_path},
                                             ExpiresIn=expiredin)
         if self.download_proxy:
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
+
+        redis_conn.set(cache_key, '{}|{}'.format(round(current_time), url))
         return url
 
     def as_clean_dict(self, dict):
