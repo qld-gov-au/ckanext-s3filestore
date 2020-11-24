@@ -55,6 +55,8 @@ class BaseS3Uploader(object):
         self.region = config.get('ckanext.s3filestore.region_name')
         self.signature = config.get('ckanext.s3filestore.signature_version')
         self.download_proxy = config.get('ckanext.s3filestore.download_proxy', None)
+        self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry', '3600'))
+        self.signed_url_cache_window = int(config.get('ckanext.s3filestore.signed_url_cache_window', '1800'))
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
         self.session = None
 
@@ -137,15 +139,8 @@ class BaseS3Uploader(object):
         except Exception as e:
             raise e
 
-    def get_signed_url_to_key(self, key_path, expiredin=3600, cache_window=1800):
+    def get_signed_url_to_key(self, key_path):
         '''Generates a pre-signed URL giving access to an S3 object.
-
-        Cacheability can be controlled by setting the 'expiredin' value,
-        which controls how long a signed URL is valid (default 1 hour),
-        and the 'cache_window' value, which controls how long a URL
-        will be kept and reused (default 30 min). Both are in seconds.
-        The expiry must be longer than the window (not equal);
-        otherwise, a URL may expire before a new one is available.
 
         If a download_proxy is configured, then the URL will be
         generated using the true S3 host, and then the hostname will be
@@ -166,7 +161,8 @@ class BaseS3Uploader(object):
         cache_value = redis_conn.get(cache_key)
         if cache_value:
             cache_time, cache_url = cache_value.split('|', 1)
-            if current_time - int(float(cache_time)) < cache_window:
+            cache_time = int(float(cache_time))
+            if current_time - cache_time < self.signed_url_cache_window:
                 log.debug('Returning cached URL for path %s', key_path)
                 return cache_url
             else:
@@ -177,7 +173,7 @@ class BaseS3Uploader(object):
         url = client.generate_presigned_url(ClientMethod='get_object',
                                             Params={'Bucket': self.bucket_name,
                                                     'Key': key_path},
-                                            ExpiresIn=expiredin)
+                                            ExpiresIn=self.signed_url_expiry)
         if self.download_proxy:
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
 
