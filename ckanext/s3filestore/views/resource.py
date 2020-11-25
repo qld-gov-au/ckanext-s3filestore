@@ -1,6 +1,7 @@
 # encoding: utf-8
 import os
 import logging
+import mimetypes
 
 import flask
 
@@ -60,6 +61,7 @@ def resource_download(package_type, id, resource_id, filename=None):
         signature = ckan_config.get('ckanext.s3filestore.signature_version')
         addressing_style = ckan_config.get('ckanext.s3filestore.addressing_style', 'auto')
         bucket = upload.get_s3_bucket(bucket_name)
+        preview = request.args.get(u'preview', False)
 
         if filename is None:
             filename = os.path.basename(rsc['url'])
@@ -81,11 +83,17 @@ def resource_download(package_type, id, resource_id, filename=None):
 
             client.head_object(Bucket=bucket.name, Key=key_path)
 
+            params = {
+                'Bucket': bucket.name,
+                'Key': key_path,
+                'ResponseContentDisposition': 'attachment; filename=' + filename
+            }
+
+            if rsc.get('mimetype') == 'text/html' and preview:
+                params.pop('ResponseContentDisposition')
+
             url = client.generate_presigned_url(ClientMethod='get_object',
-                                                Params={'Bucket': bucket.name,
-                                                        'Key': key_path,
-                                                        'ResponseContentDisposition':
-                                                            'attachment; filename=' + filename},
+                                                Params=params,
                                                 ExpiresIn=60)
 
             return redirect(url)
@@ -102,7 +110,8 @@ def resource_download(package_type, id, resource_id, filename=None):
                         u's3_resource.filesystem_resource_download',
                         id=id,
                         resource_id=resource_id,
-                        filename=filename)
+                        filename=filename,
+                        preview=preview)
                     return redirect(url)
 
                 return abort(404, _('Resource data not found'))
@@ -125,6 +134,7 @@ def filesystem_resource_download(package_type, id, resource_id, filename=None):
         u'user': g.user,
         u'auth_user_obj': g.userobj
     }
+    preview = request.args.get(u'preview', False)
 
     try:
         rsc = get_action(u'resource_show')(context, {u'id': resource_id})
@@ -132,13 +142,19 @@ def filesystem_resource_download(package_type, id, resource_id, filename=None):
     except (NotFound, NotAuthorized):
         return abort(404, _(u'Resource not found'))
 
+    mimetype, enc = mimetypes.guess_type(
+        rsc.get('url', ''))
+
     if rsc.get(u'url_type') == u'upload':
         path = get_storage_path()
         storage_path = os.path.join(path, 'resources')
         directory = os.path.join(storage_path,
                                  resource_id[0:3], resource_id[3:6])
         filepath = os.path.join(directory, resource_id[6:])
-        return flask.send_file(filepath)
+        if preview:
+            return flask.send_file(filepath, mimetype=mimetype)
+        else:
+            return flask.send_file(filepath)
     elif u'url' not in rsc:
         return abort(404, _(u'No download is available'))
     return redirect(rsc[u'url'])

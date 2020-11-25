@@ -20,6 +20,10 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, 'templates')
+        # We need to register the following templates dir in order
+        # to fix downloading the HTML file instead of previewing when
+        # 'webpage_view' is enabled
+        toolkit.add_template_directory(config_, 'theme/templates')
 
     # IConfigurable
 
