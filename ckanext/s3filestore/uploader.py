@@ -60,11 +60,9 @@ class BaseS3Uploader(object):
         self.download_proxy = config.get('ckanext.s3filestore.download_proxy', None)
         self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry', '3600'))
         self.signed_url_cache_window = int(config.get('ckanext.s3filestore.signed_url_cache_window', '1800'))
+        self.signed_url_cache_enabled = self.signed_url_cache_window > 0 and self.signed_url_expiry > 0
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
         self.session = None
-
-    def is_url_caching_enabled(self):
-        return self.signed_url_cache_window and self.signed_url_cache_window > 0 and self.signed_url_expiry and self.signed_url_expiry > 0
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
@@ -131,7 +129,7 @@ class BaseS3Uploader(object):
                 Body=upload_file.read(), ACL=self.acl,
                 ContentType=getattr(self, 'mimetype', None))
             log.info("Successfully uploaded %s to S3!", filepath)
-            if self.is_url_caching_enabled():
+            if self.signed_url_cache_enabled:
                 connect_to_redis().delete(_get_cache_key(filepath))
         except Exception as e:
             log.error('Something went very very wrong for %s', str(e))
@@ -142,7 +140,7 @@ class BaseS3Uploader(object):
         try:
             self.get_s3_resource().Object(self.bucket_name, filepath).delete()
             log.info("Removed %s from S3", filepath)
-            if self.is_url_caching_enabled():
+            if self.signed_url_cache_enabled:
                 connect_to_redis().delete(_get_cache_key(filepath))
         except Exception as e:
             raise e
@@ -163,7 +161,7 @@ class BaseS3Uploader(object):
         # check whether the object exists in S3
         client.head_object(Bucket=self.bucket_name, Key=key_path)
 
-        if self.is_url_caching_enabled():
+        if self.signed_url_cache_enabled:
             redis_conn = connect_to_redis()
             cache_key = _get_cache_key(key_path)
             cache_url = redis_conn.get(cache_key)
@@ -180,7 +178,7 @@ class BaseS3Uploader(object):
         if self.download_proxy:
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
 
-        if self.is_url_caching_enabled():
+        if self.signed_url_cache_enabled:
             redis_conn.set(cache_key, url, ex=self.signed_url_cache_window)
         return url
 
