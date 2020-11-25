@@ -5,11 +5,13 @@ import datetime
 import mimetypes
 import errno
 import re
+import time
 
 import boto3
 import botocore
 import ckantoolkit as toolkit
 import ckan.lib.helpers as h
+from ckan.lib.redis import connect_to_redis
 
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as DefaultUpload
 
@@ -32,7 +34,10 @@ max_resource_size = None
 max_image_size = None
 
 URL_HOST = re.compile('^https?://[^/]*/')
+REDIS_PREFIX = 'ckanext-s3filestore:'
 
+def _get_cache_key(path):
+    return REDIS_PREFIX + path
 
 def _get_underlying_file(wrapper):
     if isinstance(wrapper, FlaskFileStorage):
@@ -53,6 +58,9 @@ class BaseS3Uploader(object):
         self.region = config.get('ckanext.s3filestore.region_name')
         self.signature = config.get('ckanext.s3filestore.signature_version')
         self.download_proxy = config.get('ckanext.s3filestore.download_proxy', None)
+        self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry', '3600'))
+        self.signed_url_cache_window = int(config.get('ckanext.s3filestore.signed_url_cache_window', '1800'))
+        self.signed_url_cache_enabled = self.signed_url_cache_window > 0 and self.signed_url_expiry > 0
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
         self.session = None
 
@@ -121,6 +129,8 @@ class BaseS3Uploader(object):
                 Body=upload_file.read(), ACL=self.acl,
                 ContentType=getattr(self, 'mimetype', None))
             log.info("Successfully uploaded %s to S3!", filepath)
+            if self.signed_url_cache_enabled:
+                connect_to_redis().delete(_get_cache_key(filepath))
         except Exception as e:
             log.error('Something went very very wrong for %s', str(e))
             raise e
@@ -129,14 +139,14 @@ class BaseS3Uploader(object):
         '''Deletes the contents of the key at `filepath` on `self.bucket`.'''
         try:
             self.get_s3_resource().Object(self.bucket_name, filepath).delete()
+            log.info("Removed %s from S3", filepath)
+            if self.signed_url_cache_enabled:
+                connect_to_redis().delete(_get_cache_key(filepath))
         except Exception as e:
             raise e
 
-    def get_signed_url_to_key(self, key_path, expiredin=3600):
+    def get_signed_url_to_key(self, key_path):
         '''Generates a pre-signed URL giving access to an S3 object.
-
-        Cacheability can be controlled by setting the 'expiredin' value,
-        which controls how long a signed URL is valid (default 1 hour).
 
         If a download_proxy is configured, then the URL will be
         generated using the true S3 host, and then the hostname will be
@@ -151,12 +161,25 @@ class BaseS3Uploader(object):
         # check whether the object exists in S3
         client.head_object(Bucket=self.bucket_name, Key=key_path)
 
+        if self.signed_url_cache_enabled:
+            redis_conn = connect_to_redis()
+            cache_key = _get_cache_key(key_path)
+            cache_url = redis_conn.get(cache_key)
+            if cache_url:
+                log.debug('Returning cached URL for path %s', key_path)
+                return cache_url
+            else:
+                log.debug('No cache found for %s; generating a new URL', key_path)
+
         url = client.generate_presigned_url(ClientMethod='get_object',
                                             Params={'Bucket': self.bucket_name,
                                                     'Key': key_path},
-                                            ExpiresIn=expiredin)
+                                            ExpiresIn=self.signed_url_expiry)
         if self.download_proxy:
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
+
+        if self.signed_url_cache_enabled:
+            redis_conn.set(cache_key, url, ex=self.signed_url_cache_window)
         return url
 
     def as_clean_dict(self, dict):
