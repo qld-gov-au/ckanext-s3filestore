@@ -66,7 +66,6 @@ Required::
     ckanext.s3filestore.aws_access_key_id = Your-Access-Key-ID
     ckanext.s3filestore.aws_secret_access_key = Your-Secret-Access-Key
     ckanext.s3filestore.aws_bucket_name = a-bucket-to-store-your-stuff
-    ckanext.s3filestore.host_name = host-to-S3-cloud storage 
     ckanext.s3filestore.region_name= region-name
     ckanext.s3filestore.signature_version = signature (s3v4)
 
@@ -85,6 +84,9 @@ Optional::
 
     # An optional setting to specify which addressing style to use. This controls whether the bucket name is in the hostname or is part of the URL. Default auto.
     ckanext.s3filestore.addressing_style = path
+
+    # Set this parameter only if you want to use Minio as a filestore service instead of S3.
+    ckanext.s3filestore.host_name = http://minio-service.com
 
 
 ------------------------

@@ -55,12 +55,7 @@ def resource_download(package_type, id, resource_id, filename=None):
     if rsc.get('url_type') == 'upload':
 
         upload = uploader.get_resource_uploader(rsc)
-        bucket_name = ckan_config.get('ckanext.s3filestore.aws_bucket_name')
-        region = ckan_config.get('ckanext.s3filestore.region_name')
-        host_name = ckan_config.get('ckanext.s3filestore.host_name')
-        signature = ckan_config.get('ckanext.s3filestore.signature_version')
-        addressing_style = ckan_config.get('ckanext.s3filestore.addressing_style', 'auto')
-        bucket = upload.get_s3_bucket(bucket_name)
+        bucket = upload.get_s3_bucket(upload.bucket_name)
         preview = request.args.get(u'preview', False)
 
         if filename is None:
@@ -70,17 +65,11 @@ def resource_download(package_type, id, resource_id, filename=None):
 
         if key is None:
             log.warn('Key \'{0}\' not found in bucket \'{1}\''
-                     .format(key_path, bucket_name))
+                     .format(key_path, upload.bucket_name))
 
         try:
-            # Small workaround to manage downloading of large files
-            # We are using redirect to minio's resource public URL
-            s3 = upload.get_s3_session()
-            client = s3.client(service_name='s3', endpoint_url=host_name,
-                               config=Config(signature_version=signature,
-                                             s3={'addressing_style': addressing_style}),
-                               region_name=region)
 
+            client = upload.get_s3_client()
             client.head_object(Bucket=bucket.name, Key=key_path)
 
             params = {

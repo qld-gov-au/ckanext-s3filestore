@@ -6,40 +6,25 @@ from botocore.client import Config
 
 import ckan.tests.factories as factories
 
+from ckanext.s3filestore.uploader import BaseS3Uploader
+
 
 @pytest.fixture
 def s3_session(ckan_config):
-    p_key = ckan_config.get(u'ckanext.s3filestore.aws_access_key_id')
-    s_key = ckan_config.get(u'ckanext.s3filestore.aws_secret_access_key')
-    region = ckan_config.get(u'ckanext.s3filestore.region_name')
-    return boto3.session.Session(aws_access_key_id=p_key,
-                                 aws_secret_access_key=s_key,
-                                 region_name=region)
+    base_uploader = BaseS3Uploader()
+    return base_uploader.get_s3_session()
 
 
 @pytest.fixture
 def s3_resource(ckan_config, s3_session):
-    host_name = ckan_config.get(u'ckanext.s3filestore.host_name')
-    signature = ckan_config.get(u'ckanext.s3filestore.signature_version')
-    addressing_style = ckan_config.get(u'ckanext.s3filestore.addressing_style', u'auto')
-
-    return s3_session.resource(u's3',
-                               endpoint_url=host_name,
-                               config=Config(signature_version=signature,
-                                             s3={u'addressing_style': addressing_style}))
+    base_uploader = BaseS3Uploader()
+    return base_uploader.get_s3_resource()
 
 
 @pytest.fixture
 def s3_client(ckan_config, s3_session):
-    host_name = ckan_config.get(u'ckanext.s3filestore.host_name')
-    signature = ckan_config.get(u'ckanext.s3filestore.signature_version')
-    addressing_style = ckan_config.get(u'ckanext.s3filestore.addressing_style', u'auto')
-    region = ckan_config.get(u'ckanext.s3filestore.region_name')
-    return s3_session.client(service_name=u's3',
-                             endpoint_url=host_name,
-                             config=Config(signature_version=signature,
-                                           s3={u'addressing_style': addressing_style}),
-                             region_name=region)
+    base_uploader = BaseS3Uploader()
+    return base_uploader.get_s3_client()
 
 
 @pytest.fixture
