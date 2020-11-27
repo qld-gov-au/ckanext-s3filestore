@@ -7,6 +7,7 @@ import magic
 
 import boto3
 import botocore
+from botocore.client import Config
 import ckantoolkit as toolkit
 
 import ckan.model as model
@@ -45,7 +46,7 @@ class BaseS3Uploader(object):
         self.s_key = config.get('ckanext.s3filestore.aws_secret_access_key')
         self.region = config.get('ckanext.s3filestore.region_name')
         self.signature = config.get('ckanext.s3filestore.signature_version')
-        self.host_name = config.get('ckanext.s3filestore.host_name')
+        self.host_name = config.get('ckanext.s3filestore.host_name', None)
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
         self.addressing_style = config.get('ckanext.s3filestore.addressing_style',
                                            'auto')
@@ -60,7 +61,7 @@ class BaseS3Uploader(object):
                                      aws_secret_access_key=self.s_key,
                                      region_name=self.region)
 
-    def get_s3_resource_obj(self):
+    def get_s3_resource(self):
         return self.get_s3_session().resource('s3',
                                               endpoint_url=self.host_name,
                                               config=botocore.client.Config(
@@ -68,11 +69,18 @@ class BaseS3Uploader(object):
                                                   s3={'addressing_style': self.addressing_style}
                                               ))
 
+    def get_s3_client(self):
+        return self.get_s3_session().client('s3',
+                                            endpoint_url=self.host_name,
+                                            config=Config(signature_version=self.signature,
+                                                          s3={'addressing_style': self.addressing_style}),
+                                            region_name=self.region)
+
     def get_s3_bucket(self, bucket_name):
         '''Return a boto bucket, creating it if it doesn't exist.'''
 
         # make s3 connection using boto3
-        s3 = self.get_s3_resource_obj()
+        s3 = self.get_s3_resource()
 
         bucket = s3.Bucket(bucket_name)
         try:
@@ -105,7 +113,7 @@ class BaseS3Uploader(object):
 
         upload_file.seek(0)
 
-        s3 = self.get_s3_resource_obj()
+        s3 = self.get_s3_resource()
 
         try:
             s3.Object(self.bucket_name, filepath).put(
@@ -119,7 +127,7 @@ class BaseS3Uploader(object):
     def clear_key(self, filepath):
         '''Deletes the contents of the key at `filepath` on `self.bucket`.'''
 
-        s3 = self.get_s3_resource_obj()
+        s3 = self.get_s3_resource()
 
         try:
             s3.Object(self.bucket_name, filepath).delete()

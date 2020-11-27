@@ -4,10 +4,9 @@ import logging
 
 import flask
 
-from ckantoolkit import config
 import ckantoolkit as toolkit
 
-from ckanext.s3filestore.uploader import S3Uploader
+from ckanext.s3filestore.uploader import S3Uploader, BaseS3Uploader
 
 
 Blueprint = flask.Blueprint
@@ -19,21 +18,23 @@ s3_uploads = Blueprint(
     __name__
 )
 
+base_uploader = BaseS3Uploader()
+
 
 def uploaded_file_redirect(upload_to, filename):
     '''Redirect static file requests to their location on S3.'''
-    host_name = config.get('ckanext.s3filestore.host_name')
-    # Remove last characted if it's a slash
-    if host_name[-1] == '/':
-        host_name = host_name[:-1]
+
     storage_path = S3Uploader.get_storage_path(upload_to)
     filepath = os.path.join(storage_path, filename)
 
-    redirect_url = '{host_name}/{bucket_name}/{filepath}' \
-        .format(bucket_name=config.get('ckanext.s3filestore.aws_bucket_name'),
-                filepath=filepath,
-                host_name=host_name)
-    return redirect(redirect_url)
+    client = base_uploader.get_s3_client()
+    bucket = base_uploader.bucket_name
+
+    url = client.generate_presigned_url(ClientMethod='get_object',
+                                        Params={'Bucket': bucket,
+                                                'Key': filepath
+                                                })
+    return redirect(url)
 
 
 s3_uploads.add_url_rule(u'/uploads/<upload_to>/<filename>', view_func=uploaded_file_redirect)
