@@ -41,6 +41,23 @@ class TestS3Controller(object):
         )
         assert 302 == response.status_code
 
+    def test_resource_download_not_found(self, app):
+        u'''When trying to download resource from CKAN it should redirect to S3.'''
+
+        user = factories.Sysadmin()
+        env = {u'REMOTE_USER': six.ensure_str(user[u'name'])}
+
+        response = app.get(
+            url_for(
+                u'dataset_resource.download',
+                id=u'package_id',
+                resource_id=u'resource_id',
+            ),
+            extra_environ=env,
+            follow_redirects=False
+        )
+        assert 404 == response.status_code
+
     def test_resource_download_no_filename(self, app, resource_with_upload):
         '''A resource uploaded to S3 can be downloaded when no filename in
         url.'''
