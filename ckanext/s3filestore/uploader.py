@@ -2,17 +2,16 @@ import os
 import cgi
 import logging
 import datetime
-import math
 import mimetypes
 import errno
 import re
-import tzlocal
+import time
 
 import boto3
 import botocore
 import ckantoolkit as toolkit
 import ckan.lib.helpers as h
-import freezegun
+from ckan.lib.redis import connect_to_redis
 
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as DefaultUpload
 
@@ -35,7 +34,10 @@ max_resource_size = None
 max_image_size = None
 
 URL_HOST = re.compile('^https?://[^/]*/')
+REDIS_PREFIX = 'ckanext-s3filestore:'
 
+def _get_cache_key(path):
+    return REDIS_PREFIX + path
 
 def _get_underlying_file(wrapper):
     if isinstance(wrapper, FlaskFileStorage):
@@ -56,6 +58,9 @@ class BaseS3Uploader(object):
         self.region = config.get('ckanext.s3filestore.region_name')
         self.signature = config.get('ckanext.s3filestore.signature_version')
         self.download_proxy = config.get('ckanext.s3filestore.download_proxy', None)
+        self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry', '3600'))
+        self.signed_url_cache_window = int(config.get('ckanext.s3filestore.signed_url_cache_window', '1800'))
+        self.signed_url_cache_enabled = self.signed_url_cache_window > 0 and self.signed_url_expiry > 0
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
         self.session = None
 
@@ -90,20 +95,20 @@ class BaseS3Uploader(object):
         bucket = s3.Bucket(bucket_name)
         try:
             s3.meta.client.head_bucket(Bucket=bucket_name)
-            log.info('Bucket {0} found!'.format(bucket_name))
+            log.info('Bucket %s found!', bucket_name)
         except botocore.exceptions.ClientError as e:
             error_code = e.response['Error']['Code']
             if error_code == '404':
-                log.warning('Bucket {0} could not be found, ' +
-                            'attempting to create it...'.format(bucket_name))
+                log.warning('Bucket %s could not be found, attempting to create it...',
+                        bucket_name)
                 try:
                     bucket = s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
                         'LocationConstraint': self.region})
                     log.info(
-                        'Bucket {0} successfully created'.format(bucket_name))
+                        'Bucket %s successfully created', bucket_name)
                 except botocore.exceptions.ClientError as e:
-                    log.warning('Could not create bucket {0}: {1}'.format(
-                        bucket_name, str(e)))
+                    log.warning('Could not create bucket %s: %s',
+                        bucket_name, str(e))
             elif error_code == '403':
                 raise S3FileStoreException(
                     'Access to bucket {0} denied'.format(bucket_name))
@@ -116,41 +121,32 @@ class BaseS3Uploader(object):
     def upload_to_key(self, filepath, upload_file, make_public=False):
         '''Uploads the `upload_file` to `filepath` on `self.bucket`.'''
         upload_file.seek(0)
-        logging.debug("ckanext.s3filestore.uploader: going to upload {0} to bucket {1} with mimetype {2}".format(
-            filepath, self.bucket_name, getattr(self, 'mimetype', None)))
+        log.debug("ckanext.s3filestore.uploader: going to upload %s to bucket %s with mimetype %s",
+            filepath, self.bucket_name, getattr(self, 'mimetype', None))
 
         try:
             self.get_s3_resource().Object(self.bucket_name, filepath).put(
                 Body=upload_file.read(), ACL=self.acl,
                 ContentType=getattr(self, 'mimetype', None))
             log.info("Successfully uploaded %s to S3!", filepath)
+            if self.signed_url_cache_enabled:
+                connect_to_redis().delete(_get_cache_key(filepath))
         except Exception as e:
-            log.error('Something went very very wrong for {0}'.format(str(e)))
+            log.error('Something went very very wrong for %s', str(e))
             raise e
 
     def clear_key(self, filepath):
         '''Deletes the contents of the key at `filepath` on `self.bucket`.'''
         try:
             self.get_s3_resource().Object(self.bucket_name, filepath).delete()
+            log.info("Removed %s from S3", filepath)
+            if self.signed_url_cache_enabled:
+                connect_to_redis().delete(_get_cache_key(filepath))
         except Exception as e:
             raise e
 
-    def get_signed_url_to_key(self, key_path, expiredin=3600, cache_window=30):
+    def get_signed_url_to_key(self, key_path):
         '''Generates a pre-signed URL giving access to an S3 object.
-
-        To enable effective caching, the timestamp used in the signature
-        is rounded to the previous half hour (by default),
-        so that a consistent URL will be returned for 30 minutes.
-        Eg a URL generated at 12:34 might have a signature timestamp
-        of 12:30.
-
-        Cacheability can be controlled by setting the 'expiredin' value,
-        which controls how long a signed URL is valid, and the
-        'cache_window' value, which controls how far back the timestamp
-        will be truncated. Note that 'expiredin' uses seconds, while
-        'cache_window' uses minutes. The expiry must be longer than the
-        truncation (not equal); otherwise, a URL may expire before a new
-        one is available. The default expiry is one hour.
 
         If a download_proxy is configured, then the URL will be
         generated using the true S3 host, and then the hostname will be
@@ -165,19 +161,25 @@ class BaseS3Uploader(object):
         # check whether the object exists in S3
         client.head_object(Bucket=self.bucket_name, Key=key_path)
 
-        signature_time = datetime.datetime.now(tzlocal.get_localzone())
-        cache_minute = int((math.floor(signature_time.minute / cache_window))) * cache_window
-        signature_time = signature_time.replace(
-            minute=cache_minute,
-            second=0,
-            microsecond=0)
-        with freezegun.freeze_time(signature_time):
-            url = client.generate_presigned_url(ClientMethod='get_object',
-                                                Params={'Bucket': self.bucket_name,
-                                                        'Key': key_path},
-                                                ExpiresIn=expiredin)
+        if self.signed_url_cache_enabled:
+            redis_conn = connect_to_redis()
+            cache_key = _get_cache_key(key_path)
+            cache_url = redis_conn.get(cache_key)
+            if cache_url:
+                log.debug('Returning cached URL for path %s', key_path)
+                return cache_url
+            else:
+                log.debug('No cache found for %s; generating a new URL', key_path)
+
+        url = client.generate_presigned_url(ClientMethod='get_object',
+                                            Params={'Bucket': self.bucket_name,
+                                                    'Key': key_path},
+                                            ExpiresIn=self.signed_url_expiry)
         if self.download_proxy:
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
+
+        if self.signed_url_cache_enabled:
+            redis_conn.set(cache_key, url, ex=self.signed_url_cache_window)
         return url
 
     def as_clean_dict(self, dict):
@@ -221,7 +223,7 @@ class S3Uploader(BaseS3Uploader):
         return os.path.join(path, 'storage', 'uploads', upload_to)
 
     def update_data_dict(self, data_dict, url_field, file_field, clear_field):
-        logging.debug("ckanext.s3filestore.uploader: update_data_dic: {0}, url {1}, file {2}, clear {3}".format(data_dict, url_field, file_field, clear_field))
+        log.debug("ckanext.s3filestore.uploader: update_data_dic: %s, url %s, file %s, clear %s", data_dict, url_field, file_field, clear_field)
         '''Manipulate data from the data_dict. This needs to be called before it
         reaches any validators.
 
@@ -257,7 +259,7 @@ class S3Uploader(BaseS3Uploader):
                     pass
             data_dict[url_field] = self.filename
             self.upload_file = _get_underlying_file(self.upload_field_storage)
-            logging.debug("ckanext.s3filestore.uploader: is allowed upload type: filename: {0}, upload_file: {1}, data_dict: {2}".format(self.filename, self.upload_file, data_dict))
+            log.debug("ckanext.s3filestore.uploader: is allowed upload type: filename: %s, upload_file: %s, data_dict: %s", self.filename, self.upload_file, data_dict)
         # keep the file if there has been no change
         elif self.old_filename and not self.old_filename.startswith('http'):
             if not self.clear:
@@ -265,13 +267,13 @@ class S3Uploader(BaseS3Uploader):
             if self.clear and self.url == self.old_filename:
                 data_dict[url_field] = ''
         else:
-            logging.debug(
-                "ckanext.s3filestore.uploader: is not allowed upload type: filename: {0}, upload_file: {1}, data_dict: {2}".format(
-                    self.filename, self.upload_file, data_dict))
+            log.debug(
+                "ckanext.s3filestore.uploader: is not allowed upload type: filename: %s, upload_file: %s, data_dict: %s",
+                    self.filename, self.upload_file, data_dict)
 
     def upload(self, max_size=2):
-        logging.debug(
-            "upload: {0}, {1}, max_size {2}".format(self.filename, max_size, self.filepath))
+        log.debug(
+            "upload: %s, %s, max_size %s", self.filename, max_size, self.filepath)
         '''Actually upload the file.
 
         This should happen just before a commit but after the data has been
@@ -297,8 +299,8 @@ class S3Uploader(BaseS3Uploader):
         try:
             self.clear_key(key_path)
         except ClientError as ex:
-            log.warning('Key \'{0}\' not found in bucket \'{1}\' for delete'
-                        .format(key_path, self.bucket_name))
+            log.warning('Key \'%s\' not found in bucket \'%s\' for delete',
+                        key_path, self.bucket_name)
             pass
 
     def download(self, filename):
@@ -311,8 +313,8 @@ class S3Uploader(BaseS3Uploader):
         key_path = os.path.join(self.storage_path, filename)
 
         if key_path is None:
-            log.warning('Key \'{0}\' not found in bucket \'{1}\''
-                     .format(key_path, self.bucket_name))
+            log.warning("Key '%s' not found in bucket '%s'",
+                     key_path, self.bucket_name)
 
         try:
             url = self.get_signed_url_to_key(key_path)
@@ -342,8 +344,8 @@ class S3Uploader(BaseS3Uploader):
         key = filename
 
         if key is None:
-            log.warning('Key \'{0}\' not found in bucket \'{1}\''
-                     .format(key_path, self.bucket_name))
+            log.warning("Key '%s' not found in bucket '%s'",
+                     key_path, self.bucket_name)
 
         try:
             # Small workaround to manage downloading of large files
@@ -472,8 +474,8 @@ class S3ResourceUploader(BaseS3Uploader):
         try:
             self.clear_key(key_path)
         except ClientError as ex:
-            log.warning('Key \'{0}\' not found in bucket \'{1}\' for delete'
-                        .format(key_path, self.bucket_name))
+            log.warning("Key '%s' not found in bucket '%s' for delete",
+                        key_path, self.bucket_name)
             pass
 
     def download(self, id, filename=None):
@@ -489,8 +491,8 @@ class S3ResourceUploader(BaseS3Uploader):
         key = filename
 
         if key is None:
-            log.warning('Key \'{0}\' not found in bucket \'{1}\''
-                     .format(key_path, self.bucket_name))
+            log.warning("Key '%s' not found in bucket '%s'",
+                     key_path, self.bucket_name)
 
         try:
             url = self.get_signed_url_to_key(key_path)
@@ -513,8 +515,8 @@ class S3ResourceUploader(BaseS3Uploader):
         key = filename
 
         if key is None:
-            log.warning('Key \'{0}\' not found in bucket \'{1}\''
-                     .format(key_path, self.bucket_name))
+            log.warning("Key '%s' not found in bucket '%s'",
+                     key_path, self.bucket_name)
 
         try:
             # Small workaround to manage downloading of large files
