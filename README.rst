@@ -63,11 +63,18 @@ Config Settings
 
 Required::
 
-    ckanext.s3filestore.aws_access_key_id = Your-Access-Key-ID
-    ckanext.s3filestore.aws_secret_access_key = Your-Secret-Access-Key
     ckanext.s3filestore.aws_bucket_name = a-bucket-to-store-your-stuff
     ckanext.s3filestore.region_name= region-name
     ckanext.s3filestore.signature_version = signature (s3v4)
+
+Conditional::
+
+    ckanext.s3filestore.aws_access_key_id = Your-Access-Key-ID
+    ckanext.s3filestore.aws_secret_access_key = Your-Secret-Access-Key
+
+    Or:
+
+    ckanext.s3filestore.aws_use_ami_role = true
 
 Optional::
 
