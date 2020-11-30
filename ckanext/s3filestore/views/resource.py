@@ -55,7 +55,6 @@ def resource_download(package_type, id, resource_id, filename=None):
     if rsc.get('url_type') == 'upload':
 
         upload = uploader.get_resource_uploader(rsc)
-        bucket = upload.get_s3_bucket(upload.bucket_name)
         preview = request.args.get(u'preview', False)
 
         if filename is None:
@@ -68,23 +67,13 @@ def resource_download(package_type, id, resource_id, filename=None):
                      .format(key_path, upload.bucket_name))
 
         try:
-
-            client = upload.get_s3_client()
-            client.head_object(Bucket=bucket.name, Key=key_path)
-
-            params = {
-                'Bucket': bucket.name,
-                'Key': key_path,
-                'ResponseContentDisposition': 'attachment; filename=' + filename
-            }
-
             if rsc.get('mimetype') == 'text/html' and preview:
-                params.pop('ResponseContentDisposition')
-
-            url = client.generate_presigned_url(ClientMethod='get_object',
-                                                Params=params,
-                                                ExpiresIn=60)
-
+                url = upload.get_signed_url_to_key(key_path, 60)
+            else:
+                params = {
+                    'ResponseContentDisposition': 'attachment; filename=' + filename,
+                }
+                url = upload.get_signed_url_to_key(key_path, 60, params)
             return redirect(url)
 
         except ClientError as ex:

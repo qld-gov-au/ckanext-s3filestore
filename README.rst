@@ -27,7 +27,7 @@ Use Amazon S3 or Minio<https://minio.io/> as a filestore for resources.
 Requirements
 ------------
 
-Requires CKAN 2.5+
+Requires CKAN 2.7+
 
 
 ------------
@@ -94,6 +94,11 @@ Optional::
 
     # Set this parameter only if you want to use Minio as a filestore service instead of S3.
     ckanext.s3filestore.host_name = http://minio-service.com
+
+    # To mask the S3 endpoint with your own domain/endpoint when serving URLs to end users.
+    # This endpoint should be capable of serving S3 objects as if it were an actual bucket.
+    # The real S3 endpoint will still be used for uploading files.
+    ckanext.s3filestore.download_proxy = https://example.com/my-bucket
 
 
 ------------------------
