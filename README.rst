@@ -100,6 +100,9 @@ Optional::
     # The real S3 endpoint will still be used for uploading files.
     ckanext.s3filestore.download_proxy = https://example.com/my-bucket
 
+    # Defines how long a signed URL is valid (default 1 hour).
+    ckanext.s3filestore.signed_url_expiry = 3600
+
 
 ------------------------
 Development Installation

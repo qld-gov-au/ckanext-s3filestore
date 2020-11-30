@@ -54,6 +54,8 @@ class BaseS3Uploader(object):
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
         self.addressing_style = config.get('ckanext.s3filestore.addressing_style',
                                            'auto')
+        self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry',
+                                                '3600'))
         self.bucket = self.get_s3_bucket(self.bucket_name)
 
     def get_directory(self, id, storage_path):
@@ -138,7 +140,7 @@ class BaseS3Uploader(object):
         except Exception as e:
             raise e
 
-    def get_signed_url_to_key(self, key, expires_in=None, extra_params={}):
+    def get_signed_url_to_key(self, key, extra_params={}):
         '''Generates a pre-signed URL giving access to an S3 object.
 
         If a download_proxy is configured, then the URL will be
@@ -161,7 +163,7 @@ class BaseS3Uploader(object):
 
         url = client.generate_presigned_url(ClientMethod='get_object',
                                             Params=params,
-                                            ExpiresIn=expires_in)
+                                            ExpiresIn=self.signed_url_expiry)
         if self.download_proxy:
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
 

@@ -68,12 +68,12 @@ def resource_download(package_type, id, resource_id, filename=None):
 
         try:
             if rsc.get('mimetype') == 'text/html' and preview:
-                url = upload.get_signed_url_to_key(key_path, 60)
+                url = upload.get_signed_url_to_key(key_path)
             else:
                 params = {
                     'ResponseContentDisposition': 'attachment; filename=' + filename,
                 }
-                url = upload.get_signed_url_to_key(key_path, 60, params)
+                url = upload.get_signed_url_to_key(key_path, params)
             return redirect(url)
 
         except ClientError as ex:
