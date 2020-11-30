@@ -106,6 +106,8 @@ def resource_download(package_type, id, resource_id, filename=None):
                 return abort(404, _('Resource data not found'))
             else:
                 raise ex
+    else:
+        return redirect(rsc[u'url'])
 
 
 def filesystem_resource_download(package_type, id, resource_id, filename=None):
