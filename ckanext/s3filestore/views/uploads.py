@@ -18,15 +18,13 @@ s3_uploads = Blueprint(
     __name__
 )
 
-base_uploader = BaseS3Uploader()
-
 
 def uploaded_file_redirect(upload_to, filename):
     '''Redirect static file requests to their location on S3.'''
 
     storage_path = S3Uploader.get_storage_path(upload_to)
     filepath = os.path.join(storage_path, filename)
-
+    base_uploader = BaseS3Uploader()
     client = base_uploader.get_s3_client()
     bucket = base_uploader.bucket_name
 
