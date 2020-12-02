@@ -56,7 +56,6 @@ class BaseS3Uploader(object):
                                            'auto')
         self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry',
                                                 '3600'))
-        self.bucket = self.get_s3_bucket(self.bucket_name)
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
