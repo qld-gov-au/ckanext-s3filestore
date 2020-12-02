@@ -1,4 +1,5 @@
 import os
+import re
 import cgi
 import logging
 import datetime
@@ -27,6 +28,8 @@ _storage_path = None
 _max_resource_size = None
 _max_image_size = None
 
+URL_HOST = re.compile('^https?://[^/]*/')
+
 
 def _get_underlying_file(wrapper):
     if isinstance(wrapper, FlaskFileStorage):
@@ -47,9 +50,12 @@ class BaseS3Uploader(object):
         self.region = config.get('ckanext.s3filestore.region_name')
         self.signature = config.get('ckanext.s3filestore.signature_version')
         self.host_name = config.get('ckanext.s3filestore.host_name', None)
+        self.download_proxy = config.get('ckanext.s3filestore.download_proxy', None)
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
         self.addressing_style = config.get('ckanext.s3filestore.addressing_style',
                                            'auto')
+        self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry',
+                                                '3600'))
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
@@ -132,6 +138,35 @@ class BaseS3Uploader(object):
             s3.Object(self.bucket_name, filepath).delete()
         except Exception as e:
             raise e
+
+    def get_signed_url_to_key(self, key, extra_params={}):
+        '''Generates a pre-signed URL giving access to an S3 object.
+
+        If a download_proxy is configured, then the URL will be
+        generated using the true S3 host, and then the hostname will be
+        rewritten afterward. Note that the Host header is part of a
+        version 4 signature, so the resulting request, as it stands,
+        will fail signature verification; the download_proxy server must
+        be configured to set the Host header back to the true value when
+        forwarding the request (CloudFront does this automatically).
+        '''
+        client = self.get_s3_client()
+        # check whether the object exists in S3
+        client.head_object(Bucket=self.bucket_name, Key=key)
+
+        params = {'Bucket': self.bucket_name,
+                  'Key': key
+                  }
+
+        params.update(extra_params)
+
+        url = client.generate_presigned_url(ClientMethod='get_object',
+                                            Params=params,
+                                            ExpiresIn=self.signed_url_expiry)
+        if self.download_proxy:
+            url = URL_HOST.sub(self.download_proxy + '/', url, 1)
+
+        return url
 
 
 class S3Uploader(BaseS3Uploader):
