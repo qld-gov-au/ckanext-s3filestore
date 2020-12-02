@@ -50,7 +50,6 @@ class BaseS3Uploader(object):
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
         self.addressing_style = config.get('ckanext.s3filestore.addressing_style',
                                            'auto')
-        self.bucket = self.get_s3_bucket(self.bucket_name)
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
