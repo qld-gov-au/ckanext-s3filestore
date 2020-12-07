@@ -280,6 +280,7 @@ class S3ResourceUploader(BaseS3Uploader):
         mime = magic.Magic(mime=True)
 
         if isinstance(upload_field_storage, ALLOWED_UPLOAD_TYPES):
+            self.filesize = 0  # bytes
             self.filename = upload_field_storage.filename
             self.filename = munge.munge_filename(self.filename)
             resource['url'] = self.filename
@@ -293,8 +294,12 @@ class S3ResourceUploader(BaseS3Uploader):
                 resource['format'] = resource_format
 
             self.upload_file = _get_underlying_file(upload_field_storage)
-            self.mimetype = resource.get('mimetype')
+            self.upload_file.seek(0, os.SEEK_END)
+            self.filesize = self.upload_file.tell()
+            # go back to the beginning of the file buffer
+            self.upload_file.seek(0, os.SEEK_SET)
 
+            self.mimetype = resource.get('mimetype')
             if not self.mimetype:
                 try:
                     self.mimetype = resource['mimetype'] = mime.from_buffer(self.upload_file.read())
