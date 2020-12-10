@@ -104,3 +104,38 @@ class TestS3ResourceUpload(object):
             s3_client.head_object(Bucket=self.bucket_name, Key=key)
 
         assert e.value.response[u'Error'][u'Code'] == u'404'
+
+    def test_delete_resource_from_s3(self, s3_client, resource_with_upload):
+
+        resource_id = resource_with_upload[u'id']
+
+        key = u'resources/{0}/test.csv' \
+            .format(resource_with_upload[u'id'])
+
+        # key must exist
+        assert s3_client.head_object(Bucket=self.bucket_name, Key=key)
+
+        uploader = S3ResourceUploader(resource_with_upload)
+
+        uploader.delete(resource_id, u'test.csv')
+
+        # key shouldn't exist, this raises ClientError
+        with pytest.raises(ClientError) as e:
+            s3_client.head_object(Bucket=self.bucket_name, Key=key)
+
+    def test_delete_image_from_s3(self, s3_client, organization_with_image):
+
+        uploader = S3Uploader(u'group')
+        storage_path = S3Uploader.get_storage_path(u'group')
+        key = os.path.join(storage_path, organization_with_image[u'image_url'])
+
+        # key must exist
+        assert s3_client.head_object(Bucket=self.bucket_name, Key=key)
+
+        uploader.delete(organization_with_image[u'image_url'])
+
+        # key shouldn't exist, this raises ClientError
+        with pytest.raises(ClientError) as e:
+            s3_client.head_object(Bucket=self.bucket_name, Key=key)
+
+
