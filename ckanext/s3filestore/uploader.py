@@ -9,6 +9,7 @@ import magic
 import boto3
 import botocore
 from botocore.client import Config
+from botocore.exceptions import ClientError
 import ckantoolkit as toolkit
 
 import ckan.model as model
@@ -252,6 +253,17 @@ class S3Uploader(BaseS3Uploader):
                 and not self.old_filename.startswith('http')):
             self.clear_key(self.old_filepath)
 
+    def delete(self, filename):
+        ''' Delete file we are pointing at'''
+        filename = munge.munge_filename_legacy(filename)
+        key_path = os.path.join(self.storage_path, filename)
+        try:
+            self.clear_key(key_path)
+        except ClientError as ex:
+            log.warning('Key \'%s\' not found in bucket \'%s\' for delete',
+                        key_path, self.bucket_name)
+            pass
+
 
 class S3ResourceUploader(BaseS3Uploader):
     '''
@@ -351,3 +363,17 @@ class S3ResourceUploader(BaseS3Uploader):
         if self.clear and self.old_filename:
             filepath = self.get_path(id, self.old_filename)
             self.clear_key(filepath)
+
+    def delete(self, id, filename=None):
+        ''' Delete file we are pointing at'''
+
+        if filename is None:
+            filename = os.path.basename(self.url)
+        filename = munge.munge_filename(filename)
+        key_path = self.get_path(id, filename)
+        try:
+            self.clear_key(key_path)
+        except ClientError as ex:
+            log.warning("Key '%s' not found in bucket '%s' for delete",
+                        key_path, self.bucket_name)
+            pass
