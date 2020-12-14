@@ -145,7 +145,7 @@ class BaseS3Uploader(object):
         except Exception as e:
             raise e
 
-    def get_signed_url_to_key(self, key_path):
+    def get_signed_url_to_key(self, key, extra_params={}):
         '''Generates a pre-signed URL giving access to an S3 object.
 
         If a download_proxy is configured, then the URL will be
@@ -159,21 +159,25 @@ class BaseS3Uploader(object):
         client = self.get_s3_client()
 
         # check whether the object exists in S3
-        client.head_object(Bucket=self.bucket_name, Key=key_path)
+        metadata = client.head_object(Bucket=self.bucket_name, Key=key)
 
         if self.signed_url_cache_enabled:
             redis_conn = connect_to_redis()
-            cache_key = _get_cache_key(key_path)
+            cache_key = _get_cache_key(key)
             cache_url = redis_conn.get(cache_key)
             if cache_url:
-                log.debug('Returning cached URL for path %s', key_path)
+                log.debug('Returning cached URL for path %s', key)
                 return cache_url
             else:
-                log.debug('No cache found for %s; generating a new URL', key_path)
+                log.debug('No cache found for %s; generating a new URL', key)
 
+        params = {'Bucket': self.bucket_name,
+                  'Key': key}
+        if metadata['ContentType'] != 'application/pdf':
+            params['ResponseContentDisposition'] = 'attachment; filename=' + key
+        params.update(extra_params)
         url = client.generate_presigned_url(ClientMethod='get_object',
-                                            Params={'Bucket': self.bucket_name,
-                                                    'Key': key_path},
+                                            Params=params,
                                             ExpiresIn=self.signed_url_expiry)
         if self.download_proxy:
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
@@ -295,12 +299,12 @@ class S3Uploader(BaseS3Uploader):
     def delete(self, filename):
         ''' Delete file we are pointing at'''
         filename = munge.munge_filename_legacy(filename)
-        key_path = os.path.join(self.storage_path, filename)
+        key = os.path.join(self.storage_path, filename)
         try:
-            self.clear_key(key_path)
+            self.clear_key(key)
         except ClientError as ex:
             log.warning('Key \'%s\' not found in bucket \'%s\' for delete',
-                        key_path, self.bucket_name)
+                        key, self.bucket_name)
             pass
 
     def download(self, filename):
@@ -310,14 +314,14 @@ class S3Uploader(BaseS3Uploader):
         '''
 
         filename = munge.munge_filename_legacy(filename)
-        key_path = os.path.join(self.storage_path, filename)
+        key = os.path.join(self.storage_path, filename)
 
-        if key_path is None:
+        if key is None:
             log.warning("Key '%s' not found in bucket '%s'",
-                     key_path, self.bucket_name)
+                     key, self.bucket_name)
 
         try:
-            url = self.get_signed_url_to_key(key_path)
+            url = self.get_signed_url_to_key(key)
             h.redirect_to(url)
 
 
@@ -340,19 +344,19 @@ class S3Uploader(BaseS3Uploader):
         and may include other keys depending on the implementation.
         '''
         filename = munge.munge_filename_legacy(filename)
-        key_path = os.path.join(self.storage_path, filename)
+        key = os.path.join(self.storage_path, filename)
         key = filename
 
         if key is None:
             log.warning("Key '%s' not found in bucket '%s'",
-                     key_path, self.bucket_name)
+                     key, self.bucket_name)
 
         try:
             # Small workaround to manage downloading of large files
             # We are using redirect to minio's resource public URL
             client = self.get_s3_client()
 
-            metadata = client.head_object(Bucket=self.bucket_name, Key=key_path)
+            metadata = client.head_object(Bucket=self.bucket_name, Key=key)
             metadata['content_type'] = metadata['ContentType']
             metadata['size'] = metadata['ContentLength']
             metadata['hash'] = metadata['ETag']
@@ -470,12 +474,12 @@ class S3ResourceUploader(BaseS3Uploader):
         if filename is None:
             filename = os.path.basename(self.url)
         filename = munge.munge_filename(filename)
-        key_path = self.get_path(id, filename)
+        key = self.get_path(id, filename)
         try:
-            self.clear_key(key_path)
+            self.clear_key(key)
         except ClientError as ex:
             log.warning("Key '%s' not found in bucket '%s' for delete",
-                        key_path, self.bucket_name)
+                        key, self.bucket_name)
             pass
 
     def download(self, id, filename=None):
@@ -487,15 +491,15 @@ class S3ResourceUploader(BaseS3Uploader):
         if not self.use_filename or filename is None:
             filename = os.path.basename(self.url)
         filename = munge.munge_filename(filename)
-        key_path = self.get_path(id, filename)
+        key = self.get_path(id, filename)
         key = filename
 
         if key is None:
             log.warning("Key '%s' not found in bucket '%s'",
-                     key_path, self.bucket_name)
+                     key, self.bucket_name)
 
         try:
-            url = self.get_signed_url_to_key(key_path)
+            url = self.get_signed_url_to_key(key)
             h.redirect_to(url)
 
         except ClientError as ex:
@@ -511,19 +515,19 @@ class S3ResourceUploader(BaseS3Uploader):
         if filename is None:
             filename = os.path.basename(self.url)
         filename = munge.munge_filename(filename)
-        key_path = self.get_path(id, filename)
+        key = self.get_path(id, filename)
         key = filename
 
         if key is None:
             log.warning("Key '%s' not found in bucket '%s'",
-                     key_path, self.bucket_name)
+                     key, self.bucket_name)
 
         try:
             # Small workaround to manage downloading of large files
             # We are using redirect to minio's resource public URL
             client = self.get_s3_client()
 
-            metadata = client.head_object(Bucket=self.bucket_name, Key=key_path)
+            metadata = client.head_object(Bucket=self.bucket_name, Key=key)
             metadata['content_type'] = metadata['ContentType']
 
             # Drop non public metadata
