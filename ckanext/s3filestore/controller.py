@@ -117,7 +117,7 @@ class S3Controller(base.BaseController):
         host_name = config.get('ckanext.s3filestore.download_proxy',
             'https://{bucket_name}.s3.{region_name}.amazonaws.com'.format(
                 bucket_name=config.get('ckanext.s3filestore.aws_bucket_name'),
-                region_name=config.get('ckanext.s3filestore.region_name'))
+                region_name=config.get('ckanext.s3filestore.region_name')))
         # Remove last character if it's a slash
         if host_name[-1] == '/':
             host_name = host_name[:-1]
