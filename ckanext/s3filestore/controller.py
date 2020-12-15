@@ -59,7 +59,7 @@ class S3Controller(base.BaseController):
                          key_path, bucket_name)
 
             try:
-                url = upload.get_signed_url_to_key(key_path, 60)
+                url = upload.get_signed_url_to_key(key_path)
                 h.redirect_to(url)
             except ClientError as ex:
                 if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
