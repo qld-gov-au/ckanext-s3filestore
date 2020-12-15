@@ -344,19 +344,18 @@ class S3Uploader(BaseS3Uploader):
         and may include other keys depending on the implementation.
         '''
         filename = munge.munge_filename_legacy(filename)
-        key = os.path.join(self.storage_path, filename)
-        key = filename
+        key_path = os.path.join(self.storage_path, filename)
 
-        if key is None:
+        if filename is None:
             log.warning("Key '%s' not found in bucket '%s'",
-                     key, self.bucket_name)
+                     filename, self.bucket_name)
 
         try:
             # Small workaround to manage downloading of large files
             # We are using redirect to minio's resource public URL
             client = self.get_s3_client()
 
-            metadata = client.head_object(Bucket=self.bucket_name, Key=key)
+            metadata = client.head_object(Bucket=self.bucket_name, Key=key_path)
             metadata['content_type'] = metadata['ContentType']
             metadata['size'] = metadata['ContentLength']
             metadata['hash'] = metadata['ETag']
@@ -491,15 +490,14 @@ class S3ResourceUploader(BaseS3Uploader):
         if not self.use_filename or filename is None:
             filename = os.path.basename(self.url)
         filename = munge.munge_filename(filename)
-        key = self.get_path(id, filename)
-        key = filename
+        key_path = self.get_path(id, filename)
 
-        if key is None:
+        if filename is None:
             log.warning("Key '%s' not found in bucket '%s'",
-                     key, self.bucket_name)
+                     filename, self.bucket_name)
 
         try:
-            url = self.get_signed_url_to_key(key)
+            url = self.get_signed_url_to_key(key_path)
             h.redirect_to(url)
 
         except ClientError as ex:
@@ -515,19 +513,18 @@ class S3ResourceUploader(BaseS3Uploader):
         if filename is None:
             filename = os.path.basename(self.url)
         filename = munge.munge_filename(filename)
-        key = self.get_path(id, filename)
-        key = filename
+        key_path = self.get_path(id, filename)
 
-        if key is None:
+        if filename is None:
             log.warning("Key '%s' not found in bucket '%s'",
-                     key, self.bucket_name)
+                     filename, self.bucket_name)
 
         try:
             # Small workaround to manage downloading of large files
             # We are using redirect to minio's resource public URL
             client = self.get_s3_client()
 
-            metadata = client.head_object(Bucket=self.bucket_name, Key=key)
+            metadata = client.head_object(Bucket=self.bucket_name, Key=key_path)
             metadata['content_type'] = metadata['ContentType']
 
             # Drop non public metadata
