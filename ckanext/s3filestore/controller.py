@@ -125,7 +125,7 @@ class S3Controller(base.BaseController):
             host_name = config.get('ckanext.s3filestore.download_proxy',
                 'https://{bucket_name}.s3.{region_name}.amazonaws.com'.format(
                     bucket_name=config.get('ckanext.s3filestore.aws_bucket_name'),
-                    region_name=config.get('ckanext.s3filestore.region_name'))
+                    region_name=config.get('ckanext.s3filestore.region_name')))
         storage_path = S3Uploader.get_storage_path(upload_to)
         filepath = os.path.join(storage_path, filename)
 
