@@ -65,7 +65,7 @@ Required::
 
     ckanext.s3filestore.aws_bucket_name = a-bucket-to-store-your-stuff
     ckanext.s3filestore.region_name= region-name
-    ckanext.s3filestore.signature_version = signature (s3v4)
+    ckanext.s3filestore.signature_version = s3v4
 
 Conditional::
 
@@ -102,6 +102,9 @@ Optional::
 
     # Defines how long a signed URL is valid (default 1 hour).
     ckanext.s3filestore.signed_url_expiry = 3600
+
+    # Don't check for access on each startup
+    ckanext.s3filestore.check_access_on_startup = false
 
 
 ------------------------
