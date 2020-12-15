@@ -16,16 +16,27 @@ from sqlalchemy import create_engine
 from sqlalchemy.sql import text
 import boto3
 
+import configparser
 
 # Configuration
 
-BASE_PATH = '/var/lib/ckan/default/resources'
-SQLALCHEMY_URL = 'postgresql://user:pass@localhost/db'
-AWS_ACCESS_KEY_ID = 'AKIxxxxxx'
-AWS_SECRET_ACCESS_KEY = '+NGxxxxxx'
-AWS_BUCKET_NAME = 'my-bucket'
-AWS_STORAGE_PATH = 'some-path'
-AWS_S3_ACL = 'public-read'
+CONFIG_FILE = '/etc/ckan/default/production.ini'
+
+config = configparser.ConfigParser(strict=False)
+config.read(CONFIG_FILE)
+main_config = config['app:main']
+
+BASE_PATH = main_config.get('ckan.storage_path', '/var/lib/ckan/default/resources')
+SQLALCHEMY_URL = main_config.get('sqlalchemy.url', 'postgresql://user:pass@localhost/db')
+if main_config.get('ckanext.s3filestore.aws_use_ami_role', False):
+    AWS_ACCESS_KEY_ID = None
+    AWS_SECRET_ACCESS_KEY = None
+else:
+    AWS_ACCESS_KEY_ID = main_config.get('ckanext.s3filestore.aws_access_key_id', 'AKIxxxxxx')
+    AWS_SECRET_ACCESS_KEY = main_config.get('ckanext.s3filestore.aws_secret_access_key', '+NGxxxxxx')
+AWS_BUCKET_NAME = main_config.get('ckanext.s3filestore.aws_bucket_name', 'my-bucket')
+AWS_STORAGE_PATH = ''
+AWS_S3_ACL = main_config.get('ckanext.s3filestore.acl', 'public-read')
 
 
 resource_ids_and_paths = {}
