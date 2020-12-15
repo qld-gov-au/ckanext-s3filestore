@@ -55,21 +55,20 @@ class S3Controller(base.BaseController):
             key_path = upload.get_path(rsc['id'], filename)
 
             if filename is None:
-                log.warn('Key \'{0}\' not found in bucket \'{1}\''
-                         .format(key_path, bucket_name))
+                log.warn("Key '%s' not found in bucket '%s'",
+                         key_path, bucket_name)
 
             try:
                 url = upload.get_signed_url_to_key(key_path, 60)
                 h.redirect_to(url)
-
             except ClientError as ex:
                 if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                     # attempt fallback
                     if config.get(
                             'ckanext.s3filestore.filesystem_download_fallback',
                             False):
-                        log.info('Attempting filesystem fallback for resource {0}'
-                                 .format(resource_id))
+                        log.info('Attempting filesystem fallback for resource %s',
+                                 resource_id)
                         url = toolkit.url_for(
                             controller='ckanext.s3filestore.controller:S3Controller',
                             action='filesystem_resource_download',
@@ -98,8 +97,10 @@ class S3Controller(base.BaseController):
         try:
             rsc = get_action('resource_show')(context, {'id': resource_id})
             get_action('package_show')(context, {'id': id})
-        except (NotFound, NotAuthorized):
+        except NotFound:
             abort(404, _('Resource not found'))
+        except NotAuthorized:
+            abort(401, _('Unauthorised to read resource %s') % resource_id)
 
         if rsc.get('url_type') == 'upload':
             upload = DefaultResourceUpload(rsc)
@@ -114,13 +115,17 @@ class S3Controller(base.BaseController):
 
     def uploaded_file_redirect(self, upload_to, filename):
         '''Redirect static file requests to their location on S3.'''
-        host_name = config.get('ckanext.s3filestore.download_proxy',
-            'https://{bucket_name}.s3.{region_name}.amazonaws.com'.format(
-                bucket_name=config.get('ckanext.s3filestore.aws_bucket_name'),
-                region_name=config.get('ckanext.s3filestore.region_name'))
-        # Remove last character if it's a slash
-        if host_name[-1] == '/':
-            host_name = host_name[:-1]
+        if config.get('ckanext.s3filestore.addressing_style') == 'path':
+            host_name = config.get('ckanext.s3filestore.host_name')
+            # ensure trailing slash
+            if host_name[-1] != '/':
+                host_name += '/'
+            host_name += config.get('ckanext.s3filestore.aws_bucket_name')
+        else:
+            host_name = config.get('ckanext.s3filestore.download_proxy',
+                'https://{bucket_name}.s3.{region_name}.amazonaws.com'.format(
+                    bucket_name=config.get('ckanext.s3filestore.aws_bucket_name'),
+                    region_name=config.get('ckanext.s3filestore.region_name'))
         storage_path = S3Uploader.get_storage_path(upload_to)
         filepath = os.path.join(storage_path, filename)
 
