@@ -245,8 +245,7 @@ class S3Uploader(BaseS3Uploader):
         # If a filename has been provided (a file is being uploaded) write the
         # file to the appropriate key in the AWS bucket.
         if self.filename:
-            self.upload_to_key(self.filepath, self.upload_file,
-                               make_public=True)
+            self.upload_to_key(self.filepath, self.upload_file)
             self.clear = True
 
         if (self.clear and self.old_filename
