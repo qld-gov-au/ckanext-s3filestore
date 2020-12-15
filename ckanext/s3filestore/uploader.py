@@ -314,13 +314,16 @@ class S3ResourceUploader(BaseS3Uploader):
             self.mimetype = resource.get('mimetype')
             if not self.mimetype:
                 try:
-                    self.mimetype = resource['mimetype'] = mime.from_buffer(self.upload_file.read())
+                    # 512 bytes should be enough for a mimetype check
+                    self.mimetype = resource['mimetype'] = mime.from_buffer(self.upload_file.read(512))
 
                     # additional check on text/plain mimetypes for
                     # more reliable result, if None continue with text/plain
                     if self.mimetype == 'text/plain':
                         self.mimetype = resource['mimetype'] = \
                             mimetypes.guess_type(self.filename, strict=False)[0] or 'text/plain'
+                    # go back to the beginning of the file buffer
+                    self.upload_file.seek(0, os.SEEK_SET)
 
                 except Exception:
                     pass
