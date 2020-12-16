@@ -34,8 +34,8 @@ for root, dirs, files in os.walk(BASE_PATH):
         resource_id = root.split('/')[-2] + root.split('/')[-1] + files[0]
         resource_ids_and_paths[resource_id] = os.path.join(root, files[0])
 
-print 'Found {0} resource files in the file system'.format(
-    len(resource_ids_and_paths.keys()))
+print('Found {0} resource files in the file system'.format(
+    len(resource_ids_and_paths.keys())))
 
 engine = create_engine(SQLALCHEMY_URL)
 connection = engine.connect()
@@ -58,8 +58,8 @@ finally:
     connection.close()
     engine.dispose()
 
-print '{0} resources matched on the database'.format(
-    len(resource_ids_and_names.keys()))
+print('{0} resources matched on the database'.format(
+    len(resource_ids_and_names.keys())))
 
 # todo: move to plugin initi so we don't need to reinit secrets
 s3_connection = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
@@ -78,6 +78,6 @@ for resource_id, file_name in resource_ids_and_names.iteritems():
 
     k.set_contents_from_filename(resource_ids_and_paths[resource_id])
     uploaded_resources.append(resource_id)
-    print 'Uploaded resource {0} ({1}) to S3'.format(resource_id, file_name)
+    print('Uploaded resource {0} ({1}) to S3'.format(resource_id, file_name))
 
-print 'Done, uploaded {0} resources to S3'.format(len(uploaded_resources))
+print('Done, uploaded {0} resources to S3'.format(len(uploaded_resources)))
