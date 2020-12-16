@@ -13,7 +13,7 @@ from ckan.common import _, request, c, response
 from botocore.exceptions import ClientError
 
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload
-from ckanext.s3filestore.uploader import S3Uploader
+from ckanext.s3filestore.uploader import S3Uploader, is_path_addressing
 
 import logging
 log = logging.getLogger(__name__)
@@ -115,17 +115,23 @@ class S3Controller(base.BaseController):
 
     def uploaded_file_redirect(self, upload_to, filename):
         '''Redirect static file requests to their location on S3.'''
-        if config.get('ckanext.s3filestore.addressing_style') == 'path':
-            host_name = config.get('ckanext.s3filestore.host_name')
+        bucket_name = config.get('ckanext.s3filestore.aws_bucket_name')
+        region_name=config.get('ckanext.s3filestore.region_name')
+        if is_path_addressing():
+            host_name = config.get('ckanext.s3filestore.host_name',
+                'https://s3-{region_name}.amazonaws.com'.format(
+                    region_name=region_name
+            ))
             # ensure trailing slash
             if host_name[-1] != '/':
                 host_name += '/'
-            host_name += config.get('ckanext.s3filestore.aws_bucket_name')
+            host_name += bucket_name
         else:
             host_name = config.get('ckanext.s3filestore.download_proxy',
                 'https://{bucket_name}.s3.{region_name}.amazonaws.com'.format(
-                    bucket_name=config.get('ckanext.s3filestore.aws_bucket_name'),
-                    region_name=config.get('ckanext.s3filestore.region_name')))
+                    bucket_name=bucket_name,
+                    region_name=region_name
+            ))
         storage_path = S3Uploader.get_storage_path(upload_to)
         filepath = os.path.join(storage_path, filename)
 
