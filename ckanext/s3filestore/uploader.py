@@ -76,10 +76,7 @@ class BaseS3Uploader(object):
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
         self.addressing_style = 'virtual' if self.download_proxy else config.get('ckanext.s3filestore.addressing_style', 'auto')
         if is_path_addressing():
-            self.host_name = config.get('ckanext.s3filestore.host_name',
-                'https://s3-{region_name}.amazonaws.com'.format(
-                    region_name=self.region
-                ))
+            self.host_name = config.get('ckanext.s3filestore.host_name')
         else:
             self.host_name = None
 
