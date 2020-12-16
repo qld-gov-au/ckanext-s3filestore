@@ -46,6 +46,17 @@ def _get_underlying_file(wrapper):
     return wrapper.file
 
 
+def is_path_addressing():
+    if config.get('ckanext.s3filestore.download_proxy'):
+        return False
+    configured_style = config.get('ckanext.s3filestore.addressing_style', 'auto')
+    if configured_style == 'path':
+        return True
+    if configured_style == 'auto':
+        return config.get('ckanext.s3filestore.signature_version') == 's3v4'
+    return False
+
+
 class S3FileStoreException(Exception):
     pass
 
@@ -63,8 +74,14 @@ class BaseS3Uploader(object):
         self.signed_url_cache_window = int(config.get('ckanext.s3filestore.signed_url_cache_window', '1800'))
         self.signed_url_cache_enabled = self.signed_url_cache_window > 0 and self.signed_url_expiry > 0
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
-        self.addressing_style = config.get('ckanext.s3filestore.addressing_style', 'auto')
-        self.host_name = config.get('ckanext.s3filestore.host_name') if self.addressing_style == 'path' else None
+        self.addressing_style = 'virtual' if self.download_proxy else config.get('ckanext.s3filestore.addressing_style', 'auto')
+        if is_path_addressing():
+            self.host_name = config.get('ckanext.s3filestore.host_name',
+                'https://s3-{region_name}.amazonaws.com'.format(
+                    region_name=self.region
+                ))
+        else:
+            self.host_name = None
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
@@ -182,7 +199,8 @@ class BaseS3Uploader(object):
         params = {'Bucket': self.bucket_name,
                   'Key': key}
         if metadata['ContentType'] != 'application/pdf':
-            params['ResponseContentDisposition'] = 'attachment; filename=' + key
+            filename = key.split('/')[-1]
+            params['ResponseContentDisposition'] = 'attachment; filename=' + filename
         params.update(extra_params)
         url = client.generate_presigned_url(ClientMethod='get_object',
                                             Params=params,
