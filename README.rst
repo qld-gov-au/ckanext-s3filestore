@@ -64,14 +64,14 @@ Required::
     ckanext.s3filestore.region_name = region-name
     ckanext.s3filestore.signature_version = signature (s3v4)
 
-Conditional:
+Conditional::
 
-   ckanext.s3filestore.aws_access_key_id = Your-Access-Key-ID
-   ckanext.s3filestore.aws_secret_access_key = Your-Secret-Access-Key
+    ckanext.s3filestore.aws_access_key_id = Your-Access-Key-ID
+    ckanext.s3filestore.aws_secret_access_key = Your-Secret-Access-Key
 
-   Or:
+    Or:
 
-   ckanext.s3filestore.aws_use_ami_role = true
+    ckanext.s3filestore.aws_use_ami_role = true
 
 Optional::
 
@@ -83,8 +83,19 @@ Optional::
     # The ckan storage path option must also be set correctly for the fallback to work
     ckan.storage_path = path/to/storage/directory
 
-    # To change the acl of the uploaded file. Default is public-read.
+    # An optional setting to change the acl of the uploaded files. Default public-read.
     ckanext.s3filestore.acl = private
+
+    # An optional setting to specify which addressing style to use.
+    # This controls whether the bucket name is in the hostname
+    # or is part of the URL. Default auto.
+    ckanext.s3filestore.addressing_style = path
+
+    # Set this parameter only if you want to use a provider like Minio
+    # as a filestore service instead of S3.
+    # Required when using path-style addressing.
+    # Ignored when using virtual addressing.
+    ckanext.s3filestore.host_name = http://minio-service.com
 
     # To use user provided filepath and not use internal url basename on download
     # Set to False to be backwards compatible to ckan file store, set to True if already using s3plugin

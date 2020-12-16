@@ -1,9 +1,10 @@
+from __future__ import print_function
+
 import sys
 
 from ckantoolkit import config
 import ckantoolkit as toolkit
 import ckanext.s3filestore.uploader
-
 
 
 class TestConnection(toolkit.CkanCommand):
@@ -35,9 +36,7 @@ class TestConnection(toolkit.CkanCommand):
                               'ckanext.s3filestore.aws_secret_access_key')
         for key in required_keys:
             if not config.get(key):
-                print
-                'You must set the "{0}" option in your ini file'.format(
-                    key)
+                print('You must set the "{0}" option in your ini file'.format(key))
                 exit = True
         if exit:
             sys.exit(1)
@@ -51,6 +50,5 @@ class TestConnection(toolkit.CkanCommand):
             print('An error was found while finding or creating the bucket:')
             print(str(ex))
             sys.exit(1)
-
 
         print('Configuration OK!')
