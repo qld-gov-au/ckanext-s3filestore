@@ -9,6 +9,8 @@
 .. image:: https://coveralls.io/repos/okfn/ckanext-s3filestore/badge.svg
   :target: https://coveralls.io/r/okfn/ckanext-s3filestore
 
+.. image:: https://github.com/ckan/ckanext-s3filestore/workflows/Tests/badge.svg?branch=master
+    :target: https://github.com/ckan/ckanext-s3filestore/actions
 
 ===================
 ckanext-s3filestore
