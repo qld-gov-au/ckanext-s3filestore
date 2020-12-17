@@ -1,15 +1,20 @@
+import click
+
 from routes.mapper import SubMapper
 import ckan.plugins as plugins
 import ckantoolkit as toolkit
 
 import ckanext.s3filestore.uploader
 from ckanext.s3filestore.views import resource, uploads
+from ckanext.s3filestore.click_commands import upload_all
 
 
 class S3FileStorePlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
     plugins.implements(plugins.IUploader)
+    if plugins.toolkit.check_ckan_version(min_version='2.9.0'):
+        plugins.implements(plugins.IClick)
 
     if plugins.toolkit.check_ckan_version(min_version='2.8.0'):
         plugins.implements(plugins.IBlueprint)
@@ -94,3 +99,9 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         blueprints = resource.get_blueprints() +\
                      uploads.get_blueprints()
         return blueprints
+
+    # IClick
+    # Ignored on CKAN < 2.9
+
+    def get_commands(self):
+        return [upload_all]
