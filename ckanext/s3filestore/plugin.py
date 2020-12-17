@@ -4,7 +4,7 @@ import ckantoolkit as toolkit
 
 import ckanext.s3filestore.uploader
 from ckanext.s3filestore.views import resource, uploads
-from ckanext.s3filestore.click_commands import upload_all
+from ckanext.s3filestore.click_commands import upload_resources
 
 
 class S3FileStorePlugin(plugins.SingletonPlugin):
@@ -102,4 +102,4 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     # Ignored on CKAN < 2.9
 
     def get_commands(self):
-        return [upload_all]
+        return [upload_resources]

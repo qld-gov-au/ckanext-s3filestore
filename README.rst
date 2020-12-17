@@ -50,7 +50,7 @@ To install ckanext-s3filestore:
 
 3. Add ``s3filestore`` to the ``ckan.plugins`` setting in your CKAN
    config file (by default the config file is located at
-   ``/etc/ckan/default/production.ini``).
+   ``/etc/ckan/default/ckan.ini``).
 
 4. Restart CKAN. For example if you've deployed CKAN with Apache on Ubuntu::
 
@@ -105,6 +105,15 @@ Optional::
 
     # Don't check for access on each startup
     ckanext.s3filestore.check_access_on_startup = false
+
+
+-----------------
+CLI
+-----------------
+
+To upload all local resources located in `ckan.storage_path` location dir to the configured S3 bucket use::
+
+    ckan -c /etc/ckan/default/ckan.ini s3-upload
 
 
 ------------------------

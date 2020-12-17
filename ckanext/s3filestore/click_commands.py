@@ -8,11 +8,11 @@ from ckantoolkit import config
 from ckanext.s3filestore.uploader import BaseS3Uploader
 
 
-@click.command(u'upload-all',
+@click.command(u's3-upload',
                short_help=u'Uploads all resources '
                           u'from "ckan.storage_path"'
                           u' to the configured s3 bucket')
-def upload_all():
+def upload_resources():
     storage_path = config.get('ckan.storage_path',
                               '/var/lib/ckan/default/resources')
     sqlalchemy_url = config.get('sqlalchemy.url',
