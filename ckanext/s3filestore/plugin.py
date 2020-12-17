@@ -1,5 +1,3 @@
-import click
-
 from routes.mapper import SubMapper
 import ckan.plugins as plugins
 import ckantoolkit as toolkit
