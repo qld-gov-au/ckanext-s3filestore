@@ -1,6 +1,4 @@
 import os
-import mimetypes
-import paste.fileapp
 from ckantoolkit import config
 
 import ckantoolkit as toolkit
@@ -9,7 +7,7 @@ import ckan.lib.base as base
 import ckan.lib.helpers as h
 import ckan.model as model
 import ckan.lib.uploader as uploader
-from ckan.common import _, request, c, response
+from ckan.common import _, c
 from botocore.exceptions import ClientError
 
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload
@@ -116,26 +114,26 @@ class S3Controller(base.BaseController):
     def uploaded_file_redirect(self, upload_to, filename):
         '''Redirect static file requests to their location on S3.'''
         bucket_name = config.get('ckanext.s3filestore.aws_bucket_name')
-        region_name=config.get('ckanext.s3filestore.region_name')
+        region_name = config.get('ckanext.s3filestore.region_name')
         if is_path_addressing():
             host_name = config.get('ckanext.s3filestore.host_name',
-                'https://s3-{region_name}.amazonaws.com'.format(
-                    region_name=region_name
-            ))
+                                   'https://s3-{region_name}.amazonaws.com'.format(
+                                       region_name=region_name
+                                   ))
             # ensure trailing slash
             if host_name[-1] != '/':
                 host_name += '/'
             host_name += bucket_name
         else:
             host_name = config.get('ckanext.s3filestore.download_proxy',
-                'https://{bucket_name}.s3.{region_name}.amazonaws.com'.format(
-                    bucket_name=bucket_name,
-                    region_name=region_name
-            ))
+                                   'https://{bucket_name}.s3.{region_name}.amazonaws.com'.format(
+                                       bucket_name=bucket_name,
+                                       region_name=region_name
+                                   ))
         storage_path = S3Uploader.get_storage_path(upload_to)
         filepath = os.path.join(storage_path, filename)
 
         redirect_url = '{host_name}/{filepath}'\
-                          .format(filepath=filepath,
-                          host_name=host_name)
+            .format(filepath=filepath,
+                    host_name=host_name)
         redirect(redirect_url)

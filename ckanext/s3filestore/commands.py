@@ -37,7 +37,7 @@ class TestConnection(toolkit.CkanCommand):
         if self.args[0] == 'check-config':
             self.check_config()
         elif self.args[0] == 'upload':
-            if len(self.args) < 2 or args[1] == 'all':
+            if len(self.args) < 2 or self.args[1] == 'all':
                 self.upload_all()
         else:
             self.parser.error('Unrecognized command')
@@ -114,9 +114,7 @@ class TestConnection(toolkit.CkanCommand):
         print('{0} resources matched on the database'.format(
             len(resource_ids_and_names.keys())))
 
-        # todo: move to plugin initi so we don't need to reinit secrets
         s3_connection = boto3.resource('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
-        bucket = s3_connection.Bucket(AWS_BUCKET_NAME)
 
         uploaded_resources = []
         for resource_id, file_name in resource_ids_and_names.iteritems():

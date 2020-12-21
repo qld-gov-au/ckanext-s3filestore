@@ -5,12 +5,12 @@ import ckantoolkit as toolkit
 import ckanext.s3filestore.uploader
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload
 
+
 class S3FileStorePlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
     plugins.implements(plugins.IUploader)
     plugins.implements(plugins.IRoutes, inherit=True)
-
 
     # IConfigurer
 
@@ -64,14 +64,14 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         with SubMapper(map, controller='ckanext.s3filestore.controller:S3Controller') as m:
             # Override the resource download links
             # if plugins.toolkit.check_ckan_version(max_version='2.8.2') & \
-            if hasattr(DefaultResourceUpload, "download") == False :
+            if not hasattr(DefaultResourceUpload, "download"):
                 m.connect('resource_download',
                           '/dataset/{id}/resource/{resource_id}/download',
                           action='resource_download')
                 m.connect('resource_download',
                           '/dataset/{id}/resource/{resource_id}/download/{filename}',
                           action='resource_download')
-            #Allow fallback to access old files
+            # Allow fallback to access old files
             use_filename = toolkit.asbool(toolkit.config.get('ckanext.s3filestore.use_filename', False))
             if not use_filename:
                 m.connect('resource_download',
