@@ -77,7 +77,7 @@ def resource_download(package_type, id, resource_id, filename=None):
             return redirect(url)
 
         except ClientError as ex:
-            if ex.response['Error']['Code'] == 'NoSuchKey' or '404':
+            if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                 # attempt fallback
                 if ckan_config.get(
                         'ckanext.s3filestore.filesystem_download_fallback',
