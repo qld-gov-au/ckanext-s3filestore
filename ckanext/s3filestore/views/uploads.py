@@ -33,7 +33,7 @@ def uploaded_file_redirect(upload_to, filename):
     try:
         url = base_uploader.get_signed_url_to_key(filepath)
     except ClientError as ex:
-        if ex.response['Error']['Code'] == 'NoSuchKey' or '404':
+        if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
             return abort(404, _('Keys not found on S3'))
         else:
             raise ex
