@@ -31,6 +31,18 @@ class TestS3Uploader(helpers.FunctionalTestBase):
         # We need to create the bucket since this is all in Moto's 'virtual' AWS account
         conn.create_bucket(Bucket='my-bucket')
 
+    def test_get_bucket(self):
+        '''S3Uploader retrieves bucket as expected'''
+        uploader = S3Uploader('')
+        assert_true(uploader.get_s3_bucket('my-bucket'))
+
+    def test_clean_dict(self):
+        '''S3Uploader retrieves bucket as expected'''
+        uploader = S3Uploader('')
+        date_dict = {'key': datetime.datetime(1970, 1, 2, 3, 4, 5, 6)}
+        clean_dict = uploader.as_clean_dict(date_dict)
+        assert_equal(clean_dict['key'], '1970-01-02T03:04:05.000006')
+
     def test_uploader_storage_path(self):
         '''S3Uploader get_storage_path returns as expected'''
         returned_path = S3Uploader.get_storage_path('myfiles')
