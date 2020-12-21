@@ -27,8 +27,9 @@ Use Amazon S3 or Minio<https://minio.io/> as a filestore for resources.
 Requirements
 ------------
 
-Requires CKAN 2.7+
+Requires CKAN 2.9+
 
+When installing this extension on CKAN versions prior 2.9 please use `ckan-2.8 <https://github.com/keitaroinc/ckanext-s3filestore/tree/ckan-2.8>`_ branch.
 
 ------------
 Installation

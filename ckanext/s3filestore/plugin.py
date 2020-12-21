@@ -1,4 +1,4 @@
-from routes.mapper import SubMapper
+# encoding: utf-8
 import ckan.plugins as plugins
 import ckantoolkit as toolkit
 
@@ -11,13 +11,8 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
     plugins.implements(plugins.IUploader)
-    if plugins.toolkit.check_ckan_version(min_version='2.9.0'):
-        plugins.implements(plugins.IClick)
-
-    if plugins.toolkit.check_ckan_version(min_version='2.8.0'):
-        plugins.implements(plugins.IBlueprint)
-    else:
-        plugins.implements(plugins.IRoutes, inherit=True)
+    plugins.implements(plugins.IBlueprint)
+    plugins.implements(plugins.IClick)
 
     # IConfigurer
 
@@ -66,32 +61,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         return ckanext.s3filestore.uploader.S3Uploader(upload_to,
                                                        old_filename)
 
-    # IRoutes
-    # Ignored on CKAN >= 2.8
-
-    def before_map(self, map):
-        with SubMapper(map, controller='ckanext.s3filestore.controller:S3Controller') as m:
-            # Override the resource download links
-            m.connect('resource_download',
-                      '/dataset/{id}/resource/{resource_id}/download',
-                      action='resource_download')
-            m.connect('resource_download',
-                      '/dataset/{id}/resource/{resource_id}/download/{filename}',
-                      action='resource_download')
-
-            # fallback controller action to download from the filesystem
-            m.connect('filesystem_resource_download',
-                      '/dataset/{id}/resource/{resource_id}/fs_download/{filename}',
-                      action='filesystem_resource_download')
-
-            # Intercept the uploaded file links (e.g. group images)
-            m.connect('uploaded_file', '/uploads/{upload_to}/{filename}',
-                      action='uploaded_file_redirect')
-
-        return map
-
     # IBlueprint
-    # Ignored on CKAN < 2.8
 
     def get_blueprint(self):
         blueprints = resource.get_blueprints() +\
@@ -99,7 +69,6 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         return blueprints
 
     # IClick
-    # Ignored on CKAN < 2.9
 
     def get_commands(self):
         return [upload_resources]
