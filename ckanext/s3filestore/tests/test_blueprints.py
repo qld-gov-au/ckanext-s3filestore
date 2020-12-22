@@ -108,5 +108,3 @@ class TestS3Controller(object):
         assert response.location
         image = requests.get(response.location)
         assert image.content == b"\0\0\0"
-
-

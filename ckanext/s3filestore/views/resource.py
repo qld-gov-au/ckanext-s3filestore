@@ -66,7 +66,7 @@ def resource_download(package_type, id, resource_id, filename=None):
                      key_path, bucket_name)
 
         try:
-            url = upload.get_signed_url_to_key(key_path, params)
+            url = upload.get_signed_url_to_key(key_path)
             return redirect(url)
         except ClientError as ex:
             if ex.response['Error']['Code'] in ['NoSuchKey', '404']:

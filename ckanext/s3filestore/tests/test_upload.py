@@ -6,7 +6,6 @@ import pytest
 from botocore.exceptions import ClientError
 
 from ckantoolkit import config
-import ckan.logic as logic
 import ckan.tests.factories as factories
 import ckan.tests.helpers as helpers
 
@@ -120,7 +119,7 @@ class TestS3ResourceUpload(object):
         uploader.delete(resource_id, u'test.csv')
 
         # key shouldn't exist, this raises ClientError
-        with pytest.raises(ClientError) as e:
+        with pytest.raises(ClientError):
             s3_client.head_object(Bucket=self.bucket_name, Key=key)
 
     def test_delete_image_from_s3(self, s3_client, organization_with_image):
@@ -135,7 +134,5 @@ class TestS3ResourceUpload(object):
         uploader.delete(organization_with_image[u'image_url'])
 
         # key shouldn't exist, this raises ClientError
-        with pytest.raises(ClientError) as e:
+        with pytest.raises(ClientError):
             s3_client.head_object(Bucket=self.bucket_name, Key=key)
-
-

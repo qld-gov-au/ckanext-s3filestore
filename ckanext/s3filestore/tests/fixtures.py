@@ -1,9 +1,6 @@
 # encoding: utf-8
 import pytest
 
-import boto3
-from botocore.client import Config
-
 import ckan.tests.factories as factories
 
 from ckanext.s3filestore.uploader import BaseS3Uploader
