@@ -3,5 +3,5 @@ ckanapi==4.3
 
 #1.0.2 is python3 only
 httpretty==0.9.7
-pytest
 pytest-cov
+pytest-ckan
