@@ -87,7 +87,7 @@ def resource_download(package_type, id, resource_id, filename=None):
             else:
                 raise ex
     # if we're trying to download a link resource, just redirect to it
-    redirect(rsc['url'])
+    return redirect(rsc['url'])
 
 
 def filesystem_resource_download(package_type, id, resource_id, filename=None):
