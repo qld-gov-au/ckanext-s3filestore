@@ -282,7 +282,7 @@ class S3Uploader(BaseS3Uploader):
             self.filepath = os.path.join(self.storage_path, self.filename)
             if hasattr(self.upload_field_storage, 'mimetype'):
                 self.mimetype = self.upload_field_storage.mimetype
-            if not self.mimetype:
+            else:
                 try:
                     self.mimetype = mimetypes.guess_type(self.filename, strict=False)[0]
                 except Exception:
