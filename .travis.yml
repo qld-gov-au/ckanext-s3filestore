@@ -32,13 +32,13 @@ jobs:
 #        - flake8 . --count --max-line-length=127 --statistics --exclude ckan --exit-zero
 
 
-    - stage: Tests
-      python: "2.7"
-      env: CKANVERSION=2.9
-      services:
-          - postgresql
-          - redis
-          - docker
+#    - stage: Tests
+#      python: "2.7"
+#      env: CKANVERSION=2.9
+#      services:
+#          - postgresql
+#          - redis
+#          - docker
 
     - python: "3.8"
       env: CKANVERSION=2.9
