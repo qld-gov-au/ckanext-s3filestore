@@ -3,6 +3,7 @@ import ckan.plugins as plugins
 import ckantoolkit as toolkit
 
 import ckanext.s3filestore.uploader
+from ckanext.s3filestore.views import resource, uploads
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload
 
 
@@ -10,7 +11,11 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
     plugins.implements(plugins.IUploader)
-    plugins.implements(plugins.IRoutes, inherit=True)
+
+    if plugins.toolkit.check_ckan_version(min_version='2.8.0'):
+        plugins.implements(plugins.IBlueprint)
+    else:
+        plugins.implements(plugins.IRoutes, inherit=True)
 
     # IConfigurer
 
@@ -32,6 +37,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
             'ckanext.s3filestore.region_name',
             'ckanext.s3filestore.signature_version'
         )
+
         if not config.get('ckanext.s3filestore.aws_use_ami_role'):
             config_options += ('ckanext.s3filestore.aws_access_key_id',
                                'ckanext.s3filestore.aws_secret_access_key')
@@ -59,11 +65,11 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                                                        old_filename)
 
     # IRoutes
+    # Ignored on CKAN >= 2.8
 
     def before_map(self, map):
         with SubMapper(map, controller='ckanext.s3filestore.controller:S3Controller') as m:
             # Override the resource download links
-            # if plugins.toolkit.check_ckan_version(max_version='2.8.2') & \
             if not hasattr(DefaultResourceUpload, "download"):
                 m.connect('resource_download',
                           '/dataset/{id}/resource/{resource_id}/download',
@@ -88,3 +94,9 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                       action='uploaded_file_redirect')
 
         return map
+
+    # IBlueprint
+    # Ignored on CKAN < 2.8
+
+    def get_blueprint(self):
+        return resource.get_blueprints() + uploads.get_blueprints()

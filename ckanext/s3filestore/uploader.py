@@ -280,8 +280,9 @@ class S3Uploader(BaseS3Uploader):
                 self.filename = str(datetime.datetime.utcnow()) + self.filename
             self.filename = munge.munge_filename_legacy(self.filename)
             self.filepath = os.path.join(self.storage_path, self.filename)
-            self.mimetype = self.upload_field_storage.mimetype
-            if not self.mimetype:
+            if hasattr(self.upload_field_storage, 'mimetype'):
+                self.mimetype = self.upload_field_storage.mimetype
+            else:
                 try:
                     self.mimetype = mimetypes.guess_type(self.filename, strict=False)[0]
                 except Exception:
