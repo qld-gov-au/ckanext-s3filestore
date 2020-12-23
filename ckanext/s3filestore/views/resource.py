@@ -6,7 +6,6 @@ import mimetypes
 import flask
 
 from botocore.exceptions import ClientError
-from botocore.client import Config
 
 from ckantoolkit import config as ckan_config
 from ckantoolkit import _, request, c, g
@@ -71,7 +70,8 @@ def resource_download(package_type, id, resource_id, filename=None):
                 url = upload.get_signed_url_to_key(key_path)
             else:
                 params = {
-                    'ResponseContentDisposition': 'attachment; filename=' + filename,
+                    'ResponseContentDisposition':
+                        'attachment; filename=' + filename,
                 }
                 url = upload.get_signed_url_to_key(key_path, params)
             return redirect(url)
@@ -140,13 +140,12 @@ def filesystem_resource_download(package_type, id, resource_id, filename=None):
     return redirect(rsc[u'url'])
 
 
-s3_resource.add_url_rule(u'/<resource_id>/download', view_func=resource_download)
-s3_resource.add_url_rule(
-        u'/<resource_id>/download/<filename>', view_func=resource_download
-    )
-s3_resource.add_url_rule(
-        u'/<resource_id>/fs_download/<filename>', view_func=filesystem_resource_download
-    )
+s3_resource.add_url_rule(u'/<resource_id>/download',
+                         view_func=resource_download)
+s3_resource.add_url_rule(u'/<resource_id>/download/<filename>',
+                         view_func=resource_download)
+s3_resource.add_url_rule(u'/<resource_id>/fs_download/<filename>',
+                         view_func=filesystem_resource_download)
 
 
 def get_blueprints():

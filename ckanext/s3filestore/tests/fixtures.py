@@ -1,9 +1,6 @@
 # encoding: utf-8
 import pytest
 
-import boto3
-from botocore.client import Config
-
 import ckan.tests.factories as factories
 
 from ckanext.s3filestore.uploader import BaseS3Uploader
@@ -30,8 +27,8 @@ def s3_client(ckan_config, s3_session):
 @pytest.fixture
 def resource_with_upload(create_with_upload):
     content = u"""
-            Snow Course Name, Number, Elev. metres, Date of Survey, Snow Depth cm,\
-            Water Equiv. mm, Survey Code, % of Normal, Density %, Survey Period, \
+            SnowCourseName, Number, Elev. metres, DateOfSurvey, Snow Depth cm,\
+            WaterEquiv. mm, SurveyCode, % of Normal, Density %, SurveyPeriod, \
             Normal mm
             SKINS LAKE,1B05,890,2015/12/30,34,53,,98,16,JAN-01,54
             MCGILLIVRAY PASS,1C05,1725,2015/12/31,88,239,,87,27,JAN-01,274

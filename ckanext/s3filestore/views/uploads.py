@@ -41,7 +41,8 @@ def uploaded_file_redirect(upload_to, filename):
     return redirect(url)
 
 
-s3_uploads.add_url_rule(u'/uploads/<upload_to>/<filename>', view_func=uploaded_file_redirect)
+s3_uploads.add_url_rule(u'/uploads/<upload_to>/<filename>',
+                        view_func=uploaded_file_redirect)
 
 
 def get_blueprints():
