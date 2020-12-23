@@ -1,13 +1,13 @@
 import os
+import re
 import cgi
 import logging
 import datetime
 import mimetypes
+import magic
 import errno
-import re
 
 import boto3
-import botocore
 from botocore.client import Config
 from botocore.exceptions import ClientError
 import ckantoolkit as toolkit
@@ -18,7 +18,6 @@ from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as
 
 import ckan.model as model
 import ckan.lib.munge as munge
-redirect = toolkit.redirect_to
 
 if toolkit.check_ckan_version(min_version='2.7.0'):
     from werkzeug.datastructures import FileStorage as FlaskFileStorage
@@ -116,7 +115,7 @@ class BaseS3Uploader(object):
         try:
             s3.meta.client.head_bucket(Bucket=bucket_name)
             log.debug('Bucket %s found!', bucket_name)
-        except botocore.exceptions.ClientError as e:
+        except ClientError as e:
             error_code = e.response['Error']['Code']
             if error_code == '404':
                 log.warning('Bucket %s could not be found, attempting to create it...',
@@ -126,7 +125,7 @@ class BaseS3Uploader(object):
                         'LocationConstraint': self.region})
                     log.info(
                         'Bucket %s successfully created', bucket_name)
-                except botocore.exceptions.ClientError as e:
+                except ClientError as e:
                     log.warning('Could not create bucket %s: %s',
                                 bucket_name, str(e))
             elif error_code == '403':
@@ -426,6 +425,8 @@ class S3ResourceUploader(BaseS3Uploader):
         upload_field_storage = resource.pop('upload', None)
         self.clear = resource.pop('clear_upload', None)
 
+        mime = magic.Magic(mime=True)
+
         if isinstance(upload_field_storage, ALLOWED_UPLOAD_TYPES):
             self.filesize = 0  # bytes
 
@@ -434,6 +435,13 @@ class S3ResourceUploader(BaseS3Uploader):
             resource['url'] = self.filename
             resource['url_type'] = 'upload'
             resource['last_modified'] = datetime.datetime.utcnow()
+
+            # Check the resource format from its filename extension,
+            # if no extension use the default CKAN implementation
+            if not 'format' in resource:
+                resource_format = os.path.splitext(self.filename)[1][1:]
+                if resource_format:
+                    resource['format'] = resource_format
 
             self.upload_file = _get_underlying_file(upload_field_storage)
             self.upload_file.seek(0, os.SEEK_END)
@@ -444,7 +452,16 @@ class S3ResourceUploader(BaseS3Uploader):
             self.mimetype = resource.get('mimetype')
             if not self.mimetype:
                 try:
-                    self.mimetype = resource['mimetype'] = mimetypes.guess_type(self.filename, strict=False)[0]
+                    # 512 bytes should be enough for a mimetype check
+                    self.mimetype = resource['mimetype'] = mime.from_buffer(self.upload_file.read(512))
+
+                    # additional check on text/plain mimetypes for
+                    # more reliable result, if None continue with text/plain
+                    if self.mimetype == 'text/plain':
+                        self.mimetype = resource['mimetype'] = \
+                            mimetypes.guess_type(self.filename, strict=False)[0] or 'text/plain'
+                    # go back to the beginning of the file buffer
+                    self.upload_file.seek(0, os.SEEK_SET)
                 except Exception:
                     pass
         elif self.clear and resource.get('id'):
@@ -523,7 +540,6 @@ class S3ResourceUploader(BaseS3Uploader):
         try:
             url = self.get_signed_url_to_key(key_path)
             h.redirect_to(url)
-
         except ClientError as ex:
             if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                 # attempt fallback
