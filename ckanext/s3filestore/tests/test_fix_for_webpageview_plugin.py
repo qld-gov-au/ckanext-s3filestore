@@ -34,7 +34,7 @@ def test_view_shown_for_url_type_upload(app, create_with_upload):
     resource_view = helpers.call_action(u'resource_view_list', context,
                                         id=resource[u'id'])[0]
 
-    with pytest.raises(KeyError) as e:
+    with pytest.raises(KeyError):
         assert resource_view[u'page_url']
 
     resource_view_src_url = url_for(
@@ -49,8 +49,8 @@ def test_view_shown_for_url_type_upload(app, create_with_upload):
 
     response = app.get(url)
 
-    assert (u'/dataset/{0}/resource/{1}/download?preview=True'.format(dataset[u'id'],
-                                                                      resource[u'id'])
+    assert (u'/dataset/{0}/resource/{1}/download?preview=True'
+            .format(dataset[u'id'], resource[u'id'])
             in response)
 
     resource_view_src = app.get(resource_view_src_url,

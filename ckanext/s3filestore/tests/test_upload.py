@@ -6,7 +6,6 @@ import pytest
 from botocore.exceptions import ClientError
 
 from ckantoolkit import config
-import ckan.logic as logic
 import ckan.tests.factories as factories
 import ckan.tests.helpers as helpers
 
@@ -21,7 +20,9 @@ class TestS3ResourceUpload(object):
     def setup_class(cls):
         cls.bucket_name = config.get(u'ckanext.s3filestore.aws_bucket_name')
 
-    def test_resource_upload(self, s3_client, resource_with_upload, ckan_config):
+    def test_resource_upload(self,
+                             s3_client,
+                             resource_with_upload, ckan_config):
         u'''Test a basic resource file upload'''
 
         key = u'resources/{0}/test.csv' \
@@ -29,7 +30,10 @@ class TestS3ResourceUpload(object):
 
         assert s3_client.head_object(Bucket=self.bucket_name, Key=key)
 
-    def test_resource_upload_then_clear(self, s3_client, resource_with_upload, ckan_config):
+    def test_resource_upload_then_clear(self,
+                                        s3_client,
+                                        resource_with_upload,
+                                        ckan_config):
         u'''Test that clearing an upload removes the S3 key'''
 
         key = u'resources/{0}/test.csv' \
@@ -64,8 +68,10 @@ class TestS3ResourceUpload(object):
         storage_path = S3Uploader.get_storage_path(u'group')
         assert 'storage/uploads/group' == storage_path
 
-    def test_create_organization_with_image(self, s3_client,
-                                            organization_with_image, ckan_config):
+    def test_create_organization_with_image(self,
+                                            s3_client,
+                                            organization_with_image,
+                                            ckan_config):
         user = factories.Sysadmin()
         context = {
             u"user": user["name"]
@@ -79,8 +85,10 @@ class TestS3ResourceUpload(object):
         # key must exist
         assert s3_client.head_object(Bucket=self.bucket_name, Key=filepath)
 
-    def test_create_organization_with_image_then_clear(self, s3_client,
-                                                       organization_with_image, ckan_config):
+    def test_create_organization_with_image_then_clear(self,
+                                                       s3_client,
+                                                       organization_with_image,
+                                                       ckan_config):
         user = factories.Sysadmin()
         context = {
             u"user": user["name"]
@@ -105,7 +113,8 @@ class TestS3ResourceUpload(object):
 
         assert e.value.response[u'Error'][u'Code'] == u'404'
 
-    def test_delete_resource_from_s3(self, s3_client, resource_with_upload):
+    def test_delete_resource_from_s3(self, s3_client,
+                                     resource_with_upload):
 
         resource_id = resource_with_upload[u'id']
 
@@ -120,10 +129,11 @@ class TestS3ResourceUpload(object):
         uploader.delete(resource_id, u'test.csv')
 
         # key shouldn't exist, this raises ClientError
-        with pytest.raises(ClientError) as e:
+        with pytest.raises(ClientError):
             s3_client.head_object(Bucket=self.bucket_name, Key=key)
 
-    def test_delete_image_from_s3(self, s3_client, organization_with_image):
+    def test_delete_image_from_s3(self, s3_client,
+                                  organization_with_image):
 
         uploader = S3Uploader(u'group')
         storage_path = S3Uploader.get_storage_path(u'group')
@@ -135,7 +145,5 @@ class TestS3ResourceUpload(object):
         uploader.delete(organization_with_image[u'image_url'])
 
         # key shouldn't exist, this raises ClientError
-        with pytest.raises(ClientError) as e:
+        with pytest.raises(ClientError):
             s3_client.head_object(Bucket=self.bucket_name, Key=key)
-
-
