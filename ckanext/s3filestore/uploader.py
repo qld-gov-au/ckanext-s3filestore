@@ -259,8 +259,8 @@ class S3Uploader(BaseS3Uploader):
         try:
             self.clear_key(key_path)
         except ClientError as ex:
-            log.warning('Key \'%s\' not found in bucket \'%s\' for delete',
-                        key_path, self.bucket_name)
+            log.warning('Key {0} not found in bucket {1} for delete'
+                        .format(key_path, self.bucket_name))
             pass
 
 
@@ -376,6 +376,6 @@ class S3ResourceUploader(BaseS3Uploader):
         try:
             self.clear_key(key_path)
         except ClientError as ex:
-            log.warning("Key '%s' not found in bucket '%s' for delete",
-                        key_path, self.bucket_name)
+            log.warning('Key {0} not found in bucket {1} for delete'
+                        .format(key_path, self.bucket_name))
             pass
