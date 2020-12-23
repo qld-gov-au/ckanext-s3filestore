@@ -82,7 +82,7 @@ class TestS3Uploader(helpers.FunctionalTestBase):
         # attempt redirect to linked url
         image_file_url = '/uploads/group/2001-01-29-000000{0}'.format(file_name)
         r = app.get(image_file_url, status=[302, 301])
-        assert_equal(r.location, 'http://localhost:5000/my-bucket/my-path/storage/uploads/group/{0}'
+        assert_equal(r.location.split('?')[0], 'http://localhost:5000/my-bucket/my-path/storage/uploads/group/2001-01-29-000000{0}'
                                  .format(file_name))
 
     def test_group_image_upload_then_clear(self):
