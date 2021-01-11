@@ -116,7 +116,7 @@ commands:
   test-unit:
     usage: Run unit tests.
     cmd: |
-      ahoy cli "nosetests --ckan --nologcapture --with-pylons=subdir/test.ini \
+      ahoy cli "nosetests --ckan --nologcapture --with-pylons=/app/ckan/default/production.ini \
         --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests" || \
       [ "${ALLOW_UNIT_FAIL:-0}" -eq 1 ]
 
