@@ -12,4 +12,4 @@ pytest-cov
 pytest-ckan
 splinter>=0.13.0
 moto[server]
-factory_boy
+factory_boy<2.5.0
