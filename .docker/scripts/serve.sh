@@ -6,7 +6,6 @@ dockerize -wait tcp://solr:8983 -timeout 1m
 
 echo "Start s3 mock"
 # Run s3 moto local client just in case we can't mock directly via tests
-pip install "moto[server]"
 moto_server s3 &
 
 sed -i "s@SITE_URL@${SITE_URL}@g" /app/ckan/default/production.ini
