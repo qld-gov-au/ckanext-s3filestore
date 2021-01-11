@@ -4,7 +4,7 @@ set -e
 dockerize -wait tcp://postgres:5432 -timeout 1m
 dockerize -wait tcp://solr:8983 -timeout 1m
 echo "Start redis"
-sudo service redis-server start
+service redis-server start
 
 echo "Start s3 mock"
 # Run s3 moto local client just in case we can't mock directly via tests
