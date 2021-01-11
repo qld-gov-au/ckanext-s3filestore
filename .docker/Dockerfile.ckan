@@ -1,4 +1,4 @@
-FROM keitaro/ckan:2.9.1
+FROM amazeeio/python:2.7-ckan-v0.23.1
 
 WORKDIR /app
 
@@ -33,7 +33,7 @@ RUN fix-permissions /app/ckan \
 
 # Add current extension and files.
 COPY ckanext /app/ckanext
-COPY requirements.txt dev-requirements.txt setup.py /app/
+COPY requirements.txt dev-requirements.txt setup.py README.rst /app/
 
 # Init current extension.
 RUN /app/scripts/init-ext.sh
