@@ -46,6 +46,8 @@ jobs:
           sudo pip install -r requirements.txt
           sudo pip install -r dev-requirements.txt
 
+      - run: sudo mkdir -p /etc/systemd/system/jetty9.service.d
+
       - name: Create Solr Jetty systemd entry
         uses: finnp/create-file-action@1.0.0
         env:
