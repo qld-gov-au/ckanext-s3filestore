@@ -38,6 +38,7 @@ jobs:
           cd ckan
           sudo pip install -r requirements.txt
           sudo pip install -r dev-requirements.txt
+          sudo pip install -r requirement-setuptools.txt
           sudo python setup.py develop
 
       - name: Install CKAN extension dependencies
