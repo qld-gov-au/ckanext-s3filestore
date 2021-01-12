@@ -10,7 +10,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.x'
+          python-version: '2.7'
 
       - name: Check out code
         uses: actions/checkout@v2
@@ -32,6 +32,7 @@ jobs:
         with:
           repository: ckan/ckan
           path: ckan
+          ref: 2.8.6
 
       - name: Install CKAN dependencies
         run: |
@@ -65,7 +66,7 @@ jobs:
           sudo -u postgres psql -c "CREATE USER ckan_default WITH PASSWORD 'pass';"
           sudo -u postgres psql -c 'CREATE DATABASE ckan_test WITH OWNER ckan_default;'
           cd ckan
-          ckan -c test-core.ini db init
+          paster db init -c test-core.ini
 
       - name: Prepare test configuration
         run: |
