@@ -30,7 +30,7 @@ jobs:
       - name: Check out CKAN
         uses: actions/checkout@v2
         with:
-          repo: ckan/ckan
+          repository: ckan/ckan
           path: ckan
 
       - name: Install CKAN dependencies
