@@ -76,7 +76,7 @@ jobs:
           cp test.ini subdir
 
       - name: Run unit tests
-        run: pytest --ckan-ini=subdir/test.ini --cov=ckanext.s3filestore --disable-warnings ckanext/s3filestore/tests
+        run: nosetests --ckan --nologcapture --with-pylons=subdir/test.ini --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests
 
       - name: Generate coverage report
         uses: coverallsapp/github-action@master
