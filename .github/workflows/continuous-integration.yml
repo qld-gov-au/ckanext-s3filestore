@@ -46,10 +46,14 @@ jobs:
           sudo pip install -r requirements.txt
           sudo pip install -r dev-requirements.txt
 
+      - name: Create Solr Jetty systemd entry
+        uses: finnp/create-file-action@1.0.0
+        env:
+          FILE_NAME: /etc/systemd/system/jetty9.service.d/solr.conf
+          FILE_DATA: "[Service]\nReadWritePaths=/var/lib/solr"
+
       - name: Setup Solr
         run: |
-          sudo mkdir -p /etc/systemd/system/jetty9.service.d
-          printf "[Service]\nReadWritePaths=/var/lib/solr" | sudo tee /etc/systemd/system/jetty9.service.d/solr.conf
           sed '16,21d' /etc/solr/solr-jetty.xml | sudo tee /etc/solr/solr-jetty.xml
           sudo systemctl daemon-reload
           printf "NO_START=0\nJETTY_HOST=127.0.0.1\nJETTY_ARGS=\"jetty.http.port=8983\"" | sudo tee /etc/default/jetty9
