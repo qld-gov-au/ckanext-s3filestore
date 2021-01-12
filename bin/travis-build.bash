@@ -23,9 +23,10 @@ if [ ! -d ckan ]; then
 fi
 cd ckan
 git checkout $CKAN_BRANCH
-python setup.py develop
 pip install -r requirements.txt
 pip install -r dev-requirements.txt
+pip install -r requirement-setuptools.txt
+python setup.py develop
 cd -
 
 echo "start solr"
