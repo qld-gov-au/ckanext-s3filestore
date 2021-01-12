@@ -52,14 +52,12 @@ jobs:
           printf "[Service]\nReadWritePaths=/var/lib/solr" | sudo tee /etc/systemd/system/jetty9.service.d/solr.conf
           sed '16,21d' /etc/solr/solr-jetty.xml | sudo tee /etc/solr/solr-jetty.xml
           sudo systemctl daemon-reload
-
-          printf "NO_START=0\nJETTY_HOST=127.0.0.1\nJETTY_ARGS=\"jetty.http.port=8983\"\nJAVA_HOME=$JAVA_HOME" | sudo tee /etc/default/jetty9
+          printf "NO_START=0\nJETTY_HOST=127.0.0.1\nJETTY_ARGS=\"jetty.http.port=8983\"" | sudo tee /etc/default/jetty9
           sudo cp ckan/ckan/config/solr/schema.xml /etc/solr/conf/schema.xml
           sudo service jetty9 restart
 
       - name: Setup database
         run: |
-          echo "Creating the PostgreSQL user and database..."
           sudo -u postgres psql -c "CREATE USER ckan_default WITH PASSWORD 'pass';"
           sudo -u postgres psql -c 'CREATE DATABASE ckan_test WITH OWNER ckan_default;'
           cd ckan
