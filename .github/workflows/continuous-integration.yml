@@ -15,15 +15,63 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
 
-      - name: Set up environment matching TravisCI
-        run: ./bin/travis-build.bash
-        env:
-          PGVERSION: 11
-          CKAN_GIT_REPO: ckan/ckan
-          CKAN_BRANCH: master
+      - name: Install packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install systemd git python-pip postgresql-11 solr-jetty openjdk-8-jdk libcommons-fileupload-java:amd64 redis-server
+          sudo pip install "moto[server]"
+
+      - name: Start services
+        run: |
+          sudo service postgresql start
+          sudo service redis-server start
+          moto_server s3 &
+
+      - name: Check out CKAN
+        uses: actions/checkout@v2
+        with:
+          repo: ckan/ckan
+          path: ckan
+
+      - name: Install CKAN dependencies
+        run: |
+          cd ckan
+          sudo python setup.py develop
+          sudo pip install -r requirements.txt
+          sudo pip install -r dev-requirements.txt
+
+      - name: Install CKAN extension dependencies
+        run: |
+          sudo python setup.py develop
+          sudo pip install -r requirements.txt
+          sudo pip install -r dev-requirements.txt
+
+      - name: Setup Solr
+        run: |
+          sudo mkdir -p /etc/systemd/system/jetty9.service.d
+          printf "[Service]\nReadWritePaths=/var/lib/solr" | sudo tee /etc/systemd/system/jetty9.service.d/solr.conf
+          sed '16,21d' /etc/solr/solr-jetty.xml | sudo tee /etc/solr/solr-jetty.xml
+          sudo systemctl daemon-reload
+
+          printf "NO_START=0\nJETTY_HOST=127.0.0.1\nJETTY_ARGS=\"jetty.http.port=8983\"\nJAVA_HOME=$JAVA_HOME" | sudo tee /etc/default/jetty9
+          sudo cp ckan/ckan/config/solr/schema.xml /etc/solr/conf/schema.xml
+          sudo service jetty9 restart
+
+      - name: Setup database
+        run: |
+          echo "Creating the PostgreSQL user and database..."
+          sudo -u postgres psql -c "CREATE USER ckan_default WITH PASSWORD 'pass';"
+          sudo -u postgres psql -c 'CREATE DATABASE ckan_test WITH OWNER ckan_default;'
+          cd ckan
+          paster db init -c test-core.ini
+
+      - name: Prepare test configuration
+        run: |
+          mkdir -p subdir
+          cp test.ini subdir
 
       - name: Run nosetests
-        run: ./bin/travis-run.sh
+        run: nosetests --ckan --nologcapture --with-pylons=subdir/test.ini --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests
 
       - name: Generate coverage report
         uses: coverallsapp/github-action@master
