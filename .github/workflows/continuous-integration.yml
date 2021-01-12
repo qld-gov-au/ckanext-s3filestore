@@ -16,14 +16,14 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Set up environment matching TravisCI
-        run: bin/travis-build.bash
+        run: ./bin/travis-build.bash
         env:
           PGVERSION: 11
           CKAN_GIT_REPO: ckan/ckan
           CKAN_BRANCH: master
 
       - name: Run nosetests
-        run: bin/travis-run.sh
+        run: ./bin/travis-run.sh
 
       - name: Generate coverage report
         uses: coverallsapp/github-action@master
