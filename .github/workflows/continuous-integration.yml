@@ -15,9 +15,9 @@ jobs:
       - name: Set up environment matching TravisCI
         run: bin/travis-build.bash
         env:
-          PGVERSION=11
-          CKAN_GIT_REPO=ckan/ckan
-          CKAN_BRANCH=master
+          PGVERSION: 11
+          CKAN_GIT_REPO: ckan/ckan
+          CKAN_BRANCH: master
 
       - name: Run nosetests
         run: bin/travis-run.sh
