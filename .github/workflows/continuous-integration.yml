@@ -12,6 +12,9 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Check out code
+        uses: actions/checkout@v2
+
       - name: Set up environment matching TravisCI
         run: bin/travis-build.bash
         env:
