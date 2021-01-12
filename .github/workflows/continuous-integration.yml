@@ -32,7 +32,7 @@ jobs:
         with:
           repository: ckan/ckan
           path: ckan
-          ref: 2.8.6
+          ref: ckan-2.8.6
 
       - name: Install CKAN dependencies
         run: |
