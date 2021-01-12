@@ -62,7 +62,7 @@ Required::
 
     ckanext.s3filestore.aws_bucket_name = a-bucket-to-store-your-stuff
     ckanext.s3filestore.region_name = region-name
-    ckanext.s3filestore.signature_version = signature (s3v4)
+    ckanext.s3filestore.signature_version = s3v4
 
 Conditional::
 
@@ -87,19 +87,23 @@ Optional::
     ckanext.s3filestore.acl = private
 
     # An optional setting to specify which addressing style to use.
-    # This controls whether the bucket name is in the hostname
-    # or is part of the URL. Default auto.
+    # This controls whether the bucket name is in the hostname or is
+    # part of the URL path. Options are 'path', 'virtual', and 'auto';
+    # default is 'auto'.
     ckanext.s3filestore.addressing_style = path
 
     # Set this parameter only if you want to use a provider like Minio
     # as a filestore service instead of S3.
-    # Required when using path-style addressing.
     # Ignored when using virtual addressing.
     ckanext.s3filestore.host_name = http://minio-service.com
 
-    # To use user provided filepath and not use internal url basename on download
-    # Set to False to be backwards compatible to ckan file store, set to True if already using s3plugin
-    # If False /dataset/{id}/resource/{resource_id}/orig_download/{filename} will be available
+    # To use user provided filepath and not use internal url basename
+    # on download. This affects behaviour when using a URL that points
+    # to an earlier version of a resource, with a different file name.
+    # If True, the older file will be served; if False, the newest file
+    # will be served, but the older file will be available at
+    # /dataset/{id}/resource/{resource_id}/orig_download/{filename}
+    # Set to False to be backwards compatible to ckan file store.
     ckanext.s3filestore.use_filename = True
 
     # To mask the S3 endpoint with your own domain/endpoint when serving URLs to end users.
@@ -110,7 +114,7 @@ Optional::
     # Cache control for signed URLs. Values are in seconds.
     # 'signed_url_expiry': How long a URL is valid (default 1 hour).
     # 'signed_url_cache_window': How long a URL will be reused,
-    # if it is not updated in the meantime (default 30 min).
+    # if the resource is not updated in the meantime (default 30 min).
     # The expiry should be longer than the window (not equal);
     # otherwise, a URL may expire before a new one is available.
     # If either value is zero or negative, then URL caching is disabled.
@@ -125,7 +129,7 @@ Development Installation
 To install ckanext-s3filestore for development, activate your CKAN virtualenv and
 do::
 
-    git clone https://github.com/okfn/ckanext-s3filestore.git
+    git clone https://github.com/qld-gov-au/ckanext-s3filestore.git
     cd ckanext-s3filestore
     python setup.py develop
     pip install -r dev-requirements.txt

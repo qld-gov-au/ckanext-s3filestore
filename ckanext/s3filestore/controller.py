@@ -4,7 +4,6 @@ from ckantoolkit import config
 import ckantoolkit as toolkit
 import ckan.logic as logic
 import ckan.lib.base as base
-import ckan.lib.helpers as h
 import ckan.model as model
 import ckan.lib.uploader as uploader
 from ckan.common import _, c
@@ -25,7 +24,6 @@ redirect = toolkit.redirect_to
 
 class S3Controller(base.BaseController):
 
-    # For prior to 2.8.3
     def resource_download(self, id, resource_id, filename=None):
         '''
         Provide a download by either redirecting the user to the url stored or
@@ -58,7 +56,7 @@ class S3Controller(base.BaseController):
 
             try:
                 url = upload.get_signed_url_to_key(key_path)
-                h.redirect_to(url)
+                redirect(url)
             except ClientError as ex:
                 if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                     # attempt fallback
@@ -109,7 +107,7 @@ class S3Controller(base.BaseController):
                 abort(404, _('Resource data not found'))
         elif 'url' not in rsc:
             abort(404, _('No download is available'))
-        h.redirect_to(rsc['url'])
+        redirect(rsc['url'])
 
     def uploaded_file_redirect(self, upload_to, filename):
         '''Redirect static file requests to their location on S3.'''
