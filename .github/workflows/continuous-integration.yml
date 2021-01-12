@@ -2,8 +2,8 @@ name: Continuous Integration
 on: push
 
 jobs:
-  nose:
-    name: Run nosetests
+  ci:
+    name: Run continuous integration tests
     runs-on: ubuntu-latest
 
     steps:
@@ -12,10 +12,15 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Check out CKAN
-        uses: actions/checkout@v2
-        with:
-          repository: ckan/ckan
+      - name: Set up environment matching TravisCI
+        run: bin/travis-build.bash
+        env:
+          PGVERSION=11
+          CKAN_GIT_REPO=ckan/ckan
+          CKAN_BRANCH=master
 
-      - name: Check out s3filestore
-        uses: actions/checkout@v2
+      - name: Run nosetests
+        run: bin/travis-run.sh
+
+      - name: Generate coverage report
+        uses: coverallsapp/github-action@master
