@@ -1,0 +1,21 @@
+name: Continuous Integration
+on: push
+
+jobs:
+  nose:
+    name: Run nosetests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Check out CKAN
+        uses: actions/checkout@v2
+        with:
+          repository: ckan/ckan
+
+      - name: Check out s3filestore
+        uses: actions/checkout@v2
