@@ -2,7 +2,7 @@ name: Continuous Integration
 on: push
 
 jobs:
-  ci:
+  ci-master:
     name: Run continuous integration tests
     runs-on: ubuntu-latest
 
@@ -65,7 +65,7 @@ jobs:
           sudo -u postgres psql -c "CREATE USER ckan_default WITH PASSWORD 'pass';"
           sudo -u postgres psql -c 'CREATE DATABASE ckan_test WITH OWNER ckan_default;'
           cd ckan
-          paster db init -c test-core.ini
+          ckan-c test-core.ini db init
 
       - name: Prepare test configuration
         run: |
