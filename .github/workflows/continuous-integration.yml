@@ -18,6 +18,7 @@ jobs:
       - name: Start services
         run: |
           sudo pip install moto[server]
+          docker network create amazeeio-network
           docker-compose up -d --build --force-recreate
           moto_server s3 &
 
