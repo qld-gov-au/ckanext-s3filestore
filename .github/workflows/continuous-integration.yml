@@ -23,10 +23,10 @@ jobs:
       - name: Run linter
         run: |
           docker cp -L .flake8 $(docker-compose ps -q ckan):/app/.
-          docker exec -i $(docker-compose ps -q ckan) "flake8 ${@:-/app/ckanext}"
+          docker exec -i $(docker-compose ps -q ckan) flake8 "${@:-/app/ckanext}"
 
       - name: Run unit tests
         run: |
           docker exec -i $(docker-compose ps -q ckan) \
-          "nosetests --ckan --nologcapture --with-pylons=/app/ckan/default/production.ini \
-          --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests"
+          nosetests --ckan --nologcapture --with-pylons=/app/ckan/default/production.ini \
+          --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests
