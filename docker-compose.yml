@@ -79,6 +79,17 @@ services:
       - amazeeio-network
       - default
 
+  moto:
+    image: motoserver/moto
+    <<: *default-user
+    environment:
+      <<: *default-environment
+    ports:
+      - "5000"
+    networks:
+      - amazeeio-network
+      - default
+
   chrome:
     image: selenium/standalone-chrome:3.141.59-oxygen
     shm_size: '1gb'
