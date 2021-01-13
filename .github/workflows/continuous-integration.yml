@@ -19,7 +19,7 @@ jobs:
 
       - name: Start containers
         run: |
-          (docker network prune -f > /dev/null && docker network inspect amazeeio-network > /dev/null || docker network create amazeeio-network)
+          docker network prune -f > /dev/null && docker network inspect amazeeio-network > /dev/null || docker network create amazeeio-network
           docker-compose up -d --build --force-recreate
 
       - name: Run linter
@@ -33,5 +33,5 @@ jobs:
           --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests
 
       - name: Collect Docker logs on failure
-        if: failure
+        if: failure()
         uses: jwalton/gh-docker-logs@v2.0.0
