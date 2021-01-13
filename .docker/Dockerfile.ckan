@@ -33,7 +33,7 @@ RUN fix-permissions /app/ckan \
 
 # Add current extension and files.
 COPY ckanext /app/ckanext
-COPY requirements.txt dev-requirements.txt setup.py README.rst /app/
+COPY requirements.txt dev-requirements.txt setup.py .flake8 README.rst /app/
 
 # Init current extension.
 RUN /app/scripts/init-ext.sh
