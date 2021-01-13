@@ -20,38 +20,13 @@ jobs:
           docker network create amazeeio-network
           docker-compose up -d --build --force-recreate
 
-      - name: Check out CKAN
-        uses: actions/checkout@v2
-        with:
-          repository: ckan/ckan
-          path: ckan
-          ref: ckan-2.8.6
-
-      - name: Install CKAN dependencies
+      - name: Run linter
         run: |
-          cd ckan
-          sudo pip install -r requirements.txt
-          sudo pip install -r dev-requirements.txt
-          sudo pip install -r requirement-setuptools.txt
-          sudo python setup.py develop
-
-      - name: Install CKAN extension dependencies
-        run: |
-          sudo python setup.py develop
-          sudo pip install -r requirements.txt
-          sudo pip install -r dev-requirements.txt
-
-      - name: Prepare test configuration
-        run: |
-          mkdir -p subdir
-          cp test.ini subdir
-
-      - name: Setup database
-        run: |
-          paster --plugin=ckan db init -c subdir/test.ini
+          docker cp -L .flake8 $(docker-compose ps -q ckan):/app/.
+          docker exec -i $(docker-compose ps -q ckan) "flake8 ${@:-/app/ckanext}"
 
       - name: Run unit tests
-        run: nosetests --ckan --nologcapture --with-pylons=subdir/test.ini --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests
-
-      - name: Generate coverage report
-        uses: coverallsapp/github-action@master
+        run: |
+          docker exec -i $(docker-compose ps -q ckan) \
+          "nosetests --ckan --nologcapture --with-pylons=/app/ckan/default/production.ini \
+          --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests"
