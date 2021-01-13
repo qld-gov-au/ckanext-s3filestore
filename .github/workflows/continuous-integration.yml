@@ -20,7 +20,6 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y docker python-pip
           sudo pip install docker-compose moto[server] "pyrsistent<0.16.0" backports.ssl_match_hostname
-          sudo cp -r /usr/local/lib/python2.7/dist-packages/backports/* /usr/lib/python2.7/dist-packages/backports/
 
       - name: Set up Docker containers
         run: sudo docker-compose up -d --build --force-recreate
