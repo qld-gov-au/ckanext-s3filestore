@@ -45,7 +45,7 @@ jobs:
 
       - name: Setup database
         run: |
-          paster db init -c test.ini
+          paster --plugin=ckan db init -c test.ini
 
       - name: Prepare test configuration
         run: |
