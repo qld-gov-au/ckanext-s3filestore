@@ -11,7 +11,7 @@ RUN apk add --no-cache curl && curl -s -L -O http://github.com/jwilder/dockerize
     && rm dockerize-alpine-linux-amd64-${DOCKERIZE_VERSION}.tar.gz
 
 # Install CKAN.
-ENV CKAN_VERSION 2.8.4-qgov.4
+ENV CKAN_VERSION 2.8.5-qgov.3
 RUN . /app/ckan/default/bin/activate \
     && cd /app/ckan/default \
     && pip install setuptools==36.1 \
