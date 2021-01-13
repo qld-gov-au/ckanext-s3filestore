@@ -22,6 +22,7 @@ RUN . /app/ckan/default/bin/activate \
     && deactivate \
     && ln -s /app/ckan /usr/lib/ckan
 
+COPY .docker/test.ini /app/test.ini
 COPY .docker/test.ini /app/ckan/default/production.ini
 
 COPY .docker/scripts /app/scripts
