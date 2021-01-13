@@ -2,7 +2,7 @@ name: Continuous Integration
 on: push
 
 jobs:
-  ckan-2.8:
+  continuous-integration-tests:
     name: Run continuous integration tests
     runs-on: ubuntu-18.04
 
