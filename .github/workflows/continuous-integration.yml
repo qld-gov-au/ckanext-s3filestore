@@ -23,7 +23,8 @@ jobs:
 
       - name: Set up Docker containers
         run: |
-          sudo service docker start
+          sudo systemctl unmask docker
+          sudo systemctl start docker
           sudo docker-compose up -d --build --force-recreate
 
       - name: Start services
