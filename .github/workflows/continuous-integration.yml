@@ -43,14 +43,14 @@ jobs:
           sudo pip install -r requirements.txt
           sudo pip install -r dev-requirements.txt
 
-      - name: Setup database
-        run: |
-          paster --plugin=ckan db init -c test.ini
-
       - name: Prepare test configuration
         run: |
           mkdir -p subdir
           cp test.ini subdir
+
+      - name: Setup database
+        run: |
+          paster --plugin=ckan db init -c subdir/test.ini
 
       - name: Run unit tests
         run: nosetests --ckan --nologcapture --with-pylons=subdir/test.ini --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests
