@@ -38,6 +38,7 @@ COPY requirements.txt dev-requirements.txt setup.py .flake8 README.rst /app/
 
 # Init current extension.
 RUN /app/scripts/init-ext.sh
+RUN /app/scripts/init.sh
 
 ENTRYPOINT ["/sbin/tini", "--", "/lagoon/entrypoints.sh"]
 CMD ["/app/scripts/serve.sh"]
