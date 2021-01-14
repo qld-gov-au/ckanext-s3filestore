@@ -7,6 +7,7 @@ import requests
 
 import ckan.tests.helpers as helpers
 import ckan.tests.factories as factories
+from ckantoolkit import config
 
 import ckanapi
 import boto3
@@ -17,7 +18,7 @@ log = logging.getLogger(__name__)
 
 # moto s3 client is started externally on localhost:5000
 class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
-    endpoint_url = 'http://localhost:5000'
+    endpoint_url = config.get('ckanext.s3filestore.host_name', 'http://localhost:5000')
 
     def __init__(self):
         self.botoSession = boto3.Session(region_name='ap-southeast-2', aws_access_key_id='a', aws_secret_access_key='b')

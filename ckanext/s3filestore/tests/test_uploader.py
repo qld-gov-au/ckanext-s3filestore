@@ -24,7 +24,7 @@ from ckanext.s3filestore.uploader import (S3Uploader,
 
 # moto s3 client is started externally on localhost:5000
 class TestS3Uploader(helpers.FunctionalTestBase):
-    endpoint_url = 'http://localhost:5000'
+    endpoint_url = config.get('ckanext.s3filestore.host_name', 'http://localhost:5000')
     bucket_name = 'my-bucket'
 
     def __init__(self):
@@ -130,7 +130,7 @@ class TestS3Uploader(helpers.FunctionalTestBase):
 
 
 class TestS3ResourceUploader(helpers.FunctionalTestBase):
-    endpoint_url = 'http://localhost:5000'
+    endpoint_url = config.get('ckanext.s3filestore.host_name', 'http://localhost:5000')
     bucket_name = 'my-bucket'
 
     def __init__(self):
