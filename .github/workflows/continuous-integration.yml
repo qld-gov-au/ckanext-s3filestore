@@ -29,8 +29,8 @@ jobs:
       - name: Run unit tests
         run: |
           docker exec -i $(docker-compose ps -q ckan) \
-          /app/ckan/default/bin/nosetests --ckan --with-pylons=/app/ckan/default/production.ini \
-          --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests
+          sh -c ". /app/ckan/default/bin/activate; nosetests --ckan --with-pylons=/app/ckan/default/production.ini \
+          --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests"
 
       - name: Collect Docker logs on failure
         if: failure()
