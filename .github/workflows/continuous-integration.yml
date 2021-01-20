@@ -13,9 +13,9 @@ jobs:
       - name: Install Docker
         run: |
           # if sudo doesn't exist, assume we're root and don't need it
-          SUDO=$(which sudo)
-          $SUDO apt-get update
-          which docker-compose || $SUDO apt-get install -y docker-compose
+          SUDO=$(which sudo || true)
+          which docker-compose > /dev/null || \
+            ($SUDO apt-get update && $SUDO apt-get install -y docker-compose)
 
       - name: Start containers
         run: |
