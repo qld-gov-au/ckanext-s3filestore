@@ -1,0 +1,42 @@
+name: Continuous Integration
+on: ["push", "pull_request"]
+
+jobs:
+  continuous-integration-tests:
+    name: Run continuous integration tests
+    runs-on: ubuntu-18.04
+    env:
+      PGVERSION: 11
+      CKAN_GIT_REPO: ckan/ckan
+      CKAN_BRANCH: 2.8
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Environment setup
+        run: ./bin/githubactions-build.sh
+        shell: bash
+
+      - name: Ckan Compile
+        run: ./bin/githubactions-ckan-compile.sh
+        shell: bash
+
+      - name: Compile
+        run: ./bin/githubactions-compile.sh
+        shell: bash
+
+
+      - name: install coveralls
+        run: pip install coveralls -U
+        shell: bash
+
+      - name: Run run script
+        run: ./bin/travis-run.sh
+        shell: bash
+
+
+#    - name: Coveralls
+#      uses: coverallsapp/github-action@master
+#      with:
+#        github-token: ${{ secrets.GITHUB_TOKEN }}

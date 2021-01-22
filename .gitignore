@@ -43,3 +43,7 @@ docs/_build/
 
 subdir/
 *.idea
+
+# CICD ignors
+adopt-openjdk-8-jdk_0.1_all.deb
+ckan
