@@ -18,6 +18,10 @@ jobs:
         run: ./bin/githubactions-build.sh
         shell: bash
 
+      - name: Environment s3 moto mock
+        run: ./bin/githubactions-s3moto.sh
+        shell: bash
+
       - name: Ckan Compile
         run: ./bin/githubactions-ckan-compile.sh
         shell: bash
