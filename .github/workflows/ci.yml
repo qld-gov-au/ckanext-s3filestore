@@ -5,14 +5,38 @@ jobs:
   continuous-integration-tests:
     name: Run continuous integration tests
     runs-on: ubuntu-18.04
+    strategy:
+      # You can use PyPy versions in python-version.
+      # For example, pypy2 and pypy3
+      matrix:
+        python-version: [ 2.7 ] ##, 3.5, 3.6, 3.7, 3.8 ]
     env:
       PGVERSION: 11
       CKAN_GIT_REPO: ckan/ckan
-      CKAN_BRANCH: 2.8
+      CKAN_BRANCH: ckan-2.8.5
 
     steps:
       - name: Check out code
         uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@v2
+        with:
+          # This path is specific to Ubuntu
+          path: ~/.cache/pip
+          # Look to see if there is a cache hit for the corresponding requirements file
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip setuptools wheel
 
       - name: Environment setup
         run: ./bin/githubactions-build.sh

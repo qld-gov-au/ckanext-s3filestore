@@ -10,7 +10,7 @@ git checkout $CKAN_BRANCH
 
 
 #work around for easy_install not having write permissions on image which needs to run sudo on python setup.
-sudo python setup.py develop
+python setup.py develop
 pip install -r requirements.txt
 pip install -r dev-requirements.txt
 cd -
