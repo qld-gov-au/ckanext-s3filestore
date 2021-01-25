@@ -30,13 +30,13 @@ sudo dpkg -i adopt-openjdk-8-jdk_0.1_all.deb
 # todo make this dynamic on where which java points to
 export JAVA_HOME="/usr/lib/jvm/adoptopenjdk-8-hotspot-amd64/"
 
-sudo apt-get install systemd git python-pip postgresql-$PGVERSION solr-jetty libcommons-fileupload-java:amd64 redis-server -y -qq
-echo "Start postgres"
-sudo service postgresql start
+sudo apt-get install systemd git python-pip solr-jetty libcommons-fileupload-java:amd64 redis-server -y -qq
+#echo "Start postgres"
+#sudo service postgresql start
 
-echo "Creating the PostgreSQL user and database..."
-sudo su - postgres -c "psql -c \"CREATE USER ckan_default WITH PASSWORD 'pass';\""
-sudo su - postgres -c "psql -c 'CREATE DATABASE ckan_test WITH OWNER ckan_default;'"
+##echo "Creating the PostgreSQL user and database..."
+#sudo su - postgres -c "psql -c \"CREATE USER ckan_default WITH PASSWORD 'pass';\""
+#sudo su - postgres -c "psql -c 'CREATE DATABASE ckan_test WITH OWNER ckan_default;'"
 
 
 echo "Start redis"
