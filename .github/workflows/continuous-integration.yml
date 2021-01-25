@@ -1,0 +1,39 @@
+name: Continuous Integration
+on: push
+
+jobs:
+  continuous-integration-tests:
+    name: Run continuous integration tests
+    runs-on: ubuntu-18.04
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Install Docker
+        run: |
+          # if sudo doesn't exist, assume we're root and don't need it
+          SUDO=$(which sudo || true)
+          which docker-compose > /dev/null || \
+            ($SUDO apt-get update -qq && $SUDO apt-get install -y docker-compose)
+
+      - name: Start containers
+        run: |
+          docker network prune -f > /dev/null && docker network inspect amazeeio-network > /dev/null || docker network create amazeeio-network
+          docker-compose up -d --build --force-recreate
+
+      - name: Run linter
+        run: |
+          docker exec -i $(docker-compose ps -q ckan) /app/ckan/default/bin/flake8 "${@:-/app/ckanext}"
+
+      - name: Run unit tests
+        run: |
+          docker exec -i $(docker-compose ps -q ckan) sh -c " \
+          /app/scripts/init.sh && \
+          . /app/ckan/default/bin/activate && \
+          nosetests --ckan --with-pylons=/app/ckan/default/production.ini \
+          --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests"
+
+      - name: Collect Docker logs on failure
+        if: failure()
+        uses: jwalton/gh-docker-logs@v2.0.0
