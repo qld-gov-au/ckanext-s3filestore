@@ -1,14 +1,15 @@
 import os
+import re
 import cgi
 import logging
 import datetime
 import mimetypes
+import magic
 import errno
-import re
-import time
 
 import boto3
-import botocore
+from botocore.client import Config
+from botocore.exceptions import ClientError
 import ckantoolkit as toolkit
 import ckan.lib.helpers as h
 from ckan.lib.redis import connect_to_redis
@@ -17,8 +18,6 @@ from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as
 
 import ckan.model as model
 import ckan.lib.munge as munge
-redirect = toolkit.redirect_to
-from botocore.exceptions import ClientError
 
 if toolkit.check_ckan_version(min_version='2.7.0'):
     from werkzeug.datastructures import FileStorage as FlaskFileStorage
@@ -29,20 +28,33 @@ else:
 config = toolkit.config
 log = logging.getLogger(__name__)
 
-storage_path = None
-max_resource_size = None
-max_image_size = None
+_storage_path = None
+_max_resource_size = None
+_max_image_size = None
 
 URL_HOST = re.compile('^https?://[^/]*/')
 REDIS_PREFIX = 'ckanext-s3filestore:'
 
+
 def _get_cache_key(path):
     return REDIS_PREFIX + path
+
 
 def _get_underlying_file(wrapper):
     if isinstance(wrapper, FlaskFileStorage):
         return wrapper.stream
     return wrapper.file
+
+
+def is_path_addressing():
+    if config.get('ckanext.s3filestore.download_proxy'):
+        return False
+    configured_style = config.get('ckanext.s3filestore.addressing_style', 'auto')
+    if configured_style == 'path':
+        return True
+    if configured_style == 'auto':
+        return config.get('ckanext.s3filestore.signature_version') == 's3v4'
+    return False
 
 
 class S3FileStoreException(Exception):
@@ -53,16 +65,20 @@ class BaseS3Uploader(object):
 
     def __init__(self):
         self.bucket_name = config.get('ckanext.s3filestore.aws_bucket_name')
-        self.p_key = config.get('ckanext.s3filestore.aws_access_key_id', None)
-        self.s_key = config.get('ckanext.s3filestore.aws_secret_access_key', None)
+        self.p_key = config.get('ckanext.s3filestore.aws_access_key_id')
+        self.s_key = config.get('ckanext.s3filestore.aws_secret_access_key')
         self.region = config.get('ckanext.s3filestore.region_name')
         self.signature = config.get('ckanext.s3filestore.signature_version')
-        self.download_proxy = config.get('ckanext.s3filestore.download_proxy', None)
+        self.download_proxy = config.get('ckanext.s3filestore.download_proxy')
         self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry', '3600'))
         self.signed_url_cache_window = int(config.get('ckanext.s3filestore.signed_url_cache_window', '1800'))
         self.signed_url_cache_enabled = self.signed_url_cache_window > 0 and self.signed_url_expiry > 0
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
-        self.session = None
+        self.addressing_style = config.get('ckanext.s3filestore.addressing_style', 'auto')
+        if is_path_addressing():
+            self.host_name = config.get('ckanext.s3filestore.host_name')
+        else:
+            self.host_name = None
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
@@ -75,16 +91,19 @@ class BaseS3Uploader(object):
 
     def get_s3_resource(self):
         return self.get_s3_session().resource('s3',
-                                     config=botocore.client.Config(
-                                     s3={'addressing_style': 'virtual'},
-                                     signature_version=self.signature))
+                                              endpoint_url=self.host_name,
+                                              config=Config(
+                                                  signature_version=self.signature,
+                                                  s3={'addressing_style': self.addressing_style}
+                                              ))
 
     def get_s3_client(self):
         return self.get_s3_session().client('s3',
-                                     config=botocore.client.Config(
-                                     s3={'addressing_style': 'virtual'},
-                                     signature_version=self.signature))
-
+                                            endpoint_url=self.host_name,
+                                            config=Config(
+                                                signature_version=self.signature,
+                                                s3={'addressing_style': self.addressing_style}
+                                            ))
 
     def get_s3_bucket(self, bucket_name):
         '''Return a boto bucket, creating it if it doesn't exist.'''
@@ -95,20 +114,20 @@ class BaseS3Uploader(object):
         bucket = s3.Bucket(bucket_name)
         try:
             s3.meta.client.head_bucket(Bucket=bucket_name)
-            log.info('Bucket %s found!', bucket_name)
-        except botocore.exceptions.ClientError as e:
+            log.debug('Bucket %s found!', bucket_name)
+        except ClientError as e:
             error_code = e.response['Error']['Code']
             if error_code == '404':
                 log.warning('Bucket %s could not be found, attempting to create it...',
-                        bucket_name)
+                            bucket_name)
                 try:
                     bucket = s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
                         'LocationConstraint': self.region})
                     log.info(
                         'Bucket %s successfully created', bucket_name)
-                except botocore.exceptions.ClientError as e:
+                except ClientError as e:
                     log.warning('Could not create bucket %s: %s',
-                        bucket_name, str(e))
+                                bucket_name, str(e))
             elif error_code == '403':
                 raise S3FileStoreException(
                     'Access to bucket {0} denied'.format(bucket_name))
@@ -120,14 +139,16 @@ class BaseS3Uploader(object):
 
     def upload_to_key(self, filepath, upload_file, make_public=False):
         '''Uploads the `upload_file` to `filepath` on `self.bucket`.'''
+
         upload_file.seek(0)
+        mime_type = getattr(self, 'mimetype', '') or 'application/octet-stream'
         log.debug("ckanext.s3filestore.uploader: going to upload %s to bucket %s with mimetype %s",
-            filepath, self.bucket_name, getattr(self, 'mimetype', None))
+                  filepath, self.bucket_name, mime_type)
 
         try:
             self.get_s3_resource().Object(self.bucket_name, filepath).put(
-                Body=upload_file.read(), ACL=self.acl,
-                ContentType=getattr(self, 'mimetype', None))
+                Body=upload_file.read(), ACL='public-read' if make_public else self.acl,
+                ContentType=mime_type)
             log.info("Successfully uploaded %s to S3!", filepath)
             if self.signed_url_cache_enabled:
                 connect_to_redis().delete(_get_cache_key(filepath))
@@ -145,7 +166,7 @@ class BaseS3Uploader(object):
         except Exception as e:
             raise e
 
-    def get_signed_url_to_key(self, key_path):
+    def get_signed_url_to_key(self, key, extra_params={}):
         '''Generates a pre-signed URL giving access to an S3 object.
 
         If a download_proxy is configured, then the URL will be
@@ -159,21 +180,26 @@ class BaseS3Uploader(object):
         client = self.get_s3_client()
 
         # check whether the object exists in S3
-        client.head_object(Bucket=self.bucket_name, Key=key_path)
+        metadata = client.head_object(Bucket=self.bucket_name, Key=key)
 
         if self.signed_url_cache_enabled:
             redis_conn = connect_to_redis()
-            cache_key = _get_cache_key(key_path)
+            cache_key = _get_cache_key(key)
             cache_url = redis_conn.get(cache_key)
             if cache_url:
-                log.debug('Returning cached URL for path %s', key_path)
+                log.debug('Returning cached URL for path %s', key)
                 return cache_url
             else:
-                log.debug('No cache found for %s; generating a new URL', key_path)
+                log.debug('No cache found for %s; generating a new URL', key)
 
+        params = {'Bucket': self.bucket_name,
+                  'Key': key}
+        if metadata['ContentType'] != 'application/pdf':
+            filename = key.split('/')[-1]
+            params['ResponseContentDisposition'] = 'attachment; filename=' + filename
+        params.update(extra_params)
         url = client.generate_presigned_url(ClientMethod='get_object',
-                                            Params={'Bucket': self.bucket_name,
-                                                    'Key': key_path},
+                                            Params=params,
                                             ExpiresIn=self.signed_url_expiry)
         if self.download_proxy:
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
@@ -187,6 +213,7 @@ class BaseS3Uploader(object):
             if isinstance(v, datetime.datetime):
                 dict[k] = v.isoformat()
         return dict
+
 
 class S3Uploader(BaseS3Uploader):
 
@@ -205,7 +232,7 @@ class S3Uploader(BaseS3Uploader):
 
         super(S3Uploader, self).__init__()
 
-        #Store path if we need to fall back
+        # Store path if we need to fall back
         self.upload_to = upload_to
 
         self.storage_path = self.get_storage_path(upload_to)
@@ -223,7 +250,8 @@ class S3Uploader(BaseS3Uploader):
         return os.path.join(path, 'storage', 'uploads', upload_to)
 
     def update_data_dict(self, data_dict, url_field, file_field, clear_field):
-        log.debug("ckanext.s3filestore.uploader: update_data_dic: %s, url %s, file %s, clear %s", data_dict, url_field, file_field, clear_field)
+        log.debug("ckanext.s3filestore.uploader: update_data_dic: %s, url %s, file %s, clear %s",
+                  data_dict, url_field, file_field, clear_field)
         '''Manipulate data from the data_dict. This needs to be called before it
         reaches any validators.
 
@@ -241,7 +269,7 @@ class S3Uploader(BaseS3Uploader):
         self.file_field = file_field
         self.upload_field_storage = data_dict.pop(file_field, None)
         self.upload_file = None
-        self.preserve_filename = data_dict.get('preserve_filename', None)
+        self.preserve_filename = data_dict.get('preserve_filename', False)
 
         if not self.storage_path:
             return
@@ -251,15 +279,17 @@ class S3Uploader(BaseS3Uploader):
                 self.filename = str(datetime.datetime.utcnow()) + self.filename
             self.filename = munge.munge_filename_legacy(self.filename)
             self.filepath = os.path.join(self.storage_path, self.filename)
-            self.mimetype = self.upload_field_storage.mimetype
-            if not self.mimetype:
+            if hasattr(self.upload_field_storage, 'mimetype'):
+                self.mimetype = self.upload_field_storage.mimetype
+            else:
                 try:
                     self.mimetype = mimetypes.guess_type(self.filename, strict=False)[0]
                 except Exception:
                     pass
             data_dict[url_field] = self.filename
             self.upload_file = _get_underlying_file(self.upload_field_storage)
-            log.debug("ckanext.s3filestore.uploader: is allowed upload type: filename: %s, upload_file: %s, data_dict: %s", self.filename, self.upload_file, data_dict)
+            log.debug("ckanext.s3filestore.uploader: is allowed upload type: filename: %s, upload_file: %s, data_dict: %s",
+                      self.filename, self.upload_file, data_dict)
         # keep the file if there has been no change
         elif self.old_filename and not self.old_filename.startswith('http'):
             if not self.clear:
@@ -269,7 +299,7 @@ class S3Uploader(BaseS3Uploader):
         else:
             log.debug(
                 "ckanext.s3filestore.uploader: is not allowed upload type: filename: %s, upload_file: %s, data_dict: %s",
-                    self.filename, self.upload_file, data_dict)
+                self.filename, self.upload_file, data_dict)
 
     def upload(self, max_size=2):
         log.debug(
@@ -298,8 +328,8 @@ class S3Uploader(BaseS3Uploader):
         key_path = os.path.join(self.storage_path, filename)
         try:
             self.clear_key(key_path)
-        except ClientError as ex:
-            log.warning('Key \'%s\' not found in bucket \'%s\' for delete',
+        except ClientError:
+            log.warning("Key '%s' not found in bucket '%s' for delete",
                         key_path, self.bucket_name)
             pass
 
@@ -310,17 +340,15 @@ class S3Uploader(BaseS3Uploader):
         '''
 
         filename = munge.munge_filename_legacy(filename)
-        key_path = os.path.join(self.storage_path, filename)
+        key = os.path.join(self.storage_path, filename)
 
-        if key_path is None:
+        if filename is None:
             log.warning("Key '%s' not found in bucket '%s'",
-                     key_path, self.bucket_name)
+                        filename, self.bucket_name)
 
         try:
-            url = self.get_signed_url_to_key(key_path)
+            url = self.get_signed_url_to_key(key)
             h.redirect_to(url)
-
-
         except ClientError as ex:
             if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                 if config.get(
@@ -341,15 +369,12 @@ class S3Uploader(BaseS3Uploader):
         '''
         filename = munge.munge_filename_legacy(filename)
         key_path = os.path.join(self.storage_path, filename)
-        key = filename
 
-        if key is None:
+        if filename is None:
             log.warning("Key '%s' not found in bucket '%s'",
-                     key_path, self.bucket_name)
+                        filename, self.bucket_name)
 
         try:
-            # Small workaround to manage downloading of large files
-            # We are using redirect to minio's resource public URL
             client = self.get_s3_client()
 
             metadata = client.head_object(Bucket=self.bucket_name, Key=key_path)
@@ -367,9 +392,8 @@ class S3Uploader(BaseS3Uploader):
                     default_upload = DefaultUpload(self.upload_to)
                     return default_upload.metadata(filename)
 
-            #Uploader interface does not know about s3 errors
+            # Uploader interface does not know about s3 errors
             raise OSError(errno.ENOENT)
-
 
 
 class S3ResourceUploader(BaseS3Uploader):
@@ -401,6 +425,8 @@ class S3ResourceUploader(BaseS3Uploader):
         upload_field_storage = resource.pop('upload', None)
         self.clear = resource.pop('clear_upload', None)
 
+        mime = magic.Magic(mime=True)
+
         if isinstance(upload_field_storage, ALLOWED_UPLOAD_TYPES):
             self.filesize = 0  # bytes
 
@@ -409,17 +435,35 @@ class S3ResourceUploader(BaseS3Uploader):
             resource['url'] = self.filename
             resource['url_type'] = 'upload'
             resource['last_modified'] = datetime.datetime.utcnow()
-            self.mimetype = resource.get('mimetype')
-            if not self.mimetype:
-                try:
-                    self.mimetype = resource['mimetype'] = mimetypes.guess_type(self.filename, strict=False)[0]
-                except Exception:
-                    pass
+
+            # Check the resource format from its filename extension,
+            # if no extension use the default CKAN implementation
+            if not 'format' in resource:
+                resource_format = os.path.splitext(self.filename)[1][1:]
+                if resource_format:
+                    resource['format'] = resource_format
+
             self.upload_file = _get_underlying_file(upload_field_storage)
             self.upload_file.seek(0, os.SEEK_END)
             self.filesize = self.upload_file.tell()
             # go back to the beginning of the file buffer
             self.upload_file.seek(0, os.SEEK_SET)
+
+            self.mimetype = resource.get('mimetype')
+            if not self.mimetype:
+                try:
+                    # 512 bytes should be enough for a mimetype check
+                    self.mimetype = resource['mimetype'] = mime.from_buffer(self.upload_file.read(512))
+
+                    # additional check on text/plain mimetypes for
+                    # more reliable result, if None continue with text/plain
+                    if self.mimetype == 'text/plain':
+                        self.mimetype = resource['mimetype'] = \
+                            mimetypes.guess_type(self.filename, strict=False)[0] or 'text/plain'
+                    # go back to the beginning of the file buffer
+                    self.upload_file.seek(0, os.SEEK_SET)
+                except Exception:
+                    pass
         elif self.clear and resource.get('id'):
             # New, not yet created resources can be marked for deletion if the
             # users cancels an upload and enters a URL instead.
@@ -473,7 +517,7 @@ class S3ResourceUploader(BaseS3Uploader):
         key_path = self.get_path(id, filename)
         try:
             self.clear_key(key_path)
-        except ClientError as ex:
+        except ClientError:
             log.warning("Key '%s' not found in bucket '%s' for delete",
                         key_path, self.bucket_name)
             pass
@@ -488,16 +532,14 @@ class S3ResourceUploader(BaseS3Uploader):
             filename = os.path.basename(self.url)
         filename = munge.munge_filename(filename)
         key_path = self.get_path(id, filename)
-        key = filename
 
-        if key is None:
+        if filename is None:
             log.warning("Key '%s' not found in bucket '%s'",
-                     key_path, self.bucket_name)
+                        filename, self.bucket_name)
 
         try:
             url = self.get_signed_url_to_key(key_path)
             h.redirect_to(url)
-
         except ClientError as ex:
             if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                 # attempt fallback
@@ -512,11 +554,10 @@ class S3ResourceUploader(BaseS3Uploader):
             filename = os.path.basename(self.url)
         filename = munge.munge_filename(filename)
         key_path = self.get_path(id, filename)
-        key = filename
 
-        if key is None:
+        if filename is None:
             log.warning("Key '%s' not found in bucket '%s'",
-                     key_path, self.bucket_name)
+                        filename, self.bucket_name)
 
         try:
             # Small workaround to manage downloading of large files
@@ -549,7 +590,5 @@ class S3ResourceUploader(BaseS3Uploader):
                     default_resource_upload = DefaultResourceUpload(self.resource)
                     return default_resource_upload.metadata(id)
 
-            #Uploader interface does not know about s3 errors
+            # Uploader interface does not know about s3 errors
             raise OSError(errno.ENOENT)
-
-

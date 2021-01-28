@@ -3,19 +3,28 @@ import ckan.plugins as plugins
 import ckantoolkit as toolkit
 
 import ckanext.s3filestore.uploader
+from ckanext.s3filestore.views import resource, uploads
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload
+
 
 class S3FileStorePlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
     plugins.implements(plugins.IUploader)
-    plugins.implements(plugins.IRoutes, inherit=True)
 
+    if plugins.toolkit.check_ckan_version(min_version='2.8.0'):
+        plugins.implements(plugins.IBlueprint)
+    else:
+        plugins.implements(plugins.IRoutes, inherit=True)
 
     # IConfigurer
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, 'templates')
+        # We need to register the following templates dir in order
+        # to fix downloading the HTML file instead of previewing when
+        # 'webpage_view' is enabled
+        toolkit.add_template_directory(config_, 'theme/templates')
 
     # IConfigurable
 
@@ -23,17 +32,17 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         # Certain config options must exists for the plugin to work. Raise an
         # exception if they're missing.
         missing_config = "{0} is not configured. Please amend your .ini file."
-
-        required_options = (
+        config_options = (
             'ckanext.s3filestore.aws_bucket_name',
             'ckanext.s3filestore.region_name',
             'ckanext.s3filestore.signature_version'
         )
-        if not config.get('ckanext.s3filestore.aws_use_ami_role'):
-            required_options += ('ckanext.s3filestore.aws_access_key_id',
-                                 'ckanext.s3filestore.aws_secret_access_key')
 
-        for option in required_options:
+        if not config.get('ckanext.s3filestore.aws_use_ami_role'):
+            config_options += ('ckanext.s3filestore.aws_access_key_id',
+                               'ckanext.s3filestore.aws_secret_access_key')
+
+        for option in config_options:
             if not config.get(option, None):
                 raise RuntimeError(missing_config.format(option))
 
@@ -43,7 +52,6 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                            True)):
             ckanext.s3filestore.uploader.BaseS3Uploader().get_s3_bucket(
                 config.get('ckanext.s3filestore.aws_bucket_name'))
-
 
     # IUploader
 
@@ -57,19 +65,19 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                                                        old_filename)
 
     # IRoutes
+    # Ignored on CKAN >= 2.8
 
     def before_map(self, map):
         with SubMapper(map, controller='ckanext.s3filestore.controller:S3Controller') as m:
             # Override the resource download links
-            # if plugins.toolkit.check_ckan_version(max_version='2.8.2') & \
-            if hasattr(DefaultResourceUpload, "download") == False :
+            if not hasattr(DefaultResourceUpload, "download"):
                 m.connect('resource_download',
                           '/dataset/{id}/resource/{resource_id}/download',
                           action='resource_download')
                 m.connect('resource_download',
                           '/dataset/{id}/resource/{resource_id}/download/{filename}',
                           action='resource_download')
-            #Allow fallback to access old files
+            # Allow fallback to access old files
             use_filename = toolkit.asbool(toolkit.config.get('ckanext.s3filestore.use_filename', False))
             if not use_filename:
                 m.connect('resource_download',
@@ -86,3 +94,9 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                       action='uploaded_file_redirect')
 
         return map
+
+    # IBlueprint
+    # Ignored on CKAN < 2.8
+
+    def get_blueprint(self):
+        return resource.get_blueprints() + uploads.get_blueprints()

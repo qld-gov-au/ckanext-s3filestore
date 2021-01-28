@@ -14,6 +14,7 @@ import boto3
 import logging
 log = logging.getLogger(__name__)
 
+
 # moto s3 client is started externally on localhost:5000
 class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
     endpoint_url = 'http://localhost:5000'
@@ -60,7 +61,7 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
 
         file_response = app.get(resource_file_url)
         location = file_response.headers['Location']
-        #logging.info("ckanext.s3filestore.tests: response is: {0}, {1}".format(location, file_response))
+        log.info("ckanext.s3filestore.tests: response is: %s, %s", location, file_response)
         assert_equal(302, file_response.status_int)
         file_response = requests.get(location)
         if hasattr(file_response, 'content_type'):
@@ -87,14 +88,13 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
         location = file_response.headers['Location']
         assert_equal(302, file_response.status_int)
         file_response = requests.get(location)
-        logging.info("ckanext.s3filestore.tests: response is: {0}, {1}".format(location, file_response))
+        log.info("ckanext.s3filestore.tests: response is: {0}, {1}".format(location, file_response))
 
         if hasattr(file_response, 'text'):
             body = file_response.text
         else:
             body = file_response.body
         assert_true('date,price' in body)
-        #assert_equal("text/csv", file_response.content_type)
 
     def test_resource_download_url_link(self):
         '''A resource with a url (not file) is redirected correctly.'''
@@ -149,7 +149,6 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
                     key = obj["Key"]
                     if key.endswith(suffix):
                         yield obj
-
 
     def get_matching_s3_keys(self, s3client, bucket, prefix="", suffix=""):
         """
