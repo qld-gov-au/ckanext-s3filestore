@@ -61,12 +61,23 @@ class S3FileStoreException(Exception):
     pass
 
 
+def get_s3_session(config):
+    if config.get('ckanext.s3filestore.aws_use_ami_role', False):
+        p_key = None
+        s_key = None
+    else:
+        p_key = config.get('ckanext.s3filestore.aws_access_key_id')
+        s_key = config.get('ckanext.s3filestore.aws_secret_access_key')
+    region = config.get('ckanext.s3filestore.region_name')
+    return boto3.session.Session(aws_access_key_id=p_key,
+                                 aws_secret_access_key=s_key,
+                                 region_name=region)
+
+
 class BaseS3Uploader(object):
 
     def __init__(self):
         self.bucket_name = config.get('ckanext.s3filestore.aws_bucket_name')
-        self.p_key = config.get('ckanext.s3filestore.aws_access_key_id')
-        self.s_key = config.get('ckanext.s3filestore.aws_secret_access_key')
         self.region = config.get('ckanext.s3filestore.region_name')
         self.signature = config.get('ckanext.s3filestore.signature_version')
         self.download_proxy = config.get('ckanext.s3filestore.download_proxy')
@@ -84,26 +95,21 @@ class BaseS3Uploader(object):
         directory = os.path.join(storage_path, id)
         return directory
 
-    def get_s3_session(self):
-        return boto3.session.Session(aws_access_key_id=self.p_key,
-                                     aws_secret_access_key=self.s_key,
-                                     region_name=self.region)
-
     def get_s3_resource(self):
-        return self.get_s3_session().resource('s3',
-                                              endpoint_url=self.host_name,
-                                              config=Config(
-                                                  signature_version=self.signature,
-                                                  s3={'addressing_style': self.addressing_style}
-                                              ))
+        return get_s3_session(config).resource('s3',
+                                               endpoint_url=self.host_name,
+                                               config=Config(
+                                                   signature_version=self.signature,
+                                                   s3={'addressing_style': self.addressing_style}
+                                               ))
 
     def get_s3_client(self):
-        return self.get_s3_session().client('s3',
-                                            endpoint_url=self.host_name,
-                                            config=Config(
-                                                signature_version=self.signature,
-                                                s3={'addressing_style': self.addressing_style}
-                                            ))
+        return get_s3_session(config).client('s3',
+                                             endpoint_url=self.host_name,
+                                             config=Config(
+                                                 signature_version=self.signature,
+                                                 s3={'addressing_style': self.addressing_style}
+                                             ))
 
     def get_s3_bucket(self, bucket_name):
         '''Return a boto bucket, creating it if it doesn't exist.'''
@@ -438,7 +444,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
             # Check the resource format from its filename extension,
             # if no extension use the default CKAN implementation
-            if not 'format' in resource:
+            if 'format' not in resource:
                 resource_format = os.path.splitext(self.filename)[1][1:]
                 if resource_format:
                     resource['format'] = resource_format

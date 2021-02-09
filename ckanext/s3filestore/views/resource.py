@@ -143,17 +143,17 @@ def filesystem_resource_download(package_type, id, resource_id, filename=None):
 if not hasattr(DefaultResourceUpload, "download"):
     s3_resource.add_url_rule(u'/<resource_id>/download', view_func=resource_download)
     s3_resource.add_url_rule(
-            u'/<resource_id>/download/<filename>', view_func=resource_download
-        )
+        u'/<resource_id>/download/<filename>', view_func=resource_download
+    )
 
 if not ckan_config.get('ckanext.s3filestore.use_filename', False):
     s3_resource.add_url_rule(
-            u'/<resource_id>/orig_download/<filename>', view_func=resource_download
-        )
+        u'/<resource_id>/orig_download/<filename>', view_func=resource_download
+    )
 
 s3_resource.add_url_rule(
-        u'/<resource_id>/fs_download/<filename>', view_func=filesystem_resource_download
-    )
+    u'/<resource_id>/fs_download/<filename>', view_func=filesystem_resource_download
+)
 
 
 def get_blueprints():
