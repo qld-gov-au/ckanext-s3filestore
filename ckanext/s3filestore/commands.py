@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-import boto3
+from botocore.exceptions import ClientError
 import os
 import sys
 
@@ -10,6 +10,7 @@ import ckantoolkit as toolkit
 from ckantoolkit import config
 import ckanext.s3filestore.uploader
 from ckan.logic import get_action
+from uploader import get_s3_session
 
 
 class TestConnection(toolkit.CkanCommand):
@@ -79,14 +80,6 @@ class TestConnection(toolkit.CkanCommand):
     def upload_all(self):
         BASE_PATH = config.get('ckan.storage_path', '/var/lib/ckan/default/resources')
         SQLALCHEMY_URL = config.get('sqlalchemy.url', 'postgresql://user:pass@localhost/db')
-        if config.get('ckanext.s3filestore.aws_use_ami_role', False):
-            AWS_ACCESS_KEY_ID = None
-            AWS_SECRET_ACCESS_KEY = None
-        else:
-            AWS_ACCESS_KEY_ID = config.get('ckanext.s3filestore.aws_access_key_id')
-            AWS_SECRET_ACCESS_KEY = config.get('ckanext.s3filestore.aws_secret_access_key')
-        AWS_BUCKET_NAME = config.get('ckanext.s3filestore.aws_bucket_name')
-        AWS_S3_ACL = config.get('ckanext.s3filestore.acl', 'public-read')
         resource_ids_and_paths = {}
 
         for root, dirs, files in os.walk(BASE_PATH):
@@ -116,6 +109,8 @@ class TestConnection(toolkit.CkanCommand):
                     _id, url = resource.first()
                     file_name = url.split('/')[-1] if '/' in url else url
                     resource_ids_and_names[_id] = file_name.lower()
+                else:
+                    print("{} is an orphan; no resource points to it".format(file_path))
         finally:
             connection.close()
             engine.dispose()
@@ -123,18 +118,7 @@ class TestConnection(toolkit.CkanCommand):
         print('{0} resources matched on the database'.format(
             len(resource_ids_and_names.keys())))
 
-        s3_connection = boto3.resource('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
-
-        uploaded_resources = []
-        for resource_id, file_name in resource_ids_and_names.iteritems():
-            key = 'resources/{resource_id}/{file_name}'.format(
-                resource_id=resource_id, file_name=file_name)
-
-            s3_connection.Object(AWS_BUCKET_NAME, key).put(Body=open(resource_ids_and_paths[resource_id]), ACL=AWS_S3_ACL)
-            uploaded_resources.append(resource_id)
-            print('Uploaded resource {0} ({1}) to S3'.format(resource_id, file_name))
-
-        print('Done, uploaded {0} resources to S3'.format(len(uploaded_resources)))
+        _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths)
 
     def upload_pairtree(self):
         def _to_pairtree_path(path):
@@ -148,14 +132,6 @@ class TestConnection(toolkit.CkanCommand):
         )
         print("Uploading pairtree files from {}".format(BASE_PATH))
         SQLALCHEMY_URL = config.get('sqlalchemy.url', 'postgresql://user:pass@localhost/db')
-        if config.get('ckanext.s3filestore.aws_use_ami_role', False):
-            AWS_ACCESS_KEY_ID = None
-            AWS_SECRET_ACCESS_KEY = None
-        else:
-            AWS_ACCESS_KEY_ID = config.get('ckanext.s3filestore.aws_access_key_id')
-            AWS_SECRET_ACCESS_KEY = config.get('ckanext.s3filestore.aws_secret_access_key')
-        AWS_BUCKET_NAME = config.get('ckanext.s3filestore.aws_bucket_name')
-        AWS_S3_ACL = config.get('ckanext.s3filestore.acl', 'public-read')
         resource_paths = []
         resource_ids_and_paths = {}
 
@@ -204,18 +180,28 @@ class TestConnection(toolkit.CkanCommand):
         if resource_count == 0:
             return
 
-        # upload matches to S3
-        s3_connection = boto3.resource('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
+        _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths)
 
-        context = {'ignore_auth': True}
-        uploaded_resources = []
-        for resource_id, file_name in resource_ids_and_names.iteritems():
-            key = 'resources/{resource_id}/{file_name}'.format(
-                resource_id=resource_id, file_name=file_name)
 
-            s3_connection.Object(AWS_BUCKET_NAME, key).put(Body=open(resource_ids_and_paths[resource_id]), ACL=AWS_S3_ACL)
+def _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths):
+    AWS_BUCKET_NAME = config.get('ckanext.s3filestore.aws_bucket_name')
+    AWS_S3_ACL = config.get('ckanext.s3filestore.acl', 'public-read')
+    s3_connection = get_s3_session(config).client('s3')
+
+    context = {'ignore_auth': True}
+    uploaded_resources = []
+    for resource_id, file_name in resource_ids_and_names.iteritems():
+        key = 'resources/{resource_id}/{file_name}'.format(
+            resource_id=resource_id, file_name=file_name)
+
+        try:
+            s3_connection.head_object(Bucket=AWS_BUCKET_NAME, Key=key)
+            print("{} is already in S3, skipping".format(key))
+            continue
+        except ClientError:
+            s3_connection.put_object(Bucket=AWS_BUCKET_NAME, Key=key, Body=open(resource_ids_and_paths[resource_id]), ACL=AWS_S3_ACL)
             uploaded_resources.append(resource_id)
             print('Uploaded resource {0} ({1}) to S3'.format(resource_id, file_name))
             get_action('resource_patch')(context, {'id': resource_id, 'url': file_name})
 
-        print('Done, uploaded {0} resources to S3'.format(len(uploaded_resources)))
+    print('Done, uploaded {0} resources to S3'.format(len(uploaded_resources)))
