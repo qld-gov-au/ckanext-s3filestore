@@ -105,15 +105,17 @@ class TestConnection(toolkit.CkanCommand):
         try:
             for resource_id, file_path in resource_ids_and_paths.iteritems():
                 resource = connection.execute(text('''
-                    SELECT id, url, url_type
+                    SELECT id, url
                     FROM resource
                     WHERE id = :id
+                    AND url IS NOT NULL
+                    AND url <> ''
+                    AND url_type = 'upload'
                 '''), id=resource_id)
                 if resource.rowcount:
-                    _id, url, _type = resource.first()
-                    if _type == 'upload' and url:
-                        file_name = url.split('/')[-1] if '/' in url else url
-                        resource_ids_and_names[_id] = file_name.lower()
+                    _id, url = resource.first()
+                    file_name = url.split('/')[-1] if '/' in url else url
+                    resource_ids_and_names[_id] = file_name.lower()
         finally:
             connection.close()
             engine.dispose()
