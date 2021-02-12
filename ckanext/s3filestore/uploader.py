@@ -300,7 +300,8 @@ class S3ResourceUploader(BaseS3Uploader):
 
         mime = magic.Magic(mime=True)
 
-        if isinstance(upload_field_storage, ALLOWED_UPLOAD_TYPES):
+        if bool(upload_field_storage) and \
+                isinstance(upload_field_storage, ALLOWED_UPLOAD_TYPES):
             self.filesize = 0  # bytes
             self.filename = upload_field_storage.filename
             self.filename = munge.munge_filename(self.filename)
