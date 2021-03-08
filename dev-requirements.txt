@@ -1,4 +1,4 @@
-moto==1.3.16
+moto==2.0.1
 ckanapi==4.3
 
 #1.0.2 is python3 only
