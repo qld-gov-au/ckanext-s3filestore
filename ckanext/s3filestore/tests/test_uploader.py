@@ -123,7 +123,7 @@ class TestS3Uploader(helpers.FunctionalTestBase):
         # key shouldn't exist
         try:
             s3.head_object(Bucket=self.bucket_name, Key=key)
-            assert_false(True, "file should not exist")
+            assert_false(True, "file '{}' should not exist".format(key))
         except ClientError:
             # passed
             assert_true(True, "passed")
