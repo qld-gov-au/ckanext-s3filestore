@@ -69,4 +69,4 @@ jobs:
       run: pytest --ckan-ini=test.ini --cov=ckanext.s3filestore --exclude-glob='*_pre-ckan-29.py'
     - name: Run tests (CKAN < 2.9)
       if: ${{ matrix.ckan-version == '2.7' || matrix.ckan-version == '2.8' }}
-      run: nosetests --ckan --nologcapture --with-pylons=test.ini --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests --exclude-files='*_ckan-29.py'
+      run: nosetests --ckan --nologcapture --with-pylons=test.ini --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests
