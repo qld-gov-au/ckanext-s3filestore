@@ -20,7 +20,7 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
     def _upload_resource(self):
         factories.Sysadmin(apikey="my-test-key")
 
-        app = self._get_test_app()
+        app = helpers._get_test_app()
         demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
         factories.Dataset(name="my-dataset")
 
