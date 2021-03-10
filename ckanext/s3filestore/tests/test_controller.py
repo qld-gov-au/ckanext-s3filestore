@@ -14,13 +14,13 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
+class TestS3ControllerResourceDownload():
 
     def _upload_resource(self, app):
         factories.Sysadmin(apikey="my-test-key")
 
         if not app:
-            app = self._get_test_app()
+            app = helpers._get_test_app()
         demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
         factories.Dataset(name="my-dataset")
 
@@ -88,11 +88,12 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
             body = file_response.body
         assert_true('date,price' in body)
 
-    def test_resource_download_url_link(self):
+    def test_resource_download_url_link(self, app=None):
         '''A resource with a url (not file) is redirected correctly.'''
         factories.Sysadmin(apikey="my-test-key")
 
-        app = self._get_test_app()
+        if not app:
+            app = helpers._get_test_app()
         demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
         dataset = factories.Dataset()
 
