@@ -43,7 +43,7 @@ class TestS3ControllerResourceDownload():
     def test_resource_show_url(self, app=None):
         '''The resource_show url is expected for uploaded resource file.'''
 
-        assert_equal(config.get('ckan.site_url', 'http://mytest.ckan.net'))
+        assert_equal(config.get('ckan.site_url'), 'http://mytest.ckan.net')
         resource, demo, _ = self._upload_resource(app)
 
         # does resource_show have the expected resource file url?
