@@ -14,13 +14,13 @@ import logging
 log = logging.getLogger(__name__)
 
 
-# moto s3 client is started externally on localhost:5000
 class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
 
-    def _upload_resource(self):
+    def _upload_resource(self, app):
         factories.Sysadmin(apikey="my-test-key")
 
-        app = helpers._get_test_app()
+        if not app:
+            app = self._get_test_app()
         demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
         factories.Dataset(name="my-dataset")
 
@@ -31,10 +31,10 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
         return resource, demo, app
 
     @helpers.change_config('ckan.site_url', 'http://mytest.ckan.net')
-    def test_resource_show_url(self):
+    def test_resource_show_url(self, app=None):
         '''The resource_show url is expected for uploaded resource file.'''
 
-        resource, demo, _ = self._upload_resource()
+        resource, demo, _ = self._upload_resource(app)
 
         # does resource_show have the expected resource file url?
         resource_show = demo.action.resource_show(id=resource['id'])
@@ -44,10 +44,10 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
 
         assert_equal(resource_show['url'], expected_url)
 
-    def test_resource_download_s3(self):
+    def test_resource_download_s3(self, app=None):
         '''A resource uploaded to S3 can be downloaded.'''
 
-        resource, demo, app = self._upload_resource()
+        resource, demo, app = self._upload_resource(app)
         resource_show = demo.action.resource_show(id=resource['id'])
         resource_file_url = resource_show['url']
 
@@ -67,11 +67,11 @@ class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
             body = file_response.body
         assert_true('date,price' in body)
 
-    def test_resource_download_s3_no_filename(self):
+    def test_resource_download_s3_no_filename(self, app=None):
         '''A resource uploaded to S3 can be downloaded when no filename in
         url.'''
 
-        resource, demo, app = self._upload_resource()
+        resource, demo, app = self._upload_resource(app)
 
         resource_file_url = '/dataset/{0}/resource/{1}/download' \
             .format(resource['package_id'], resource['id'])
