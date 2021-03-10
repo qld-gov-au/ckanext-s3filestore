@@ -5,7 +5,8 @@ import os
 import mock
 from nose.tools import (assert_equal,
                         assert_true,
-                        assert_false)
+                        assert_false,
+                        with_setup)
 
 import ckanapi
 from ckantoolkit import config
@@ -23,7 +24,12 @@ from ckanext.s3filestore.uploader import (S3Uploader,
 from . import BUCKET_NAME, endpoint_url, s3
 
 
-class TestS3Uploader(helpers.FunctionalTestBase):
+def setup_function(self):
+    helpers.reset_db()
+
+
+@with_setup(setup_function)
+class TestS3Uploader():
 
     def test_get_bucket(self):
         '''S3Uploader retrieves bucket as expected'''
@@ -69,7 +75,7 @@ class TestS3Uploader(helpers.FunctionalTestBase):
         s3.head_object(Bucket=BUCKET_NAME, Key=key)
 
         # requesting image redirects to s3
-        app = self._get_test_app()
+        app = helpers._get_test_app()
         # attempt redirect to linked url
         image_file_url = '/uploads/group/2001-01-29-000000{0}'.format(file_name)
         r = app.get(image_file_url, status=[302, 301])
@@ -118,13 +124,13 @@ class TestS3Uploader(helpers.FunctionalTestBase):
             assert_true(True, "passed")
 
 
-class TestS3ResourceUploader(helpers.FunctionalTestBase):
+class TestS3ResourceUploader():
 
     def test_resource_upload(self):
         '''Test a basic resource file upload'''
         factories.Sysadmin(apikey="my-test-key")
 
-        app = self._get_test_app()
+        app = helpers._get_test_app()
         demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
         factories.Dataset(name="my-dataset")
 
@@ -151,7 +157,7 @@ class TestS3ResourceUploader(helpers.FunctionalTestBase):
 
         sysadmin = factories.Sysadmin(apikey="my-test-key")
 
-        app = self._get_test_app()
+        app = helpers._get_test_app()
         demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
         dataset = factories.Dataset(name="my-dataset")
 
@@ -199,7 +205,7 @@ class TestS3ResourceUploader(helpers.FunctionalTestBase):
 
         sysadmin = factories.Sysadmin(apikey="my-test-key")
 
-        app = self._get_test_app()
+        app = helpers._get_test_app()
         dataset = factories.Dataset(name="my-dataset")
 
         url = toolkit.url_for(controller='package', action='new_resource',
