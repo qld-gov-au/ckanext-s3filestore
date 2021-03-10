@@ -25,27 +25,26 @@ if toolkit.check_ckan_version('2.9'):
     @with_setup(setup_function)
     class TestS3ControllerResourceDownload():
 
-        def _upload_resource(self, app):
-            factories.Sysadmin(apikey="my-test-key")
+        def _upload_resource(self):
+            user = factories.Sysadmin(apikey="my-test-key")
 
-            demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
             factories.Dataset(name="my-dataset")
 
             file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
-            resource = demo.action.resource_create(package_id='my-dataset',
-                                                   upload=open(file_path),
-                                                   url='file.txt')
-            return resource, demo, app
+            resource = helpers.call_action('resource_create', context={'user': user}, package_id='my-dataset',
+                                           upload=open(file_path),
+                                           url='file.txt')
+            return resource
 
         @helpers.change_config('ckan.site_url', 'http://mytest.ckan.net')
-        def test_resource_show_url(self, app):
+        def test_resource_show_url(self):
             '''The resource_show url is expected for uploaded resource file.'''
 
             assert_equal(config.get('ckan.site_url'), 'http://mytest.ckan.net')
-            resource, demo, _ = self._upload_resource(app)
+            resource = self._upload_resource()
 
             # does resource_show have the expected resource file url?
-            resource_show = demo.action.resource_show(id=resource['id'])
+            resource_show = helpers.call_action('resource_show', id=resource['id'])
 
             expected_url = 'http://mytest.ckan.net/dataset/{0}/resource/{1}/download/data.csv' \
                 .format(resource['package_id'], resource['id'])
@@ -55,8 +54,8 @@ if toolkit.check_ckan_version('2.9'):
         def test_resource_download_s3(self, app):
             '''A resource uploaded to S3 can be downloaded.'''
 
-            resource, demo, app = self._upload_resource(app)
-            resource_show = demo.action.resource_show(id=resource['id'])
+            resource = self._upload_resource()
+            resource_show = helpers.call_action('resource_show', id=resource['id'])
             resource_file_url = resource_show['url']
 
             file_response = app.get(resource_file_url)
@@ -79,7 +78,7 @@ if toolkit.check_ckan_version('2.9'):
             '''A resource uploaded to S3 can be downloaded when no filename in
             url.'''
 
-            resource, demo, app = self._upload_resource(app)
+            resource = self._upload_resource()
 
             resource_file_url = '/dataset/{0}/resource/{1}/download' \
                 .format(resource['package_id'], resource['id'])
@@ -98,14 +97,13 @@ if toolkit.check_ckan_version('2.9'):
 
         def test_resource_download_url_link(self, app):
             '''A resource with a url (not file) is redirected correctly.'''
-            factories.Sysadmin(apikey="my-test-key")
+            user = factories.Sysadmin(apikey="my-test-key")
 
-            demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
             dataset = factories.Dataset()
 
-            resource = demo.action.resource_create(package_id=dataset['id'],
-                                                   url='http://example')
-            resource_show = demo.action.resource_show(id=resource['id'])
+            resource = helpers.call_action('resource_create', context={'user': user}, package_id=dataset['id'],
+                                           url='http://example')
+            resource_show = helpers.call_action('resource_show', id=resource['id'])
             resource_file_url = '/dataset/{0}/resource/{1}/download' \
                 .format(resource['package_id'], resource['id'])
             assert_equal(resource_show['url'], 'http://example')
