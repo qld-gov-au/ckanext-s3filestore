@@ -4,7 +4,6 @@ from nose.tools import (assert_equal,
                         assert_true,
                         with_setup)
 
-import pytest
 import requests
 
 import ckan.plugins.toolkit as toolkit
@@ -22,7 +21,6 @@ if toolkit.check_ckan_version('2.9'):
 
     def setup_function(self):
         helpers.reset_db()
-
 
     @with_setup(setup_function)
     class TestS3ControllerResourceDownload():
@@ -54,7 +52,7 @@ if toolkit.check_ckan_version('2.9'):
 
             assert_equal(resource_show['url'], expected_url)
 
-        def test_resource_download_s3(self):
+        def test_resource_download_s3(self, app):
             '''A resource uploaded to S3 can be downloaded.'''
 
             resource, demo, app = self._upload_resource(app)
@@ -77,7 +75,7 @@ if toolkit.check_ckan_version('2.9'):
                 body = file_response.body
             assert_true('date,price' in body)
 
-        def test_resource_download_s3_no_filename(self):
+        def test_resource_download_s3_no_filename(self, app):
             '''A resource uploaded to S3 can be downloaded when no filename in
             url.'''
 
