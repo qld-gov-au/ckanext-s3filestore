@@ -26,12 +26,10 @@ if toolkit.check_ckan_version('2.9'):
     class TestS3ControllerResourceDownload():
 
         def _upload_resource(self):
-            user = factories.Sysadmin(apikey="my-test-key")
-
             factories.Dataset(name="my-dataset")
 
             file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
-            resource = helpers.call_action('resource_create', context={'user': user}, package_id='my-dataset',
+            resource = helpers.call_action('resource_create', context={'ignore_auth': True}, package_id='my-dataset',
                                            upload=open(file_path),
                                            url='file.txt')
             return resource
@@ -97,11 +95,9 @@ if toolkit.check_ckan_version('2.9'):
 
         def test_resource_download_url_link(self, app):
             '''A resource with a url (not file) is redirected correctly.'''
-            user = factories.Sysadmin(apikey="my-test-key")
-
             dataset = factories.Dataset()
 
-            resource = helpers.call_action('resource_create', context={'user': user}, package_id=dataset['id'],
+            resource = helpers.call_action('resource_create', context={'ignore_auth': True}, package_id=dataset['id'],
                                            url='http://example')
             resource_show = helpers.call_action('resource_show', id=resource['id'])
             resource_file_url = '/dataset/{0}/resource/{1}/download' \
