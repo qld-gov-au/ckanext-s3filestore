@@ -3,6 +3,7 @@ import os
 from nose.tools import (assert_equal,
                         assert_true)
 
+import pytest
 import requests
 
 import ckan.tests.helpers as helpers
@@ -14,13 +15,12 @@ import logging
 log = logging.getLogger(__name__)
 
 
+@pytest.mark.usefixtures('clean_db')
 class TestS3ControllerResourceDownload():
 
     def _upload_resource(self, app):
         factories.Sysadmin(apikey="my-test-key")
 
-        if not app:
-            app = helpers._get_test_app()
         demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
         factories.Dataset(name="my-dataset")
 
@@ -31,7 +31,7 @@ class TestS3ControllerResourceDownload():
         return resource, demo, app
 
     @helpers.change_config('ckan.site_url', 'http://mytest.ckan.net')
-    def test_resource_show_url(self, app=None):
+    def test_resource_show_url(self, app):
         '''The resource_show url is expected for uploaded resource file.'''
 
         resource, demo, _ = self._upload_resource(app)
@@ -44,7 +44,7 @@ class TestS3ControllerResourceDownload():
 
         assert_equal(resource_show['url'], expected_url)
 
-    def test_resource_download_s3(self, app=None):
+    def test_resource_download_s3(self, app):
         '''A resource uploaded to S3 can be downloaded.'''
 
         resource, demo, app = self._upload_resource(app)
@@ -67,7 +67,7 @@ class TestS3ControllerResourceDownload():
             body = file_response.body
         assert_true('date,price' in body)
 
-    def test_resource_download_s3_no_filename(self, app=None):
+    def test_resource_download_s3_no_filename(self, app):
         '''A resource uploaded to S3 can be downloaded when no filename in
         url.'''
 
@@ -88,12 +88,10 @@ class TestS3ControllerResourceDownload():
             body = file_response.body
         assert_true('date,price' in body)
 
-    def test_resource_download_url_link(self, app=None):
+    def test_resource_download_url_link(self, app):
         '''A resource with a url (not file) is redirected correctly.'''
         factories.Sysadmin(apikey="my-test-key")
 
-        if not app:
-            app = helpers._get_test_app()
         demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
         dataset = factories.Dataset()
 
