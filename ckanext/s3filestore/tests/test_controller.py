@@ -9,8 +9,6 @@ import ckan.tests.helpers as helpers
 import ckan.tests.factories as factories
 
 import ckanapi
-from ckantoolkit import config
-import boto3
 
 import logging
 log = logging.getLogger(__name__)
@@ -18,13 +16,6 @@ log = logging.getLogger(__name__)
 
 # moto s3 client is started externally on localhost:5000
 class TestS3ControllerResourceDownload(helpers.FunctionalTestBase):
-    endpoint_url = config.get('ckanext.s3filestore.host_name', 'http://localhost:5000')
-
-    def __init__(self):
-        self.botoSession = boto3.Session(region_name='ap-southeast-2', aws_access_key_id='a', aws_secret_access_key='b')
-        conn = self.botoSession.resource('s3', endpoint_url=self.endpoint_url)
-        # We need to create the bucket since this is all in Moto's 'virtual' AWS account
-        conn.create_bucket(Bucket='my-bucket')
 
     def _upload_resource(self):
         factories.Sysadmin(apikey="my-test-key")
