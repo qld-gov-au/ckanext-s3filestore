@@ -124,6 +124,7 @@ class TestS3Uploader():
             assert_true(True, "passed")
 
 
+@with_setup(setup_function)
 class TestS3ResourceUploader():
 
     def test_resource_upload(self):
