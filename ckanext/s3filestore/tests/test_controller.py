@@ -49,30 +49,30 @@ if toolkit.check_ckan_version('2.9'):
 
             assert_equal(resource_show['url'], expected_url)
 
-        def test_resource_download_s3(self, app):
+        def test_resource_download_s3(self):
             '''A resource uploaded to S3 can be downloaded.'''
 
             resource = self._upload_resource()
             resource_show = helpers.call_action('resource_show', id=resource['id'])
             resource_file_url = resource_show['url']
 
-            file_response = app.get(resource_file_url)
+            file_response = requests.get(resource_file_url)
             location = file_response.headers['Location']
             log.info("ckanext.s3filestore.tests: response is: %s, %s", location, file_response)
-            assert_equal(302, file_response.status_int)
+            assert_equal(file_response.status_int, 302)
             file_response = requests.get(location)
             if hasattr(file_response, 'content_type'):
                 content_type = file_response.content_type
             else:
                 content_type = file_response.headers.get('Content-Type')
-            assert_equal("text/csv", content_type)
+            assert_equal(content_type, "text/csv")
             if hasattr(file_response, 'text'):
                 body = file_response.text
             else:
                 body = file_response.body
             assert_true('date,price' in body)
 
-        def test_resource_download_s3_no_filename(self, app):
+        def test_resource_download_s3_no_filename(self):
             '''A resource uploaded to S3 can be downloaded when no filename in
             url.'''
 
@@ -81,9 +81,9 @@ if toolkit.check_ckan_version('2.9'):
             resource_file_url = '/dataset/{0}/resource/{1}/download' \
                 .format(resource['package_id'], resource['id'])
 
-            file_response = app.get(resource_file_url)
+            file_response = requests.get(resource_file_url)
             location = file_response.headers['Location']
-            assert_equal(302, file_response.status_int)
+            assert_equal(file_response.status_code, 302)
             file_response = requests.get(location)
             log.info("ckanext.s3filestore.tests: response is: {0}, {1}".format(location, file_response))
 
@@ -93,7 +93,7 @@ if toolkit.check_ckan_version('2.9'):
                 body = file_response.body
             assert_true('date,price' in body)
 
-        def test_resource_download_url_link(self, app):
+        def test_resource_download_url_link(self):
             '''A resource with a url (not file) is redirected correctly.'''
             dataset = factories.Dataset()
 
@@ -105,8 +105,9 @@ if toolkit.check_ckan_version('2.9'):
             assert_equal(resource_show['url'], 'http://example')
 
             # attempt redirect to linked url
-            r = app.get(resource_file_url, status=[302, 301])
-            assert_equal(r.location, 'http://example')
+            r = requests.get(resource_file_url)
+            assert_true(r.status_code in [302, 301])
+            assert_equal(r.headers['Location'], 'http://example')
 
 else:
 
