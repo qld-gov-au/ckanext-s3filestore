@@ -1,7 +1,8 @@
 import os
 
 from nose.tools import (assert_equal,
-                        assert_true)
+                        assert_true,
+                        with_setup)
 
 import pytest
 import requests
@@ -15,10 +16,12 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class TestS3ControllerResourceDownload():
+def setup_function(self):
+    helpers.reset_db()
 
-    def setup_function(self):
-        helpers.reset_db()
+
+@with_setup(setup_function)
+class TestS3ControllerResourceDownload():
 
     def _upload_resource(self, app):
         factories.Sysadmin(apikey="my-test-key")
