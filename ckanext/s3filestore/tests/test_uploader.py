@@ -20,7 +20,7 @@ import ckan.tests.factories as factories
 from ckanext.s3filestore.uploader import (S3Uploader,
                                           S3ResourceUploader)
 
-from . import BUCKET_NAME, s3
+from . import BUCKET_NAME, endpoint_url, s3
 
 
 class TestS3Uploader(helpers.FunctionalTestBase):
@@ -75,7 +75,7 @@ class TestS3Uploader(helpers.FunctionalTestBase):
         r = app.get(image_file_url, status=[302, 301])
         assert_equal(r.location.split('?')[0],
                      '{0}/my-bucket/my-path/storage/uploads/group/2001-01-29-000000{1}'
-                     .format(self.endpoint_url, file_name))
+                     .format(endpoint_url, file_name))
 
     def test_group_image_upload_then_clear(self):
         '''Test that clearing an upload removes the S3 key'''
