@@ -66,6 +66,7 @@ jobs:
         paster --plugin=ckan db init -c test.ini
     - name: Run tests (CKAN >= 2.9)
       if: ${{ matrix.ckan-version != '2.7' && matrix.ckan-version != '2.8' }}
+      continue-on-error: true
       run: pytest --ckan-ini=test.ini --cov=ckanext.s3filestore
     - name: Run tests (CKAN < 2.9)
       if: ${{ matrix.ckan-version == '2.7' || matrix.ckan-version == '2.8' }}
