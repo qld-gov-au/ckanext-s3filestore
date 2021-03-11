@@ -163,7 +163,6 @@ class TestConnection(toolkit.CkanCommand):
                     AND state = 'active'
                     AND url IS NOT NULL
                     AND url <> ''
-                    AND url_type = 'upload'
                 '''), url=pairtree_url)
                 if resource.rowcount:
                     _id, url = resource.first()
