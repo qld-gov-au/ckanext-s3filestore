@@ -101,6 +101,7 @@ class TestConnection(toolkit.CkanCommand):
                     SELECT id, url
                     FROM resource
                     WHERE id = :id
+                    AND state = 'active'
                     AND url IS NOT NULL
                     AND url <> ''
                     AND url_type = 'upload'
@@ -159,6 +160,7 @@ class TestConnection(toolkit.CkanCommand):
                     SELECT id, url
                     FROM resource
                     WHERE url = :url
+                    AND state = 'active'
                     AND url IS NOT NULL
                     AND url <> ''
                     AND url_type = 'upload'
