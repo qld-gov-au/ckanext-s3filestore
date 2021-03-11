@@ -155,7 +155,7 @@ class TestConnection(toolkit.CkanCommand):
         try:
             BASE_URL = SITE_URL + '/storage/f/'
             for file_path in resource_paths:
-                pairtree_url = BASE_URL + file_path
+                pairtree_url = BASE_URL + file_path.replace(':', '%3A')
                 resource = connection.execute(text('''
                     SELECT id, url
                     FROM resource
