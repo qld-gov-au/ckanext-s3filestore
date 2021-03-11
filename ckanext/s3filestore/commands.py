@@ -9,7 +9,7 @@ from sqlalchemy.sql import text
 import ckantoolkit as toolkit
 from ckantoolkit import config
 import ckanext.s3filestore.uploader
-from ckan.logic import get_action
+from ckan.logic import get_action, ValidationError
 from uploader import get_s3_session
 
 
@@ -204,6 +204,10 @@ def _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths):
             s3_connection.put_object(Bucket=AWS_BUCKET_NAME, Key=key, Body=open(resource_ids_and_paths[resource_id]), ACL=AWS_S3_ACL)
             uploaded_resources.append(resource_id)
             print('Uploaded resource {0} ({1}) to S3'.format(resource_id, file_name))
-            get_action('resource_patch')(context, {'id': resource_id, 'url': file_name})
+            try:
+                get_action('resource_patch')(context, {'id': resource_id, 'url': file_name})
+            except ValidationError:
+                # nothing we can do at this point
+                pass
 
     print('Done, uploaded {0} resources to S3'.format(len(uploaded_resources)))
