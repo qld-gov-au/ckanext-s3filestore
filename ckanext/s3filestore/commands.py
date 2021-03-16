@@ -206,7 +206,7 @@ def _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths):
             try:
                 get_action('resource_patch')(context, {'id': resource_id, 'url': file_name})
             except ValidationError:
-                # nothing we can do at this point
+                print("{} failed to validate; file is in S3 but might not be used")
                 pass
 
     print('Done, uploaded {0} resources to S3'.format(len(uploaded_resources)))
