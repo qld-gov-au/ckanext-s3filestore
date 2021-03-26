@@ -66,7 +66,7 @@ def resource_download(package_type, id, resource_id, filename=None):
                      .format(key_path, upload.bucket_name))
 
         try:
-            if rsc.get('mimetype') == 'text/html' and preview:
+            if preview:
                 url = upload.get_signed_url_to_key(key_path)
             else:
                 params = {
