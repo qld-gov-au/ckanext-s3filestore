@@ -2,8 +2,8 @@
    these badges work. The necessary Travis and Coverage config files have been
    generated for you.
 
-.. image:: https://travis-ci.com/keitaroinc/ckanext-s3filestore.svg?branch=master
-    :target: https://travis-ci.com/keitaroinc/ckanext-s3filestore
+.. image:: https://github.com/keitaroinc/ckanext-s3filestore/workflows/CI/badge.svg
+    :target: https://github.com/keitaroinc/ckanext-s3filestore/actions
 
 
 .. image:: https://coveralls.io/repos/github/keitaroinc/ckanext-s3filestore/badge.svg?branch=master
