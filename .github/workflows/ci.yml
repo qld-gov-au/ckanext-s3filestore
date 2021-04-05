@@ -29,7 +29,7 @@ jobs:
 
       - name: Lint with flake8
         run: |
-          flake8 . --count --max-complexity=10 --max-line-length=127 --statistics --exclude ckan,ckanext-s3filestore
+          flake8 . --count --max-complexity=12 --max-line-length=127 --statistics --exclude ckan,ckanext-s3filestore
 
   test:
     runs-on: ubuntu-latest
@@ -90,7 +90,7 @@ jobs:
 
       - name: Test with pytest
         run: |
-          pytest --ckan-ini=subdir/test.ini --cov=ckanext.saml2auth --disable-warnings ckanext/s3filestore/tests
+          pytest --ckan-ini=subdir/test.ini --cov=ckanext.s3filestore --disable-warnings ckanext/s3filestore/tests
 
       - name: Coveralls
         uses: AndreMiras/coveralls-python-action@develop
