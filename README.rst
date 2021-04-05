@@ -6,8 +6,8 @@
     :target: https://github.com/keitaroinc/ckanext-s3filestore/actions
 
 
-.. image:: https://coveralls.io/repos/github/keitaroinc/ckanext-s3filestore/badge.svg?branch=master
-     :target: https://coveralls.io/github/keitaroinc/ckanext-s3filestore?branch=master
+.. image:: https://coveralls.io/repos/github/keitaroinc/ckanext-s3filestore/badge.svg?branch=main
+     :target: https://coveralls.io/github/keitaroinc/ckanext-s3filestore?branch=main
 
 .. image:: https://img.shields.io/badge/python-3.8-blue.svg
     :target: https://www.python.org/downloads/release/python-384/
