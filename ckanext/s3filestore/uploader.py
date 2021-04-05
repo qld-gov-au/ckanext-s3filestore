@@ -324,10 +324,11 @@ class S3ResourceUploader(BaseS3Uploader):
             self.mimetype = resource.get('mimetype')
             if not self.mimetype:
                 try:
-                    # 512 bytes should be enough for a mimetype check
+                    # Pass 2048 bytes to ensure MS Office file types e.g: XLSX
+                    # are not classified as application/zip
                     self.mimetype = \
-                        resource['mimetype'] =\
-                        mime.from_buffer(self.upload_file.read(512))
+                        resource['mimetype'] = \
+                        mime.from_buffer(self.upload_file.read(2048))
 
                     # additional check on text/plain mimetypes for
                     # more reliable result, if None continue with text/plain
