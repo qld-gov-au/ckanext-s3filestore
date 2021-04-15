@@ -14,17 +14,17 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # http://packaging.python.org/en/latest/tutorial.html#version
-    version='0.0.5',
+    version='1.0.0',
 
     description='''Host resource files using Amazon Web Service's S3 storage''',
     long_description=long_description,
 
     # The project's main homepage.
-    url='https://github.com/okfn/ckanext-s3filestore',
+    url='https://github.com/keitaroinc/ckanext-s3filestore',
 
     # Author details
-    author='''Brook Elgie''',
-    author_email='''brook.elgie@okfn.org''',
+    author='''Keitaro Inc''',
+    author_email='''info@keitaro.com''',
 
     # Choose your license
     license='AGPL',
@@ -58,7 +58,7 @@ setup(
     # project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/technical.html#install-requires-vs-requirements-files
-    install_requires=['boto>=2.38.0'],
+    install_requires=['boto3>=1.4.4', 'ckantoolkit'],
 
     # If there are data files included in your packages that need to be
     # installed, specify them here.  If using Python 2.6 or less, then these
