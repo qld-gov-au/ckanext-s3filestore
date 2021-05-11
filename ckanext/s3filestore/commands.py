@@ -9,7 +9,7 @@ from sqlalchemy.sql import text
 import ckantoolkit as toolkit
 from ckantoolkit import config
 import ckanext.s3filestore.uploader
-from ckan.logic import get_action
+from ckan.logic import get_action, ValidationError
 from uploader import get_s3_session
 
 
@@ -101,6 +101,7 @@ class TestConnection(toolkit.CkanCommand):
                     SELECT id, url
                     FROM resource
                     WHERE id = :id
+                    AND state = 'active'
                     AND url IS NOT NULL
                     AND url <> ''
                     AND url_type = 'upload'
@@ -154,14 +155,14 @@ class TestConnection(toolkit.CkanCommand):
         try:
             BASE_URL = SITE_URL + '/storage/f/'
             for file_path in resource_paths:
-                pairtree_url = BASE_URL + file_path
+                pairtree_url = BASE_URL + file_path.replace(':', '%3A')
                 resource = connection.execute(text('''
                     SELECT id, url
                     FROM resource
                     WHERE url = :url
+                    AND state = 'active'
                     AND url IS NOT NULL
                     AND url <> ''
-                    AND url_type = 'upload'
                 '''), url=pairtree_url)
                 if resource.rowcount:
                     _id, url = resource.first()
@@ -202,6 +203,10 @@ def _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths):
             s3_connection.put_object(Bucket=AWS_BUCKET_NAME, Key=key, Body=open(resource_ids_and_paths[resource_id]), ACL=AWS_S3_ACL)
             uploaded_resources.append(resource_id)
             print('Uploaded resource {0} ({1}) to S3'.format(resource_id, file_name))
-            get_action('resource_patch')(context, {'id': resource_id, 'url': file_name})
+            try:
+                get_action('resource_patch')(context, {'id': resource_id, 'url': file_name})
+            except ValidationError:
+                print("{} failed to validate; file is in S3 but might not be used".format(resource_id))
+                pass
 
     print('Done, uploaded {0} resources to S3'.format(len(uploaded_resources)))

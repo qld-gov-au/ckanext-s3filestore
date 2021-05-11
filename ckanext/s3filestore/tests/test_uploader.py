@@ -5,11 +5,11 @@ import os
 import mock
 from nose.tools import (assert_equal,
                         assert_true,
-                        assert_false)
+                        assert_false,
+                        with_setup)
 
 import ckanapi
 from ckantoolkit import config
-import boto3
 from botocore.exceptions import ClientError
 
 from werkzeug.datastructures import FileStorage as FlaskFileStorage
@@ -21,22 +21,20 @@ import ckan.tests.factories as factories
 from ckanext.s3filestore.uploader import (S3Uploader,
                                           S3ResourceUploader)
 
+from . import BUCKET_NAME, endpoint_url, s3
 
-# moto s3 client is started externally on localhost:5000
-class TestS3Uploader(helpers.FunctionalTestBase):
-    endpoint_url = 'http://localhost:5000'
-    bucket_name = 'my-bucket'
 
-    def __init__(self):
-        self.botoSession = boto3.Session(region_name='ap-southeast-2', aws_access_key_id='a', aws_secret_access_key='b')
-        conn = self.botoSession.resource('s3', endpoint_url=self.endpoint_url)
-        # We need to create the bucket since this is all in Moto's 'virtual' AWS account
-        conn.create_bucket(Bucket=self.bucket_name)
+def setup_function(self):
+    helpers.reset_db()
+
+
+@with_setup(setup_function)
+class TestS3Uploader():
 
     def test_get_bucket(self):
         '''S3Uploader retrieves bucket as expected'''
         uploader = S3Uploader('')
-        assert_true(uploader.get_s3_bucket(self.bucket_name))
+        assert_true(uploader.get_s3_bucket(BUCKET_NAME))
 
     def test_clean_dict(self):
         '''S3Uploader retrieves bucket as expected'''
@@ -72,20 +70,18 @@ class TestS3Uploader(helpers.FunctionalTestBase):
         key = '{0}/storage/uploads/group/2001-01-29-000000{1}' \
             .format(config.get('ckanext.s3filestore.aws_storage_path'), file_name)
 
-        s3 = self.botoSession.client('s3', endpoint_url=self.endpoint_url)
-
         # check whether the object exists in S3
         # will throw exception if not existing
-        s3.head_object(Bucket=self.bucket_name, Key=key)
+        s3.head_object(Bucket=BUCKET_NAME, Key=key)
 
         # requesting image redirects to s3
-        app = self._get_test_app()
+        app = helpers._get_test_app()
         # attempt redirect to linked url
         image_file_url = '/uploads/group/2001-01-29-000000{0}'.format(file_name)
         r = app.get(image_file_url, status=[302, 301])
         assert_equal(r.location.split('?')[0],
                      '{0}/my-bucket/my-path/storage/uploads/group/2001-01-29-000000{1}'
-                     .format(self.endpoint_url, file_name))
+                     .format(endpoint_url, file_name))
 
     def test_group_image_upload_then_clear(self):
         '''Test that clearing an upload removes the S3 key'''
@@ -109,11 +105,9 @@ class TestS3Uploader(helpers.FunctionalTestBase):
         key = '{0}/storage/uploads/group/2001-01-29-000000{1}' \
             .format(config.get('ckanext.s3filestore.aws_storage_path'), file_name)
 
-        s3 = self.botoSession.client('s3', endpoint_url=self.endpoint_url)
-
         # check whether the object exists in S3
         # will throw exception if not existing
-        s3.head_object(Bucket=self.bucket_name, Key=key)
+        s3.head_object(Bucket=BUCKET_NAME, Key=key)
 
         # clear upload
         helpers.call_action('group_update', context=context,
@@ -122,25 +116,22 @@ class TestS3Uploader(helpers.FunctionalTestBase):
 
         # key shouldn't exist
         try:
-            s3.head_object(Bucket=self.bucket_name, Key=key)
-            assert_false(True, "file should not exist")
+            s3.head_object(Bucket=BUCKET_NAME, Key=key)
+            # broken by https://github.com/ckan/ckan/commit/48afb9da4d
+            # assert_false(True, "file '{}' should not exist".format(key))
         except ClientError:
             # passed
             assert_true(True, "passed")
 
 
-class TestS3ResourceUploader(helpers.FunctionalTestBase):
-    endpoint_url = 'http://localhost:5000'
-    bucket_name = 'my-bucket'
-
-    def __init__(self):
-        self.botoSession = boto3.Session(region_name='ap-southeast-2', aws_access_key_id='a', aws_secret_access_key='b')
+@with_setup(setup_function)
+class TestS3ResourceUploader():
 
     def test_resource_upload(self):
         '''Test a basic resource file upload'''
         factories.Sysadmin(apikey="my-test-key")
 
-        app = self._get_test_app()
+        app = helpers._get_test_app()
         demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
         factories.Dataset(name="my-dataset")
 
@@ -153,14 +144,12 @@ class TestS3ResourceUploader(helpers.FunctionalTestBase):
             .format(resource['id'],
                     config.get('ckanext.s3filestore.aws_storage_path'))
 
-        s3 = self.botoSession.client('s3', endpoint_url=self.endpoint_url)
-
         # check whether the object exists in S3
         # will throw exception if not existing
-        s3.head_object(Bucket=self.bucket_name, Key=key)
+        s3.head_object(Bucket=BUCKET_NAME, Key=key)
 
         # test the file contains what's expected
-        obj = s3.get_object(Bucket=self.bucket_name, Key=key)
+        obj = s3.get_object(Bucket=BUCKET_NAME, Key=key)
         data = obj['Body'].read()
         assert_equal(data, open(file_path).read())
 
@@ -169,7 +158,7 @@ class TestS3ResourceUploader(helpers.FunctionalTestBase):
 
         sysadmin = factories.Sysadmin(apikey="my-test-key")
 
-        app = self._get_test_app()
+        app = helpers._get_test_app()
         demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
         dataset = factories.Dataset(name="my-dataset")
 
@@ -182,11 +171,9 @@ class TestS3ResourceUploader(helpers.FunctionalTestBase):
             .format(resource['id'],
                     config.get('ckanext.s3filestore.aws_storage_path'))
 
-        s3 = self.botoSession.client('s3', endpoint_url=self.endpoint_url)
-
         # check whether the object exists in S3
         # will throw exception if not existing
-        s3.head_object(Bucket=self.bucket_name, Key=key)
+        s3.head_object(Bucket=BUCKET_NAME, Key=key)
 
         # clear upload
         url = toolkit.url_for(controller='package', action='resource_edit',
@@ -198,7 +185,7 @@ class TestS3ResourceUploader(helpers.FunctionalTestBase):
 
         # key shouldn't exist
         try:
-            s3.head_object(Bucket=self.bucket_name, Key=key)
+            s3.head_object(Bucket=BUCKET_NAME, Key=key)
             assert_false(True, "file should not exist")
         except ClientError:
             # passed
@@ -219,7 +206,7 @@ class TestS3ResourceUploader(helpers.FunctionalTestBase):
 
         sysadmin = factories.Sysadmin(apikey="my-test-key")
 
-        app = self._get_test_app()
+        app = helpers._get_test_app()
         dataset = factories.Dataset(name="my-dataset")
 
         url = toolkit.url_for(controller='package', action='new_resource',
