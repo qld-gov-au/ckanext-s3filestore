@@ -5,3 +5,4 @@ ckanapi==4.3
 httpretty==0.9.7
 pytest-cov
 pytest-ckan
+rsa>=4.7 # not directly required, pinned by Snyk to avoid a vulnerability
