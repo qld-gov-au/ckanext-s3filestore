@@ -17,7 +17,7 @@ from ckan.lib.redis import connect_to_redis
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as DefaultUpload
 
 import ckan.model as model
-import ckan.lib.munge as munge
+from ckan.lib import munge
 
 if toolkit.check_ckan_version(min_version='2.7.0'):
     from werkzeug.datastructures import FileStorage as FlaskFileStorage
@@ -149,7 +149,7 @@ class BaseS3Uploader(object):
 
         return bucket
 
-    def upload_to_key(self, filepath, upload_file, make_public=False):
+    def upload_to_key(self, filepath, upload_file, acl):
         '''Uploads the `upload_file` to `filepath` on `self.bucket`.'''
 
         upload_file.seek(0)
@@ -159,7 +159,7 @@ class BaseS3Uploader(object):
 
         try:
             self.get_s3_resource().Object(self.bucket_name, filepath).put(
-                Body=upload_file.read(), ACL='public-read' if make_public else self.acl,
+                Body=upload_file.read(), ACL=acl,
                 ContentType=mime_type)
             log.info("Successfully uploaded %s to S3!", filepath)
             if self.signed_url_cache_enabled:
@@ -340,7 +340,7 @@ class S3Uploader(BaseS3Uploader):
         # file to the appropriate key in the AWS bucket.
         if self.filename:
             self.upload_to_key(self.filepath, self.upload_file,
-                               make_public=True)
+                               acl='public-read')
             self.clear = True
 
         if (self.clear and self.old_filename
@@ -515,6 +515,41 @@ class S3ResourceUploader(BaseS3Uploader):
         filepath = os.path.join(directory, filename)
         return filepath
 
+    def _get_target_acl(self, resource_id):
+        if self.acl == 'auto':
+            package = toolkit.get_action('package_show')({'ignore_auth': True}, {'id': self.resource['package_id']})
+            return 'private' if package['private'] else 'public-read'
+        else:
+            return self.acl
+
+    def update_visibility(self, id):
+        ''' Update the visibility of all S3 objects for a resource
+        to match the package.
+        '''
+        client = self.get_s3_client()
+
+        # iterate through every S3 object matching the resource ID
+        kwargs = {'Bucket': self.bucket_name,
+                  'Prefix': self.get_directory(id, self.storage_path)}
+        resource_objects = client.list_objects_v2(**kwargs)
+        if not resource_objects['KeyCount']:
+            return
+
+        target_acl = self._get_target_acl(id)
+        for upload in resource_objects['Contents']:
+            kwargs = {'Bucket': self.bucket_name,
+                      'Key': upload['Key']}
+            # check if the object ACL grants any permission to all users
+            is_public_read = any(
+                grant['Grantee']['Type'] == 'Group'
+                and grant['Grantee'].get('URI', '').endswith('AllUsers')
+                for grant in client.get_object_acl(**kwargs)['Grants']
+            )
+            # if the ACL status doesn't match what we want, update it
+            if (target_acl == 'public-read') != is_public_read:
+                log.debug("Updating ACL for object %s to %s", upload['Key'], target_acl)
+                client.put_object_acl(ACL=target_acl, **kwargs)
+
     def upload(self, id, max_size=10):
         '''Upload the file to S3.'''
 
@@ -522,7 +557,9 @@ class S3ResourceUploader(BaseS3Uploader):
         # file to the appropriate key in the AWS bucket.
         if self.filename:
             filepath = self.get_path(id, self.filename)
-            self.upload_to_key(filepath, self.upload_file)
+            self.upload_to_key(filepath, self.upload_file, acl=self._get_target_acl(id))
+        elif self.acl == 'auto':
+            self.update_visibility(id)
 
         # The resource form only sets self.clear (via the input clear_upload)
         # to True when an uploaded file is not replaced by another uploaded
