@@ -74,6 +74,12 @@ def get_s3_session(config):
                                  region_name=region)
 
 
+def _is_presigned_url(url):
+    ''' Determines whether a URL represents a presigned S3 URL.'''
+    parts = url.split('?')
+    return len(parts) >= 2 and parts[1].contains('Signature=')
+
+
 class BaseS3Uploader(object):
 
     def __init__(self):
@@ -173,7 +179,8 @@ class BaseS3Uploader(object):
             raise e
 
     def get_signed_url_to_key(self, key, extra_params={}):
-        '''Generates a pre-signed URL giving access to an S3 object.
+        '''Generates a pre-signed URL giving access to an S3 object,
+        or, if the object is already publicly visible, an unsigned URL.
 
         If a download_proxy is configured, then the URL will be
         generated using the true S3 host, and then the hostname will be
@@ -188,11 +195,20 @@ class BaseS3Uploader(object):
         # check whether the object exists in S3
         metadata = client.head_object(Bucket=self.bucket_name, Key=key)
 
+        # check whether the object is publicly readable
+        acl = client.get_object_acl(Bucket=self.bucket_name, Key=key)
+        is_public_read = any(
+            grant['Grantee']['Type'] == 'Group'
+            and grant['Grantee'].get('URI', '').endswith('AllUsers')
+            for grant in acl['Grants']
+        )
+
         if self.signed_url_cache_enabled:
             redis_conn = connect_to_redis()
             cache_key = _get_cache_key(key)
             cache_url = redis_conn.get(cache_key)
-            if cache_url:
+            # use cache only if the visibility is still correct
+            if cache_url and is_public_read != _is_presigned_url(cache_url):
                 log.debug('Returning cached URL for path %s', key)
                 return cache_url
             else:
@@ -200,7 +216,7 @@ class BaseS3Uploader(object):
 
         params = {'Bucket': self.bucket_name,
                   'Key': key}
-        if metadata['ContentType'] != 'application/pdf':
+        if not is_public_read and metadata['ContentType'] != 'application/pdf':
             filename = key.split('/')[-1]
             params['ResponseContentDisposition'] = 'attachment; filename=' + filename
         params.update(extra_params)
@@ -209,6 +225,9 @@ class BaseS3Uploader(object):
                                             ExpiresIn=self.signed_url_expiry)
         if self.download_proxy:
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
+
+        if is_public_read:
+            url = url.split('?')[0]
 
         if self.signed_url_cache_enabled:
             redis_conn.set(cache_key, url, ex=self.signed_url_cache_window)
