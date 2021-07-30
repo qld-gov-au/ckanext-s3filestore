@@ -122,9 +122,12 @@ def filesystem_resource_download(package_type, id, resource_id, filename=None):
             upload = DefaultResourceUpload(rsc)
             try:
                 return upload.download(rsc['id'], filename)
-            except OSError:
+            except (OSError, IOError):
                 # includes FileNotFoundError
                 return abort(404, _('Resource data not found'))
+            except Exception as e:
+                log.warning("Unhandled exception %s of type %s", e, type(e))
+                raise e
 
         path = get_storage_path()
         storage_path = os.path.join(path, 'resources')
