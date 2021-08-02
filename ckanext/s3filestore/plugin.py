@@ -70,23 +70,18 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     def before_map(self, map):
         with SubMapper(map, controller='ckanext.s3filestore.controller:S3Controller') as m:
             # Override the resource download links
-            if hasattr(DefaultResourceUpload, 'download'):
-                # fallback controller action to download from the filesystem
-                m.connect('filesystem_resource_download',
-                          '/dataset/{id}/resource/{resource_id}/fs_download/{filename}',
-                          action='filesystem_resource_download')
-            else:
+            if not hasattr(DefaultResourceUpload, 'download'):
                 m.connect('resource_download',
                           '/dataset/{id}/resource/{resource_id}/download',
                           action='resource_download')
                 m.connect('resource_download',
                           '/dataset/{id}/resource/{resource_id}/download/{filename}',
                           action='resource_download')
-                # use the default download action as the filesystem fallback
-                map.connect('filesystem_resource_download',
-                            '/dataset/{id}/resource/{resource_id}/fs_download/{filename}',
-                            controller='package',
-                            action='resource_download')
+
+            # fallback controller action to download from the filesystem
+            m.connect('filesystem_resource_download',
+                      '/dataset/{id}/resource/{resource_id}/fs_download/{filename}',
+                      action='filesystem_resource_download')
 
             # Allow fallback to access old files
             use_filename = toolkit.asbool(toolkit.config.get('ckanext.s3filestore.use_filename', False))
