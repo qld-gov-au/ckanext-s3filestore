@@ -228,20 +228,28 @@ class TestS3ResourceUploader():
         ''' Test that resources in private datasets generate presigned URLs,
         while resources in public datasets give plain URLs.
         '''
-        file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
+        app = helpers._get_test_app()
+        demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
         dataset = factories.Dataset(name="my-dataset")
-        resource = helpers.call_action(
-            'resource_create', context={'ignore_auth': True},
-            package_id=dataset['id'], upload=open(file_path), url='file.txt')
+
+        file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
+        resource = demo.action.resource_create(package_id=dataset['id'],
+                                               upload=open(file_path),
+                                               url='file.txt')
+
+        key = '{1}/resources/{0}/data.csv' \
+            .format(resource['id'],
+                    config.get('ckanext.s3filestore.aws_storage_path'))
+
         uploader = S3ResourceUploader(resource)
 
-        url = uploader.get_signed_url_to_key(
-            uploader.get_path(resource['id'],
-            os.path.basename(resource['url'])))
+        url = uploader.get_signed_url_to_key(key)
         assert_false(_is_presigned_url(url))
 
         dataset = factories.Dataset(name="my-private-dataset", private=True)
-        resource = factories.Resource(package_id=dataset['id'])
+        resource = demo.action.resource_create(package_id=dataset['id'],
+                                               upload=open(file_path),
+                                               url='file.txt')
         uploader = S3ResourceUploader(resource)
 
         url = uploader.get_signed_url_to_key(resource['id'])
