@@ -82,6 +82,11 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                 m.connect('resource_download',
                           '/dataset/{id}/resource/{resource_id}/download/{filename}',
                           action='resource_download')
+                # use the default download action as the filesystem fallback
+                map.connect('filesystem_resource_download',
+                            '/dataset/{id}/resource/{resource_id}/fs_download/{filename}',
+                            controller='package',
+                            action='resource_download')
 
             # Allow fallback to access old files
             use_filename = toolkit.asbool(toolkit.config.get('ckanext.s3filestore.use_filename', False))
@@ -93,13 +98,6 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
             # Intercept the uploaded file links (e.g. group images)
             m.connect('uploaded_file', '/uploads/{upload_to}/{filename}',
                       action='uploaded_file_redirect')
-
-        if not hasattr(DefaultResourceUpload, 'download'):
-            # use the default download action as the filesystem fallback
-            map.connect('filesystem_resource_download',
-                        '/dataset/{id}/resource/{resource_id}/fs_download/{filename}',
-                        controller='package',
-                        action='resource_download')
 
         return map
 
