@@ -231,7 +231,7 @@ class TestS3ResourceUploader():
         factories.Sysadmin(apikey="my-test-key")
         app = helpers._get_test_app()
         demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
-        organisation = factories.Organization('my-organisation')
+        organisation = factories.Organization(name='my-organisation')
         dataset = factories.Dataset(name="my-dataset", owner_org=organisation['id'])
 
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
