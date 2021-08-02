@@ -15,7 +15,7 @@ from botocore.exceptions import ClientError
 from werkzeug.datastructures import FileStorage as FlaskFileStorage
 
 import ckantoolkit as toolkit
-import ckan.tests.helpers as helpers
+from ckan.tests import helpers
 import ckan.tests.factories as factories
 
 from ckanext.s3filestore.uploader import (S3Uploader,
@@ -235,7 +235,7 @@ class TestS3ResourceUploader():
             package_id=dataset['id'], upload=open(file_path), url='file.txt')
         uploader = S3ResourceUploader(resource)
 
-        url = uploader.get_signed_url_to_key(resource['id'])
+        url = uploader.get_signed_url_to_key(uploader.get_path(resource['id'], 'data.csv'))
         assert_false(_is_presigned_url(url))
 
         dataset = factories.Dataset(name="my-private-dataset", private=True)
