@@ -108,6 +108,9 @@ class S3Controller(base.BaseController):
                 if hasattr(upload, 'download'):
                     return upload.download(rsc['id'], filename)
                 else:
+                    # this is a copy of the original logic
+                    # in case CKAN doesn't provide the 'download' function
+                    # TODO get the 'download' function into upstream CKAN
                     filepath = upload.get_path(rsc['id'])
                     fileapp = paste.fileapp.FileApp(filepath)
                     status, headers, app_iter = request.call_application(fileapp)
