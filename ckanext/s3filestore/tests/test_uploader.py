@@ -230,9 +230,9 @@ class TestS3ResourceUploader():
         '''
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
         dataset = factories.Dataset(name="my-dataset")
-        resource = demo.action.resource_create(package_id=dataset['id'],
-                                               upload=open(file_path),
-                                               url='file.txt')
+        resource = helpers.call_action(
+            'resource_create', context={'ignore_auth': True},
+            package_id=dataset['id'], upload=open(file_path), url='file.txt')
         uploader = S3ResourceUploader(resource)
 
         url = uploader.get_signed_url_to_key(resource['id'])
