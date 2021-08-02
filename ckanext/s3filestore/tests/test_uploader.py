@@ -228,6 +228,7 @@ class TestS3ResourceUploader():
         ''' Test that resources in private datasets generate presigned URLs,
         while resources in public datasets give plain URLs.
         '''
+        sysadmin = factories.Sysadmin(apikey="my-test-key")
         app = helpers._get_test_app()
         demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
         dataset = factories.Dataset(name="my-dataset")
