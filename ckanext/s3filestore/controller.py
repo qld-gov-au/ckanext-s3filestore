@@ -102,9 +102,12 @@ class S3Controller(base.BaseController):
             upload = DefaultResourceUpload(rsc)
             try:
                 return upload.download(rsc['id'], filename)
-            except OSError:
+            except (OSError, IOError):
                 # includes FileNotFoundError
                 abort(404, _('Resource data not found'))
+            except Exception as e:
+                log.warning("Unhandled exception %s of type %s", e, type(e))
+                raise e
         elif 'url' not in rsc:
             abort(404, _('No download is available'))
         redirect(rsc['url'])
