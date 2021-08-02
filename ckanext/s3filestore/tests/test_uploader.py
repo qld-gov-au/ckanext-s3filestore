@@ -228,8 +228,11 @@ class TestS3ResourceUploader():
         ''' Test that resources in private datasets generate presigned URLs,
         while resources in public datasets give plain URLs.
         '''
+        file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
         dataset = factories.Dataset(name="my-dataset")
-        resource = factories.Resource(package_id=dataset['id'])
+        resource = demo.action.resource_create(package_id=dataset['id'],
+                                               upload=open(file_path),
+                                               url='file.txt')
         uploader = S3ResourceUploader(resource)
 
         url = uploader.get_signed_url_to_key(resource['id'])
