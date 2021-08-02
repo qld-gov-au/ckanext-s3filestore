@@ -19,7 +19,8 @@ import ckan.tests.helpers as helpers
 import ckan.tests.factories as factories
 
 from ckanext.s3filestore.uploader import (S3Uploader,
-                                          S3ResourceUploader)
+                                          S3ResourceUploader,
+                                          _is_presigned_url)
 
 from . import BUCKET_NAME, endpoint_url, s3
 
@@ -217,3 +218,26 @@ class TestS3ResourceUploader():
                        'id': '',    # Empty id from the form
                        'url': 'http://asdf', 'save': 'save'},
                  extra_environ=env)
+
+    def test_is_presigned_url(self):
+        ''' Tests that presigned URLs are correctly recognised.'''
+        assert_true(_is_presigned_url('https://example.s3.amazonaws.com/resources/foo?AWSAccessKeyId=SomeKey&Expires=9999999999Signature=hb7%2F%2Bz1H%2B8wdEy0pCsX7bZG%2BuPU%3D'))
+        assert_false(_is_presigned_url('https://example.s3.amazonaws.com/resources/foo'))
+
+    def test_resource_url(self):
+        ''' Test that resources in private datasets generate presigned URLs,
+        while resources in public datasets give plain URLs.
+        '''
+        dataset = factories.Dataset(name="my-dataset")
+        resource = factories.Resource(package_id=dataset['id'])
+        uploader = S3ResourceUploader(resource)
+
+        url = uploader.get_signed_url_to_key(resource['id'])
+        assert_false(_is_presigned_url(url))
+
+        dataset = factories.Dataset(name="my-private-dataset", private=True)
+        resource = factories.Resource(package_id=dataset['id'])
+        uploader = S3ResourceUploader(resource)
+
+        url = uploader.get_signed_url_to_key(resource['id'])
+        assert_true(_is_presigned_url(url))
