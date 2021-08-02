@@ -171,9 +171,8 @@ else:
             resource_file_url = '/dataset/{0}/resource/{1}/fs_download/foo.txt' \
                 .format(resource['package_id'], resource['id'])
 
-            file_response = app.get(resource_file_url)
-            location = file_response.headers['Location']
-            log.info("ckanext.s3filestore.tests: response is: %s, %s", location, file_response)
+            file_response = app.get(resource_file_url, expect_errors=True)
+            log.info("ckanext.s3filestore.tests: response is: %s", file_response)
             assert_equal(404, file_response.status_int)
 
         def test_resource_download_s3_no_filename(self):
