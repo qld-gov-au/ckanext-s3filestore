@@ -228,10 +228,11 @@ class TestS3ResourceUploader():
         ''' Test that resources in private datasets generate presigned URLs,
         while resources in public datasets give plain URLs.
         '''
-        sysadmin = factories.Sysadmin(apikey="my-test-key")
+        factories.Sysadmin(apikey="my-test-key")
         app = helpers._get_test_app()
         demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
-        dataset = factories.Dataset(name="my-dataset")
+        organisation = factories.Organization('my-organisation')
+        dataset = factories.Dataset(name="my-dataset", owner_org=organisation['id'])
 
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
         resource = demo.action.resource_create(package_id=dataset['id'],
@@ -247,7 +248,7 @@ class TestS3ResourceUploader():
         url = uploader.get_signed_url_to_key(key)
         assert_false(_is_presigned_url(url))
 
-        dataset = factories.Dataset(name="my-private-dataset", private=True)
+        dataset = factories.Dataset(name="my-private-dataset", private=True, owner_org=organisation['id'])
         resource = demo.action.resource_create(package_id=dataset['id'],
                                                upload=open(file_path),
                                                url='file.txt')
