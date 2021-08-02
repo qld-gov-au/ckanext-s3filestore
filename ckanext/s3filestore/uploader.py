@@ -77,7 +77,7 @@ def get_s3_session(config):
 def _is_presigned_url(url):
     ''' Determines whether a URL represents a presigned S3 URL.'''
     parts = url.split('?')
-    return len(parts) >= 2 and parts[1].contains('Signature=')
+    return len(parts) >= 2 and 'Signature=' in parts[1]
 
 
 class BaseS3Uploader(object):
