@@ -164,6 +164,18 @@ else:
                 body = file_response.body
             assert_true('date,price' in body)
 
+        def test_resource_download_wrong_filename(self):
+            '''A resource downloaded with the wrong filename gives 404.'''
+
+            resource, demo, app = self._upload_resource()
+            resource_file_url = '/dataset/{0}/resource/{1}/fs_download/foo.txt' \
+                .format(resource['package_id'], resource['id'])
+
+            file_response = app.get(resource_file_url)
+            location = file_response.headers['Location']
+            log.info("ckanext.s3filestore.tests: response is: %s, %s", location, file_response)
+            assert_equal(404, file_response.status_int)
+
         def test_resource_download_s3_no_filename(self):
             '''A resource uploaded to S3 can be downloaded when no filename in
             url.'''
