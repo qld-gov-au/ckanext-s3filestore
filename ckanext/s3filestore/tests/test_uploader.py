@@ -235,7 +235,9 @@ class TestS3ResourceUploader():
             package_id=dataset['id'], upload=open(file_path), url='file.txt')
         uploader = S3ResourceUploader(resource)
 
-        url = uploader.get_signed_url_to_key(uploader.get_path(resource['id'], 'data.csv'))
+        url = uploader.get_signed_url_to_key(
+            uploader.get_path(resource['id'],
+            os.path.basename(resource['url'])))
         assert_false(_is_presigned_url(url))
 
         dataset = factories.Dataset(name="my-private-dataset", private=True)
