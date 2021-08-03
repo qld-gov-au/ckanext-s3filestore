@@ -202,6 +202,27 @@ class BaseS3Uploader(object):
         except Exception as e:
             raise e
 
+    def is_key_public(self, key):
+        ''' Check whether an S3 object key is publicly readable.
+        May cache results to reduce API calls.
+        '''
+        acl_key = key + '/visibility'
+        acl = self._cache_get(acl_key)
+        if acl == 'public-read':
+            return True
+        if acl == 'private':
+            return False
+
+        client = self.get_s3_client()
+        # check if the object ACL grants any permission to all users
+        acl = 'public-read' if any(
+            grant['Grantee']['Type'] == 'Group'
+            and grant['Grantee'].get('URI', '').endswith('AllUsers')
+            for grant in client.get_object_acl(Bucket=self.bucket_name, Key=key)['Grants']
+        ) else 'private'
+        self._cache_put(acl_key, acl)
+        return acl == 'public-read'
+
     def get_signed_url_to_key(self, key, extra_params={}):
         '''Generates a pre-signed URL giving access to an S3 object,
         or, if the object is already publicly visible, an unsigned URL.
@@ -537,27 +558,6 @@ class S3ResourceUploader(BaseS3Uploader):
             return 'private' if package['private'] else 'public-read'
         else:
             return self.acl
-
-    def is_key_public(self, key):
-        ''' Check whether an S3 object key is publicly readable.
-        May cache results to reduce API calls.
-        '''
-        acl_key = key + '/visibility'
-        acl = self._cache_get(acl_key)
-        if acl == 'public-read':
-            return True
-        if acl == 'private':
-            return False
-
-        client = self.get_s3_client()
-        # check if the object ACL grants any permission to all users
-        acl = 'public-read' if any(
-            grant['Grantee']['Type'] == 'Group'
-            and grant['Grantee'].get('URI', '').endswith('AllUsers')
-            for grant in client.get_object_acl(Bucket=self.bucket_name, Key=key)['Grants']
-        ) else 'private'
-        self._cache_put(acl_key, acl)
-        return acl == 'public-read'
 
     def update_visibility(self, id):
         ''' Update the visibility of all S3 objects for a resource
