@@ -1,4 +1,7 @@
+# encoding: utf-8
 import os
+import mimetypes
+
 from ckantoolkit import config
 
 import ckantoolkit as toolkit
@@ -6,11 +9,12 @@ import ckan.logic as logic
 import ckan.lib.base as base
 import ckan.model as model
 import ckan.lib.uploader as uploader
-from ckan.common import _, c
+from ckan.common import _, c, request, response
 from botocore.exceptions import ClientError
 
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload
 from ckanext.s3filestore.uploader import S3Uploader, is_path_addressing
+import paste.fileapp
 
 import logging
 log = logging.getLogger(__name__)
@@ -101,10 +105,28 @@ class S3Controller(base.BaseController):
         if rsc.get('url_type') == 'upload':
             upload = DefaultResourceUpload(rsc)
             try:
-                return upload.download(rsc['id'], filename)
-            except OSError:
+                if hasattr(upload, 'download'):
+                    return upload.download(rsc['id'], filename)
+                else:
+                    # this is a copy of the original logic
+                    # in case CKAN doesn't provide the 'download' function
+                    # TODO get the 'download' function into upstream CKAN
+                    filepath = upload.get_path(rsc['id'])
+                    fileapp = paste.fileapp.FileApp(filepath)
+                    status, headers, app_iter = request.call_application(fileapp)
+                    response.headers.update(dict(headers))
+                    content_type, content_enc = mimetypes.guess_type(
+                        rsc.get('url', ''))
+                    if content_type:
+                        response.headers['Content-Type'] = content_type
+                    response.status = status
+                    return app_iter
+            except (OSError, IOError):
                 # includes FileNotFoundError
                 abort(404, _('Resource data not found'))
+            except Exception as e:
+                log.warning("Unhandled exception %s of type %s", e, type(e))
+                raise e
         elif 'url' not in rsc:
             abort(404, _('No download is available'))
         redirect(rsc['url'])
