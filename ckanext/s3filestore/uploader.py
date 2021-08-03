@@ -217,6 +217,7 @@ class BaseS3Uploader(object):
         client = self.get_s3_client()
 
         # check whether the object exists in S3
+        log.debug('Checking that S3 object %s exists', key)
         metadata = client.head_object(Bucket=self.bucket_name, Key=key)
 
         # check whether the object is publicly readable
