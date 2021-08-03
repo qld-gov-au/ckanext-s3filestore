@@ -559,10 +559,15 @@ class S3ResourceUploader(BaseS3Uploader):
         else:
             return self.acl
 
-    def update_visibility(self, id):
+    def update_visibility(self, id, target_acl=None):
         ''' Update the visibility of all S3 objects for a resource
-        to match the package.
+        to match the package, if the ACL config is set to 'auto'.
         '''
+        if self.acl != 'auto':
+            return
+        if not target_acl:
+            target_acl = self._get_target_acl(id)
+
         client = self.get_s3_client()
 
         # iterate through every S3 object matching the resource ID
@@ -573,7 +578,6 @@ class S3ResourceUploader(BaseS3Uploader):
         if not resource_objects['KeyCount']:
             return
 
-        target_acl = self._get_target_acl(id)
         for upload in resource_objects['Contents']:
             is_public_read = self.is_key_public(upload['Key'])
             # if the ACL status doesn't match what we want, update it
@@ -590,8 +594,7 @@ class S3ResourceUploader(BaseS3Uploader):
         if self.filename:
             filepath = self.get_path(id, self.filename)
             self.upload_to_key(filepath, self.upload_file, acl=self._get_target_acl(id))
-        if self.acl == 'auto':
-            self.update_visibility(id)
+        self.update_visibility(id)
 
         # The resource form only sets self.clear (via the input clear_upload)
         # to True when an uploaded file is not replaced by another uploaded
