@@ -13,7 +13,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
     plugins.implements(plugins.IUploader)
-    plugins.implements(plugins.IPackageController)
+    plugins.implements(plugins.IPackageController, inherit=True)
 
     if plugins.toolkit.check_ckan_version(min_version='2.8.0'):
         plugins.implements(plugins.IBlueprint)
