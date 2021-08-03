@@ -252,7 +252,11 @@ class TestS3ResourceUploader():
         resource = demo.action.resource_create(package_id=dataset['id'],
                                                upload=open(file_path),
                                                url='file.txt')
+
+        key = '{1}/resources/{0}/data.csv' \
+            .format(resource['id'],
+                    config.get('ckanext.s3filestore.aws_storage_path'))
         uploader = S3ResourceUploader(resource)
 
-        url = uploader.get_signed_url_to_key(resource['id'])
+        url = uploader.get_signed_url_to_key(key)
         assert_true(_is_presigned_url(url))
