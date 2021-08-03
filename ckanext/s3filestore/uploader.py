@@ -97,6 +97,32 @@ class BaseS3Uploader(object):
         else:
             self.host_name = None
 
+    def _cache_get(self, key):
+        ''' Get a value from the cache, if enabled, otherwise return None.
+        '''
+        if not self.signed_url_cache_enabled:
+            return None
+        redis_conn = connect_to_redis()
+        cache_key = _get_cache_key(key)
+        return redis_conn.get(cache_key)
+
+    def _cache_put(self, key, value):
+        ''' Set a value in the cache, if enabled, with an appropriate expiry.
+        '''
+        cache_key = _get_cache_key(key)
+        if self.signed_url_cache_enabled:
+            redis_conn = connect_to_redis()
+            redis_conn.set(cache_key, value, ex=self.signed_url_cache_window)
+
+    def _cache_delete(self, key):
+        ''' Delete a value from the cache, if enabled.
+        '''
+        cache_key = _get_cache_key(key)
+        if self.signed_url_cache_enabled:
+            redis_conn = connect_to_redis()
+            redis_conn.delete(cache_key)
+            redis_conn.delete(cache_key + '/visibility')
+
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
         return directory
@@ -162,8 +188,7 @@ class BaseS3Uploader(object):
                 Body=upload_file.read(), ACL=acl,
                 ContentType=mime_type)
             log.info("Successfully uploaded %s to S3!", filepath)
-            if self.signed_url_cache_enabled:
-                connect_to_redis().delete(_get_cache_key(filepath))
+            self._cache_delete(filepath)
         except Exception as e:
             log.error('Something went very very wrong for %s', str(e))
             raise e
@@ -173,8 +198,7 @@ class BaseS3Uploader(object):
         try:
             self.get_s3_resource().Object(self.bucket_name, filepath).delete()
             log.info("Removed %s from S3", filepath)
-            if self.signed_url_cache_enabled:
-                connect_to_redis().delete(_get_cache_key(filepath))
+            self._cache_delete(filepath)
         except Exception as e:
             raise e
 
@@ -196,23 +220,15 @@ class BaseS3Uploader(object):
         metadata = client.head_object(Bucket=self.bucket_name, Key=key)
 
         # check whether the object is publicly readable
-        acl = client.get_object_acl(Bucket=self.bucket_name, Key=key)
-        is_public_read = any(
-            grant['Grantee']['Type'] == 'Group'
-            and grant['Grantee'].get('URI', '').endswith('AllUsers')
-            for grant in acl['Grants']
-        )
+        is_public_read = self.is_key_public(key)
 
-        if self.signed_url_cache_enabled:
-            redis_conn = connect_to_redis()
-            cache_key = _get_cache_key(key)
-            cache_url = redis_conn.get(cache_key)
-            # use cache only if the visibility is still correct
-            if cache_url and is_public_read != _is_presigned_url(cache_url):
-                log.debug('Returning cached URL for path %s', key)
-                return cache_url
-            else:
-                log.debug('No cache found for %s; generating a new URL', key)
+        cache_url = self._cache_get(key)
+        # use cache only if the visibility is still correct
+        if cache_url and is_public_read != _is_presigned_url(cache_url):
+            log.debug('Returning cached URL for path %s', key)
+            return cache_url
+        else:
+            log.debug('No cache found for %s; generating a new URL', key)
 
         params = {'Bucket': self.bucket_name,
                   'Key': key}
@@ -229,8 +245,7 @@ class BaseS3Uploader(object):
         if is_public_read:
             url = url.split('?')[0]
 
-        if self.signed_url_cache_enabled:
-            redis_conn.set(cache_key, url, ex=self.signed_url_cache_window)
+        self._cache_put(key, url)
         return url
 
     def as_clean_dict(self, dict):
@@ -522,6 +537,27 @@ class S3ResourceUploader(BaseS3Uploader):
         else:
             return self.acl
 
+    def is_key_public(self, key):
+        ''' Check whether an S3 object key is publicly readable.
+        May cache results to reduce API calls.
+        '''
+        acl_key = key + '/visibility'
+        acl = self._cache_get(acl_key)
+        if acl == 'public-read':
+            return True
+        if acl == 'private':
+            return False
+
+        client = self.get_s3_client()
+        # check if the object ACL grants any permission to all users
+        acl = 'public-read' if any(
+            grant['Grantee']['Type'] == 'Group'
+            and grant['Grantee'].get('URI', '').endswith('AllUsers')
+            for grant in client.get_object_acl(Bucket=self.bucket_name, Key=key)['Grants']
+        ) else 'private'
+        self._cache_put(acl_key, acl)
+        return acl == 'public-read'
+
     def update_visibility(self, id):
         ''' Update the visibility of all S3 objects for a resource
         to match the package.
@@ -529,26 +565,21 @@ class S3ResourceUploader(BaseS3Uploader):
         client = self.get_s3_client()
 
         # iterate through every S3 object matching the resource ID
-        kwargs = {'Bucket': self.bucket_name,
-                  'Prefix': self.get_directory(id, self.storage_path)}
-        resource_objects = client.list_objects_v2(**kwargs)
+        resource_objects = client.list_objects_v2(
+            Bucket=self.bucket_name,
+            Prefix=self.get_directory(id, self.storage_path)
+        )
         if not resource_objects['KeyCount']:
             return
 
         target_acl = self._get_target_acl(id)
         for upload in resource_objects['Contents']:
-            kwargs = {'Bucket': self.bucket_name,
-                      'Key': upload['Key']}
-            # check if the object ACL grants any permission to all users
-            is_public_read = any(
-                grant['Grantee']['Type'] == 'Group'
-                and grant['Grantee'].get('URI', '').endswith('AllUsers')
-                for grant in client.get_object_acl(**kwargs)['Grants']
-            )
+            is_public_read = self.is_key_public(upload['Key'])
             # if the ACL status doesn't match what we want, update it
             if (target_acl == 'public-read') != is_public_read:
                 log.debug("Updating ACL for object %s to %s", upload['Key'], target_acl)
-                client.put_object_acl(ACL=target_acl, **kwargs)
+                client.put_object_acl(
+                    Bucket=self.bucket_name, Key=upload['Key'], ACL=target_acl)
 
     def upload(self, id, max_size=10):
         '''Upload the file to S3.'''
@@ -558,7 +589,7 @@ class S3ResourceUploader(BaseS3Uploader):
         if self.filename:
             filepath = self.get_path(id, self.filename)
             self.upload_to_key(filepath, self.upload_file, acl=self._get_target_acl(id))
-        elif self.acl == 'auto':
+        if self.acl == 'auto':
             self.update_visibility(id)
 
         # The resource form only sets self.clear (via the input clear_upload)
