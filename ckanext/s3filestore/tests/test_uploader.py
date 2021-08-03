@@ -224,6 +224,7 @@ class TestS3ResourceUploader():
         assert_true(_is_presigned_url('https://example.s3.amazonaws.com/resources/foo?AWSAccessKeyId=SomeKey&Expires=9999999999Signature=hb7%2F%2Bz1H%2B8wdEy0pCsX7bZG%2BuPU%3D'))
         assert_false(_is_presigned_url('https://example.s3.amazonaws.com/resources/foo'))
 
+    @helpers.change_config('ckanext.s3filestore.acl', 'auto')
     def test_resource_url(self):
         ''' Test that resources in private datasets generate presigned URLs,
         while resources in public datasets give plain URLs.
