@@ -251,7 +251,7 @@ class TestS3ResourceUploader():
         ''' Tests that resources in private datasets generate presigned URLs.
         '''
         dataset = self._test_dataset(private=True)
-        resource = _upload_test_resource(self, dataset)
+        resource = self._upload_test_resource(dataset)
         key = _get_object_key(resource)
         uploader = S3ResourceUploader(resource)
 
@@ -265,7 +265,8 @@ class TestS3ResourceUploader():
         will change from unsigned to signed URLs.
         '''
         dataset = self._test_dataset()
-        resource = _upload_test_resource(self, dataset)
+        resource = self._upload_test_resource(dataset)
+        key = _get_object_key(resource)
         uploader = S3ResourceUploader(resource)
 
         url = uploader.get_signed_url_to_key(key)
