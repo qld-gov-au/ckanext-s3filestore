@@ -27,6 +27,30 @@ from . import BUCKET_NAME, endpoint_url, s3
 
 def setup_function(self):
     helpers.reset_db()
+    self.app = helpers._get_test_app()
+
+
+def resource_setup_function(self):
+    helpers.reset_db()
+    self.sysadmin = factories.Sysadmin(apikey="my-test-key")
+    self.demo = ckanapi.TestAppCKAN(self.app, apikey='my-test-key')
+
+
+def upload_test_resource(self, dataset):
+    ''' Creates a test resource in the specified dataset
+    by uploading a file.
+    '''
+    file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
+    return self.demo.action.resource_create(
+        package_id=dataset['id'], upload=open(file_path), url='file.txt')
+
+
+def get_object_key(resource):
+    ''' Determine the S3 object key for the specified resource.
+    '''
+    return '{0}/resources/{1}/data.csv'.format(
+        config.get('ckanext.s3filestore.aws_storage_path'),
+        resource['id'])
 
 
 @with_setup(setup_function)
@@ -51,7 +75,6 @@ class TestS3Uploader():
 
     def test_group_image_upload(self):
         '''Test a group image file upload'''
-        sysadmin = factories.Sysadmin(apikey="my-test-key")
 
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
         file_name = 'somename.png'
@@ -61,7 +84,7 @@ class TestS3Uploader():
         with mock.patch('ckanext.s3filestore.uploader.datetime') as mock_date:
             mock_date.datetime.utcnow.return_value = \
                 datetime.datetime(2001, 1, 29)
-            context = {'user': sysadmin['name']}
+            context = {'user': self.sysadmin['name']}
             helpers.call_action('group_create', context=context,
                                 name="my-group",
                                 image_upload=img_uploader,
@@ -76,18 +99,15 @@ class TestS3Uploader():
         s3.head_object(Bucket=BUCKET_NAME, Key=key)
 
         # requesting image redirects to s3
-        app = helpers._get_test_app()
         # attempt redirect to linked url
         image_file_url = '/uploads/group/2001-01-29-000000{0}'.format(file_name)
-        r = app.get(image_file_url, status=[302, 301])
+        r = self.app.get(image_file_url, status=[302, 301])
         assert_equal(r.location.split('?')[0],
                      '{0}/my-bucket/my-path/storage/uploads/group/2001-01-29-000000{1}'
                      .format(endpoint_url, file_name))
 
     def test_group_image_upload_then_clear(self):
         '''Test that clearing an upload removes the S3 key'''
-
-        sysadmin = factories.Sysadmin(apikey="my-test-key")
 
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
         file_name = "somename.png"
@@ -97,7 +117,7 @@ class TestS3Uploader():
         with mock.patch('ckanext.s3filestore.uploader.datetime') as mock_date:
             mock_date.datetime.utcnow.return_value = \
                 datetime.datetime(2001, 1, 29)
-            context = {'user': sysadmin['name']}
+            context = {'user': self.sysadmin['name']}
             helpers.call_action('group_create', context=context,
                                 name="my-group",
                                 image_upload=img_uploader,
@@ -125,25 +145,17 @@ class TestS3Uploader():
             assert_true(True, "passed")
 
 
-@with_setup(setup_function)
+@with_setup(resource_setup_function)
 class TestS3ResourceUploader():
 
     def test_resource_upload(self):
         '''Test a basic resource file upload'''
-        factories.Sysadmin(apikey="my-test-key")
-
-        app = helpers._get_test_app()
-        demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
-        factories.Dataset(name="my-dataset")
+        dataset = factories.Dataset(name="my-dataset")
 
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
-        resource = demo.action.resource_create(package_id='my-dataset',
-                                               upload=open(file_path),
-                                               url='file.txt')
+        resource = upload_test_resource(self, dataset)
 
-        key = '{1}/resources/{0}/data.csv' \
-            .format(resource['id'],
-                    config.get('ckanext.s3filestore.aws_storage_path'))
+        key = get_object_key(resource)
 
         # check whether the object exists in S3
         # will throw exception if not existing
@@ -157,20 +169,11 @@ class TestS3ResourceUploader():
     def test_resource_upload_then_clear(self):
         '''Test that clearing an upload removes the S3 key'''
 
-        sysadmin = factories.Sysadmin(apikey="my-test-key")
-
-        app = helpers._get_test_app()
-        demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
         dataset = factories.Dataset(name="my-dataset")
 
-        file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
-        resource = demo.action.resource_create(package_id='my-dataset',
-                                               upload=open(file_path),
-                                               url='file.txt')
+        resource = upload_test_resource(self, dataset)
 
-        key = '{1}/resources/{0}/data.csv' \
-            .format(resource['id'],
-                    config.get('ckanext.s3filestore.aws_storage_path'))
+        key = get_object_key(resource)
 
         # check whether the object exists in S3
         # will throw exception if not existing
@@ -179,10 +182,12 @@ class TestS3ResourceUploader():
         # clear upload
         url = toolkit.url_for(controller='package', action='resource_edit',
                               id=dataset['id'], resource_id=resource['id'])
-        env = {'REMOTE_USER': sysadmin['name'].encode('ascii')}
-        app.post(url, {'clear_upload': True,
-                       'url': 'http://asdf', 'save': 'save'},
-                 extra_environ=env)
+        env = {'REMOTE_USER': self.sysadmin['name'].encode('ascii')}
+        self.app.post(
+            url,
+            {'clear_upload': True,
+             'url': 'http://asdf', 'save': 'save'},
+            extra_environ=env)
 
         # key shouldn't exist
         try:
@@ -205,19 +210,18 @@ class TestS3ResourceUploader():
     def test_resource_upload_with_url_and_clear(self):
         '''Test that clearing an upload and using a URL does not crash'''
 
-        sysadmin = factories.Sysadmin(apikey="my-test-key")
-
-        app = helpers._get_test_app()
         dataset = factories.Dataset(name="my-dataset")
 
         url = toolkit.url_for(controller='package', action='new_resource',
                               id=dataset['id'])
-        env = {'REMOTE_USER': sysadmin['name'].encode('ascii')}
+        env = {'REMOTE_USER': self.sysadmin['name'].encode('ascii')}
 
-        app.post(url, {'clear_upload': True,
-                       'id': '',    # Empty id from the form
-                       'url': 'http://asdf', 'save': 'save'},
-                 extra_environ=env)
+        self.app.post(
+            url,
+            {'clear_upload': True,
+             'id': '',    # Empty id from the form
+             'url': 'http://asdf', 'save': 'save'},
+            extra_environ=env)
 
     def test_is_presigned_url(self):
         ''' Tests that presigned URLs are correctly recognised.'''
@@ -225,39 +229,30 @@ class TestS3ResourceUploader():
         assert_false(_is_presigned_url('https://example.s3.amazonaws.com/resources/foo'))
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
-    def test_resource_url(self):
-        ''' Test that resources in private datasets generate presigned URLs,
-        while resources in public datasets give plain URLs.
+    def test_resource_url_unsigned_for_public_dataset(self):
+        ''' Tests that resources in public datasets give unsigned URLs.
         '''
-        factories.Sysadmin(apikey="my-test-key")
-        app = helpers._get_test_app()
-        demo = ckanapi.TestAppCKAN(app, apikey='my-test-key')
+        dataset = factories.Dataset(name="my-dataset")
+        resource = upload_test_resource(self, dataset)
+        key = get_object_key(resource)
+        uploader = S3ResourceUploader(resource)
+
+        url = uploader.get_signed_url_to_key(key)
+
+        assert_false(_is_presigned_url(url))
+
+    @helpers.change_config('ckanext.s3filestore.acl', 'auto')
+    def test_resource_url_signed_for_private_dataset(self):
+        ''' Tests that resources in private datasets generate presigned URLs.
+        '''
         organisation = factories.Organization(name='my-organisation')
         dataset = factories.Dataset(name="my-dataset", owner_org=organisation['id'])
 
-        file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
-        resource = demo.action.resource_create(package_id=dataset['id'],
-                                               upload=open(file_path),
-                                               url='file.txt')
-
-        key = '{1}/resources/{0}/data.csv' \
-            .format(resource['id'],
-                    config.get('ckanext.s3filestore.aws_storage_path'))
-
-        uploader = S3ResourceUploader(resource)
-
-        url = uploader.get_signed_url_to_key(key)
-        assert_false(_is_presigned_url(url))
-
         dataset = factories.Dataset(name="my-private-dataset", private=True, owner_org=organisation['id'])
-        resource = demo.action.resource_create(package_id=dataset['id'],
-                                               upload=open(file_path),
-                                               url='file.txt')
-
-        key = '{1}/resources/{0}/data.csv' \
-            .format(resource['id'],
-                    config.get('ckanext.s3filestore.aws_storage_path'))
+        resource = upload_test_resource(self, dataset)
+        key = get_object_key(resource)
         uploader = S3ResourceUploader(resource)
 
         url = uploader.get_signed_url_to_key(key)
+
         assert_true(_is_presigned_url(url))
