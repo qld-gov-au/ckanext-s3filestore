@@ -317,7 +317,7 @@ class TestS3ResourceUploader():
         assert_false(_is_presigned_url(old_url))
 
         file_path = os.path.join(os.path.dirname(__file__), 'data.txt')
-        self.demo.action.resource_patch(
+        resource = self.demo.action.resource_patch(
             id=resource['id'], upload=open(file_path), url='data.txt')
         new_key = _get_object_key(resource)
         assert_not_equal(old_key, new_key)
