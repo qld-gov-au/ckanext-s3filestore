@@ -304,26 +304,3 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         assert_false(_is_presigned_url(url))
-
-    def test_uploading_new_filename_deletes_old(self):
-        ''' Tests that uploading a new version of a resource with
-        a different filename will delete the old file from S3.
-        '''
-        dataset = self._test_dataset()
-        resource = self._upload_test_resource(dataset)
-        uploader = S3ResourceUploader(resource)
-        old_key = _get_object_key(resource)
-        old_url = uploader.get_signed_url_to_key(old_key)
-        assert_false(_is_presigned_url(old_url))
-
-        file_path = os.path.join(os.path.dirname(__file__), 'data.txt')
-        resource = self.demo.action.resource_patch(
-            id=resource['id'], upload=open(file_path), url='data.txt')
-        new_key = _get_object_key(resource)
-        assert_not_equal(old_key, new_key)
-        try:
-            uploader.get_signed_url_to_key(old_key)
-            raise AssertionError("Should have encountered error accessing old file after new upload")
-        except Exception:
-            new_url = uploader.get_signed_url_to_key(new_key)
-            assert_false(_is_presigned_url(new_url))
