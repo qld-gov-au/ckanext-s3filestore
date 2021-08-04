@@ -318,7 +318,7 @@ class TestS3ResourceUploader():
 
         file_path = os.path.join(os.path.dirname(__file__), 'data.txt')
         self.demo.action.resource_patch(
-            id=resource['id'], upload=open(file_path))
+            id=resource['id'], upload=open(file_path), url='data.txt')
         new_key = _get_object_key(resource)
         assert_not_equal(old_key, new_key)
         try:
