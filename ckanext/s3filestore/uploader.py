@@ -587,6 +587,7 @@ class S3ResourceUploader(BaseS3Uploader):
                 log.debug("Updating ACL for object %s to %s", upload['Key'], target_acl)
                 client.put_object_acl(
                     Bucket=self.bucket_name, Key=upload['Key'], ACL=target_acl)
+                self._cache_delete(upload['Key'])
 
     def upload(self, id, max_size=10):
         '''Upload the file to S3.'''
