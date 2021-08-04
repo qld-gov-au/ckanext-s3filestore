@@ -272,7 +272,8 @@ class TestS3ResourceUploader():
         url = uploader.get_signed_url_to_key(key)
         assert_false(_is_presigned_url(url))
 
-        helpers.call_action('package_patch', context={'ignore_auth': True},
+        helpers.call_action('package_patch',
+                            context={'user': self.sysadmin['name']},
                             id=dataset['id'],
                             private=True)
 
@@ -292,7 +293,8 @@ class TestS3ResourceUploader():
         url = uploader.get_signed_url_to_key(key)
         assert_true(_is_presigned_url(url))
 
-        helpers.call_action('package_patch', context={'ignore_auth': True},
+        helpers.call_action('package_patch',
+                            context={'user': self.sysadmin['name']},
                             id=dataset['id'],
                             private=False)
 
