@@ -25,6 +25,9 @@ from ckanext.s3filestore.uploader import (S3Uploader,
 from . import BUCKET_NAME, endpoint_url, s3
 
 
+DIRECT_DOWNLOAD_URL_FORMAT = '/dataset/{0}/resource/{1}/orig_download/{2}'
+
+
 def _setup_function(self):
     helpers.reset_db()
     self.app = helpers._get_test_app()
@@ -300,3 +303,21 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         assert_false(_is_presigned_url(url))
+
+    def test_uploading_new_filename_deletes_old(self):
+        ''' Tests that uploading a new version of a resource with
+        a different filename will delete the old file from S3.
+        '''
+        dataset = self._test_dataset()
+        resource = self._upload_test_resource(dataset)
+        url = DIRECT_DOWNLOAD_URL_FORMAT.format(
+            dataset['id'], resource['id'], 'file.txt')
+        self.app.get(url, status=[200])
+
+        file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
+        self.demo.action.resource_patch(
+            id=resource['id'], upload=open(file_path), url='file.csv')
+        new_url = DIRECT_DOWNLOAD_URL_FORMAT.format(
+            dataset['id'], resource['id'], 'file.csv')
+        self.app.get(url, status=[404])
+        self.app.get(new_url, status=[200])
