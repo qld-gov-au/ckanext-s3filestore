@@ -29,20 +29,12 @@ def _setup_function(self):
     helpers.reset_db()
     self.app = helpers._get_test_app()
     self.sysadmin = factories.Sysadmin(apikey="my-test-key")
+    self.organisation = factories.Organization(name='my-organisation')
 
 
 def _resource_setup_function(self):
     _setup_function(self)
     self.demo = ckanapi.TestAppCKAN(self.app, apikey='my-test-key')
-
-
-def _upload_test_resource(self, dataset):
-    ''' Creates a test resource in the specified dataset
-    by uploading a file.
-    '''
-    file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
-    return self.demo.action.resource_create(
-        package_id=dataset['id'], upload=open(file_path), url='file.txt')
 
 
 def _get_object_key(resource):
@@ -148,12 +140,28 @@ class TestS3Uploader():
 @with_setup(_resource_setup_function)
 class TestS3ResourceUploader():
 
+    def _test_dataset(self, private=False):
+        ''' Creates a test dataset.
+        '''
+        return factories.Dataset(
+            name="my-dataset",
+            private=private,
+            owner_org=self.organisation['id'])
+
+    def _upload_test_resource(self, dataset=None):
+        ''' Creates a test resource in the specified dataset
+        by uploading a file.
+        '''
+        if not dataset:
+            dataset = self._test_dataset()
+        file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
+        return self.demo.action.resource_create(
+            package_id=dataset['id'], upload=open(file_path), url='file.txt')
+
     def test_resource_upload(self):
         '''Test a basic resource file upload'''
-        dataset = factories.Dataset(name="my-dataset")
-
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
-        resource = _upload_test_resource(self, dataset)
+        resource = self._upload_test_resource()
 
         key = _get_object_key(resource)
 
@@ -169,10 +177,8 @@ class TestS3ResourceUploader():
     def test_resource_upload_then_clear(self):
         '''Test that clearing an upload removes the S3 key'''
 
-        dataset = factories.Dataset(name="my-dataset")
-
-        resource = _upload_test_resource(self, dataset)
-
+        dataset = self._test_dataset()
+        resource = self._upload_test_resource(dataset)
         key = _get_object_key(resource)
 
         # check whether the object exists in S3
@@ -232,8 +238,7 @@ class TestS3ResourceUploader():
     def test_resource_url_unsigned_for_public_dataset(self):
         ''' Tests that resources in public datasets give unsigned URLs.
         '''
-        dataset = factories.Dataset(name="my-dataset")
-        resource = _upload_test_resource(self, dataset)
+        resource = self._upload_test_resource()
         key = _get_object_key(resource)
         uploader = S3ResourceUploader(resource)
 
@@ -245,10 +250,7 @@ class TestS3ResourceUploader():
     def test_resource_url_signed_for_private_dataset(self):
         ''' Tests that resources in private datasets generate presigned URLs.
         '''
-        organisation = factories.Organization(name='my-organisation')
-        dataset = factories.Dataset(name="my-dataset", owner_org=organisation['id'])
-
-        dataset = factories.Dataset(name="my-private-dataset", private=True, owner_org=organisation['id'])
+        dataset = self._test_dataset(private=True)
         resource = _upload_test_resource(self, dataset)
         key = _get_object_key(resource)
         uploader = S3ResourceUploader(resource)
