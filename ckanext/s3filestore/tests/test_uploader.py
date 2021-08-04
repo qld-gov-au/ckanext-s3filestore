@@ -31,7 +31,7 @@ def setup_function(self):
 
 
 def resource_setup_function(self):
-    helpers.reset_db()
+    setup_function(self)
     self.sysadmin = factories.Sysadmin(apikey="my-test-key")
     self.demo = ckanapi.TestAppCKAN(self.app, apikey='my-test-key')
 
