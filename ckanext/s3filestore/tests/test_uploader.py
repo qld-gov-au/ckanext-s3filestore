@@ -248,6 +248,7 @@ class TestS3ResourceUploader():
         url = uploader.get_signed_url_to_key(key)
 
         assert_false(_is_presigned_url(url))
+        self.app.get(url, status=[200])
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
     def test_resource_url_signed_for_private_dataset(self):
@@ -261,6 +262,7 @@ class TestS3ResourceUploader():
         url = uploader.get_signed_url_to_key(key)
 
         assert_true(_is_presigned_url(url))
+        self.app.get(url, status=[200])
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
     def test_making_dataset_private_updates_object_visibility(self):
@@ -274,6 +276,7 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         assert_false(_is_presigned_url(url))
+        self.app.get(url, status=[200])
 
         helpers.call_action('package_patch',
                             context={'user': self.sysadmin['name']},
@@ -282,6 +285,7 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         assert_true(_is_presigned_url(url))
+        self.app.get(url, status=[200])
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
     def test_making_dataset_public_updates_object_visibility(self):
@@ -295,6 +299,7 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         assert_true(_is_presigned_url(url))
+        self.app.get(url, status=[200])
 
         helpers.call_action('package_patch',
                             context={'user': self.sysadmin['name']},
@@ -303,6 +308,7 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         assert_false(_is_presigned_url(url))
+        self.app.get(url, status=[200])
 
     def test_uploading_new_filename_deletes_old(self):
         ''' Tests that uploading a new version of a resource with
