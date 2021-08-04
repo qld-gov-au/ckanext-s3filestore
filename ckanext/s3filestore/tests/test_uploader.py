@@ -278,3 +278,23 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         assert_true(_is_presigned_url(url))
+
+    @helpers.change_config('ckanext.s3filestore.acl', 'auto')
+    def test_making_dataset_public_updates_object_visibility(self):
+        ''' Tests that a dataset that changes from private to public
+        will change from signed to unsigned URLs.
+        '''
+        dataset = self._test_dataset(private=True)
+        resource = self._upload_test_resource(dataset)
+        key = _get_object_key(resource)
+        uploader = S3ResourceUploader(resource)
+
+        url = uploader.get_signed_url_to_key(key)
+        assert_true(_is_presigned_url(url))
+
+        helpers.call_action('package_patch', context={'ignore_auth': True},
+                            id=dataset['id'],
+                            private=False)
+
+        url = uploader.get_signed_url_to_key(key)
+        assert_false(_is_presigned_url(url))
