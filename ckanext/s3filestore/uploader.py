@@ -34,6 +34,8 @@ _max_image_size = None
 
 URL_HOST = re.compile('^https?://[^/]*/')
 REDIS_PREFIX = 'ckanext-s3filestore:'
+PUBLIC_ACL = 'public-read'
+PRIVATE_ACL = 'private'
 
 
 def _get_cache_key(path):
@@ -90,7 +92,7 @@ class BaseS3Uploader(object):
         self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry', '3600'))
         self.signed_url_cache_window = int(config.get('ckanext.s3filestore.signed_url_cache_window', '1800'))
         self.signed_url_cache_enabled = self.signed_url_cache_window > 0 and self.signed_url_expiry > 0
-        self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
+        self.acl = config.get('ckanext.s3filestore.acl', PUBLIC_ACL)
         self.addressing_style = config.get('ckanext.s3filestore.addressing_style', 'auto')
         if is_path_addressing():
             self.host_name = config.get('ckanext.s3filestore.host_name')
@@ -208,20 +210,20 @@ class BaseS3Uploader(object):
         '''
         acl_key = key + '/visibility'
         acl = self._cache_get(acl_key)
-        if acl == 'public-read':
+        if acl == PUBLIC_ACL:
             return True
-        if acl == 'private':
+        if acl == PRIVATE_ACL:
             return False
 
         client = self.get_s3_client()
         # check if the object ACL grants any permission to all users
-        acl = 'public-read' if any(
+        acl = PUBLIC_ACL if any(
             grant['Grantee']['Type'] == 'Group'
             and grant['Grantee'].get('URI', '').endswith('AllUsers')
             for grant in client.get_object_acl(Bucket=self.bucket_name, Key=key)['Grants']
-        ) else 'private'
+        ) else PRIVATE_ACL
         self._cache_put(acl_key, acl)
-        return acl == 'public-read'
+        return acl == PUBLIC_ACL
 
     def get_signed_url_to_key(self, key, extra_params={}):
         '''Generates a pre-signed URL giving access to an S3 object,
@@ -377,7 +379,7 @@ class S3Uploader(BaseS3Uploader):
         # file to the appropriate key in the AWS bucket.
         if self.filename:
             self.upload_to_key(self.filepath, self.upload_file,
-                               acl='public-read')
+                               acl=PUBLIC_ACL)
             self.clear = True
 
         if (self.clear and self.old_filename
@@ -555,7 +557,7 @@ class S3ResourceUploader(BaseS3Uploader):
     def _get_target_acl(self, resource_id):
         if self.acl == 'auto':
             package = toolkit.get_action('package_show')({'ignore_auth': True}, {'id': self.resource['package_id']})
-            return 'private' if package['private'] else 'public-read'
+            return PRIVATE_ACL if package['private'] else PUBLIC_ACL
         else:
             return self.acl
 
@@ -581,7 +583,7 @@ class S3ResourceUploader(BaseS3Uploader):
         for upload in resource_objects['Contents']:
             is_public_read = self.is_key_public(upload['Key'])
             # if the ACL status doesn't match what we want, update it
-            if (target_acl == 'public-read') != is_public_read:
+            if (target_acl == PUBLIC_ACL) != is_public_read:
                 log.debug("Updating ACL for object %s to %s", upload['Key'], target_acl)
                 client.put_object_acl(
                     Bucket=self.bucket_name, Key=upload['Key'], ACL=target_acl)
