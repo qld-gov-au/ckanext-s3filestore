@@ -28,11 +28,11 @@ from . import BUCKET_NAME, endpoint_url, s3
 def setup_function(self):
     helpers.reset_db()
     self.app = helpers._get_test_app()
+    self.sysadmin = factories.Sysadmin(apikey="my-test-key")
 
 
 def resource_setup_function(self):
     setup_function(self)
-    self.sysadmin = factories.Sysadmin(apikey="my-test-key")
     self.demo = ckanapi.TestAppCKAN(self.app, apikey='my-test-key')
 
 
