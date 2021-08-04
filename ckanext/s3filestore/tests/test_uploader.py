@@ -25,18 +25,18 @@ from ckanext.s3filestore.uploader import (S3Uploader,
 from . import BUCKET_NAME, endpoint_url, s3
 
 
-def setup_function(self):
+def _setup_function(self):
     helpers.reset_db()
     self.app = helpers._get_test_app()
     self.sysadmin = factories.Sysadmin(apikey="my-test-key")
 
 
-def resource_setup_function(self):
-    setup_function(self)
+def _resource_setup_function(self):
+    _setup_function(self)
     self.demo = ckanapi.TestAppCKAN(self.app, apikey='my-test-key')
 
 
-def upload_test_resource(self, dataset):
+def _upload_test_resource(self, dataset):
     ''' Creates a test resource in the specified dataset
     by uploading a file.
     '''
@@ -45,7 +45,7 @@ def upload_test_resource(self, dataset):
         package_id=dataset['id'], upload=open(file_path), url='file.txt')
 
 
-def get_object_key(resource):
+def _get_object_key(resource):
     ''' Determine the S3 object key for the specified resource.
     '''
     return '{0}/resources/{1}/data.csv'.format(
@@ -53,7 +53,7 @@ def get_object_key(resource):
         resource['id'])
 
 
-@with_setup(setup_function)
+@with_setup(_setup_function)
 class TestS3Uploader():
 
     def test_get_bucket(self):
@@ -145,7 +145,7 @@ class TestS3Uploader():
             assert_true(True, "passed")
 
 
-@with_setup(resource_setup_function)
+@with_setup(_resource_setup_function)
 class TestS3ResourceUploader():
 
     def test_resource_upload(self):
@@ -153,9 +153,9 @@ class TestS3ResourceUploader():
         dataset = factories.Dataset(name="my-dataset")
 
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
-        resource = upload_test_resource(self, dataset)
+        resource = _upload_test_resource(self, dataset)
 
-        key = get_object_key(resource)
+        key = _get_object_key(resource)
 
         # check whether the object exists in S3
         # will throw exception if not existing
@@ -171,9 +171,9 @@ class TestS3ResourceUploader():
 
         dataset = factories.Dataset(name="my-dataset")
 
-        resource = upload_test_resource(self, dataset)
+        resource = _upload_test_resource(self, dataset)
 
-        key = get_object_key(resource)
+        key = _get_object_key(resource)
 
         # check whether the object exists in S3
         # will throw exception if not existing
@@ -233,8 +233,8 @@ class TestS3ResourceUploader():
         ''' Tests that resources in public datasets give unsigned URLs.
         '''
         dataset = factories.Dataset(name="my-dataset")
-        resource = upload_test_resource(self, dataset)
-        key = get_object_key(resource)
+        resource = _upload_test_resource(self, dataset)
+        key = _get_object_key(resource)
         uploader = S3ResourceUploader(resource)
 
         url = uploader.get_signed_url_to_key(key)
@@ -249,8 +249,8 @@ class TestS3ResourceUploader():
         dataset = factories.Dataset(name="my-dataset", owner_org=organisation['id'])
 
         dataset = factories.Dataset(name="my-private-dataset", private=True, owner_org=organisation['id'])
-        resource = upload_test_resource(self, dataset)
-        key = get_object_key(resource)
+        resource = _upload_test_resource(self, dataset)
+        key = _get_object_key(resource)
         uploader = S3ResourceUploader(resource)
 
         url = uploader.get_signed_url_to_key(key)
