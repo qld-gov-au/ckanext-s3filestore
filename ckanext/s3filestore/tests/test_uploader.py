@@ -4,6 +4,7 @@ import os
 
 import mock
 from nose.tools import (assert_equal,
+                        assert_not_equal,
                         assert_true,
                         assert_false,
                         with_setup)
@@ -248,7 +249,6 @@ class TestS3ResourceUploader():
         url = uploader.get_signed_url_to_key(key)
 
         assert_false(_is_presigned_url(url))
-        self.app.get(url, status=[200])
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
     def test_resource_url_signed_for_private_dataset(self):
@@ -262,7 +262,6 @@ class TestS3ResourceUploader():
         url = uploader.get_signed_url_to_key(key)
 
         assert_true(_is_presigned_url(url))
-        self.app.get(url, status=[200])
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
     def test_making_dataset_private_updates_object_visibility(self):
@@ -276,7 +275,6 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         assert_false(_is_presigned_url(url))
-        self.app.get(url, status=[200])
 
         helpers.call_action('package_patch',
                             context={'user': self.sysadmin['name']},
@@ -285,7 +283,6 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         assert_true(_is_presigned_url(url))
-        self.app.get(url, status=[200])
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
     def test_making_dataset_public_updates_object_visibility(self):
@@ -299,7 +296,6 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         assert_true(_is_presigned_url(url))
-        self.app.get(url, status=[200])
 
         helpers.call_action('package_patch',
                             context={'user': self.sysadmin['name']},
@@ -308,7 +304,6 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         assert_false(_is_presigned_url(url))
-        self.app.get(url, status=[200])
 
     def test_uploading_new_filename_deletes_old(self):
         ''' Tests that uploading a new version of a resource with
@@ -316,14 +311,19 @@ class TestS3ResourceUploader():
         '''
         dataset = self._test_dataset()
         resource = self._upload_test_resource(dataset)
-        url = DIRECT_DOWNLOAD_URL_FORMAT.format(
-            dataset['id'], resource['id'], 'data.csv')
-        self.app.get(url, status=[200])
+        uploader = S3ResourceUploader(resource)
+        old_key = _get_object_key(resource)
+        old_url = uploader.get_signed_url_to_key(old_key)
+        assert_false(_is_presigned_url(old_url))
 
         file_path = os.path.join(os.path.dirname(__file__), 'data.txt')
         self.demo.action.resource_patch(
             id=resource['id'], upload=open(file_path))
-        new_url = DIRECT_DOWNLOAD_URL_FORMAT.format(
-            dataset['id'], resource['id'], 'data.txt')
-        self.app.get(url, status=[404])
-        self.app.get(new_url, status=[200])
+        new_key = _get_object_key(resource)
+        assert_not_equal(old_key, new_key)
+        try:
+            uploader.get_signed_url_to_key(old_key)
+            raise AssertionError("Should have encountered error accessing old file after new upload")
+        except Exception:
+            new_url = uploader.get_signed_url_to_key(new_key)
+            assert_false(_is_presigned_url(new_url))
