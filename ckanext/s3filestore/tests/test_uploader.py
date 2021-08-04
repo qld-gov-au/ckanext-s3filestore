@@ -311,13 +311,13 @@ class TestS3ResourceUploader():
         dataset = self._test_dataset()
         resource = self._upload_test_resource(dataset)
         url = DIRECT_DOWNLOAD_URL_FORMAT.format(
-            dataset['id'], resource['id'], 'file.txt')
+            dataset['id'], resource['id'], 'data.csv')
         self.app.get(url, status=[200])
 
-        file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
+        file_path = os.path.join(os.path.dirname(__file__), 'data.txt')
         self.demo.action.resource_patch(
-            id=resource['id'], upload=open(file_path), url='file.csv')
+            id=resource['id'], upload=open(file_path))
         new_url = DIRECT_DOWNLOAD_URL_FORMAT.format(
-            dataset['id'], resource['id'], 'file.csv')
+            dataset['id'], resource['id'], 'data.txt')
         self.app.get(url, status=[404])
         self.app.get(new_url, status=[200])
