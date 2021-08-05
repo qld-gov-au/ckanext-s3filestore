@@ -127,7 +127,6 @@ class BaseS3Uploader(object):
         if self.signed_url_cache_enabled:
             redis_conn = connect_to_redis()
             redis_conn.delete(cache_key)
-            redis_conn.delete(_get_visibility_cache_key(key))
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
@@ -199,6 +198,7 @@ class BaseS3Uploader(object):
 
             self.get_s3_resource().Object(self.bucket_name, filepath).put(**kwargs)
             log.info("Successfully uploaded %s to S3!", filepath)
+            self._cache_delete(filepath)
             self._cache_put(_get_visibility_cache_key(filepath), acl)
         except Exception as e:
             log.error('Something went very very wrong for %s', str(e))
@@ -210,6 +210,7 @@ class BaseS3Uploader(object):
             self.get_s3_resource().Object(self.bucket_name, filepath).delete()
             log.info("Removed %s from S3", filepath)
             self._cache_delete(filepath)
+            self._cache_delete(_get_visibility_cache_key(filepath))
         except Exception as e:
             raise e
 
@@ -597,6 +598,7 @@ class S3ResourceUploader(BaseS3Uploader):
                 client.put_object_acl(
                     Bucket=self.bucket_name, Key=upload['Key'], ACL=target_acl)
                 self._cache_delete(upload['Key'])
+                self._cache_put(_get_visibility_cache_key(upload['Key']), target_acl)
 
     def upload(self, id, max_size=10):
         '''Upload the file to S3.'''
