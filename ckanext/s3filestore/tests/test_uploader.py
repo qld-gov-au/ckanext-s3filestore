@@ -4,7 +4,6 @@ import os
 
 import mock
 from nose.tools import (assert_equal,
-                        assert_not_equal,
                         assert_true,
                         assert_false,
                         with_setup)

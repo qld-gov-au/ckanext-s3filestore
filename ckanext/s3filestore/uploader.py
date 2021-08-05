@@ -42,6 +42,10 @@ def _get_cache_key(path):
     return REDIS_PREFIX + path
 
 
+def _get_visibility_cache_key(path):
+    return _get_cache_key(path) + '/visibility'
+
+
 def _get_underlying_file(wrapper):
     if isinstance(wrapper, FlaskFileStorage):
         return wrapper.stream
@@ -123,7 +127,7 @@ class BaseS3Uploader(object):
         if self.signed_url_cache_enabled:
             redis_conn = connect_to_redis()
             redis_conn.delete(cache_key)
-            redis_conn.delete(cache_key + '/visibility')
+            redis_conn.delete(_get_visibility_cache_key(key))
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
@@ -186,11 +190,16 @@ class BaseS3Uploader(object):
                   filepath, self.bucket_name, mime_type)
 
         try:
-            self.get_s3_resource().Object(self.bucket_name, filepath).put(
-                Body=upload_file.read(), ACL=acl,
-                ContentType=mime_type)
+            kwargs = {
+                'Body': upload_file.read(), 'ACL': acl,
+                'ContentType': mime_type}
+            if mime_type != 'application/pdf':
+                filename = filepath.split('/')[-1]
+                kwargs['ContentDisposition'] = 'attachment; filename=' + filename
+
+            self.get_s3_resource().Object(self.bucket_name, filepath).put(**kwargs)
             log.info("Successfully uploaded %s to S3!", filepath)
-            self._cache_delete(filepath)
+            self._cache_put(_get_visibility_cache_key(filepath), acl)
         except Exception as e:
             log.error('Something went very very wrong for %s', str(e))
             raise e
@@ -208,7 +217,7 @@ class BaseS3Uploader(object):
         ''' Check whether an S3 object key is publicly readable.
         May cache results to reduce API calls.
         '''
-        acl_key = key + '/visibility'
+        acl_key = _get_visibility_cache_key(key)
         acl = self._cache_get(acl_key)
         if acl == PUBLIC_ACL:
             return True
