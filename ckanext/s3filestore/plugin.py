@@ -1,3 +1,7 @@
+# encoding: utf-8
+
+import logging
+
 from routes.mapper import SubMapper
 import ckan.plugins as plugins
 import ckantoolkit as toolkit
@@ -7,6 +11,9 @@ from ckanext.s3filestore.views import\
     resource as resource_view, uploads as uploads_view
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload,\
     get_resource_uploader
+
+
+LOG = logging.getLogger(__name__)
 
 
 class S3FileStorePlugin(plugins.SingletonPlugin):
@@ -71,6 +78,10 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     def after_update(self, context, pkg_dict):
         ''' Update the access of each S3 object to match the package.
         '''
+        LOG.debug("Package %s has been updated, notifying resources", pkg_dict['id'])
+        if 'resources' not in pkg_dict:
+            pkg_dict = toolkit.get_action('package_show')(
+                context=context, data_dict={'id': pkg_dict['id']})
         for resource in pkg_dict['resources']:
             uploader = get_resource_uploader(resource)
             if hasattr(uploader, 'update_visibility'):
