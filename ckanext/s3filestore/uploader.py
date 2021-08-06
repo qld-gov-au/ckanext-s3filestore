@@ -180,7 +180,7 @@ class BaseS3Uploader(object):
 
         return bucket
 
-    def upload_to_key(self, filepath, upload_file, acl):
+    def upload_to_key(self, filepath, upload_file, acl, extra_metadata=None):
         '''Uploads the `upload_file` to `filepath` on `self.bucket`.'''
 
         upload_file.seek(0)
@@ -195,6 +195,8 @@ class BaseS3Uploader(object):
             if mime_type != 'application/pdf':
                 filename = filepath.split('/')[-1]
                 kwargs['ContentDisposition'] = 'attachment; filename=' + filename
+            if extra_metadata:
+                kwargs['Metadata'] = extra_metadata
 
             self.get_s3_resource().Object(self.bucket_name, filepath).put(**kwargs)
             log.info("Successfully uploaded %s to S3!", filepath)
@@ -607,7 +609,8 @@ class S3ResourceUploader(BaseS3Uploader):
         # file to the appropriate key in the AWS bucket.
         if self.filename:
             filepath = self.get_path(id, self.filename)
-            self.upload_to_key(filepath, self.upload_file, acl=self._get_target_acl(id))
+            self.upload_to_key(filepath, self.upload_file, acl=self._get_target_acl(id),
+                               extra_metadata=self._get_resource_metadata())
         self.update_visibility(id)
 
         # The resource form only sets self.clear (via the input clear_upload)
@@ -618,6 +621,12 @@ class S3ResourceUploader(BaseS3Uploader):
         if self.clear and self.old_filename:
             filepath = self.get_path(id, self.old_filename)
             self.clear_key(filepath)
+
+    def _get_resource_metadata(self):
+        ''' Retrieve a dict of metadata about the resource,
+        to be added to the S3 object.
+        '''
+        return {'package_id' + self.resource['package_id']}
 
     def delete(self, id, filename=None):
         ''' Delete file we are pointing at'''
