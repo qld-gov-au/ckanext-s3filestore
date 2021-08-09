@@ -1,16 +1,26 @@
+# encoding: utf-8
+
+import logging
+
 from routes.mapper import SubMapper
 import ckan.plugins as plugins
 import ckantoolkit as toolkit
 
-import ckanext.s3filestore.uploader
-from ckanext.s3filestore.views import resource, uploads
-from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload
+from ckanext.s3filestore import uploader as s3_uploader
+from ckanext.s3filestore.views import\
+    resource as resource_view, uploads as uploads_view
+from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload,\
+    get_resource_uploader
+
+
+LOG = logging.getLogger(__name__)
 
 
 class S3FileStorePlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
     plugins.implements(plugins.IUploader)
+    plugins.implements(plugins.IPackageController, inherit=True)
 
     if plugins.toolkit.check_ckan_version(min_version='2.8.0'):
         plugins.implements(plugins.IBlueprint)
@@ -50,19 +60,34 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         if toolkit.asbool(
                 config.get('ckanext.s3filestore.check_access_on_startup',
                            True)):
-            ckanext.s3filestore.uploader.BaseS3Uploader().get_s3_bucket(
+            s3_uploader.BaseS3Uploader().get_s3_bucket(
                 config.get('ckanext.s3filestore.aws_bucket_name'))
 
     # IUploader
 
     def get_resource_uploader(self, data_dict):
         '''Return an uploader object used to upload resource files.'''
-        return ckanext.s3filestore.uploader.S3ResourceUploader(data_dict)
+        return s3_uploader.S3ResourceUploader(data_dict)
 
     def get_uploader(self, upload_to, old_filename=None):
         '''Return an uploader object used to upload general files.'''
-        return ckanext.s3filestore.uploader.S3Uploader(upload_to,
-                                                       old_filename)
+        return s3_uploader.S3Uploader(upload_to, old_filename)
+
+    # IPackageController
+
+    def after_update(self, context, pkg_dict):
+        ''' Update the access of each S3 object to match the package.
+        '''
+        LOG.debug("Package %s has been updated, notifying resources", pkg_dict['id'])
+        if 'resources' not in pkg_dict:
+            pkg_dict = toolkit.get_action('package_show')(
+                context=context, data_dict={'id': pkg_dict['id']})
+        for resource in pkg_dict['resources']:
+            uploader = get_resource_uploader(resource)
+            if hasattr(uploader, 'update_visibility'):
+                uploader.update_visibility(
+                    resource['id'],
+                    target_acl='private' if pkg_dict['private'] else 'public-read')
 
     # IRoutes
     # Ignored on CKAN >= 2.8
@@ -100,4 +125,4 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     # Ignored on CKAN < 2.8
 
     def get_blueprint(self):
-        return resource.get_blueprints() + uploads.get_blueprints()
+        return resource_view.get_blueprints() + uploads_view.get_blueprints()
