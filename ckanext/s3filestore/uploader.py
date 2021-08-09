@@ -626,7 +626,7 @@ class S3ResourceUploader(BaseS3Uploader):
         ''' Retrieve a dict of metadata about the resource,
         to be added to the S3 object.
         '''
-        return {'package_id' + self.resource['package_id']}
+        return {'package_id': self.resource['package_id']}
 
     def delete(self, id, filename=None):
         ''' Delete file we are pointing at'''
