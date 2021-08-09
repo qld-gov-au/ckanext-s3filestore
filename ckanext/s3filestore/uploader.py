@@ -627,8 +627,9 @@ class S3ResourceUploader(BaseS3Uploader):
         ''' Retrieve a dict of metadata about the resource,
         to be added to the S3 object.
         '''
+        username = g.user if 'user' in dir(g) else '__anonymous__'
         return {'package_id': self.resource['package_id'],
-                'uploaded_by': g.user}
+                'uploaded_by': username}
 
     def delete(self, id, filename=None):
         ''' Delete file we are pointing at'''
