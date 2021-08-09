@@ -6,6 +6,7 @@ import datetime
 import mimetypes
 import magic
 import errno
+import six
 
 import boto3
 from botocore.client import Config
@@ -628,8 +629,14 @@ class S3ResourceUploader(BaseS3Uploader):
         to be added to the S3 object.
         '''
         username = g.user if 'user' in dir(g) else '__anonymous__'
-        return {'package_id': self.resource['package_id'],
-                'uploaded_by': username}
+        package = toolkit.get_action('package_show')(
+            context={'ignore_auth': True}, data_dict={'id': self.resource['package_id']})
+        metadata = {
+            'package_' + field: package[field]
+            for field in package.keys() if isinstance(package[field], six.string_types)
+        }
+        metadata['uploaded_by'] = username
+        return metadata
 
     def delete(self, id, filename=None):
         ''' Delete file we are pointing at'''
