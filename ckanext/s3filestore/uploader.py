@@ -14,6 +14,7 @@ import ckantoolkit as toolkit
 import ckan.lib.helpers as h
 from ckan.lib.redis import connect_to_redis
 
+from ckan.common import g
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as DefaultUpload
 
 import ckan.model as model
@@ -626,7 +627,8 @@ class S3ResourceUploader(BaseS3Uploader):
         ''' Retrieve a dict of metadata about the resource,
         to be added to the S3 object.
         '''
-        return {'package_id': self.resource['package_id']}
+        return {'package_id': self.resource['package_id'],
+                'uploaded_by': g.user}
 
     def delete(self, id, filename=None):
         ''' Delete file we are pointing at'''
