@@ -118,23 +118,26 @@ def filesystem_resource_download(package_type, id, resource_id, filename=None):
     mimetype, enc = mimetypes.guess_type(rsc.get('url', ''))
 
     if rsc.get(u'url_type') == u'upload':
-        if hasattr(DefaultResourceUpload, 'download'):
-            upload = DefaultResourceUpload(rsc)
-            try:
+        try:
+            if hasattr(DefaultResourceUpload, 'download'):
+                upload = DefaultResourceUpload(rsc)
                 return upload.download(rsc['id'], filename)
-            except OSError:
-                # includes FileNotFoundError
-                return abort(404, _('Resource data not found'))
 
-        path = get_storage_path()
-        storage_path = os.path.join(path, 'resources')
-        directory = os.path.join(storage_path,
-                                 resource_id[0:3], resource_id[3:6])
-        filepath = os.path.join(directory, resource_id[6:])
-        if preview:
-            return flask.send_file(filepath, mimetype=mimetype)
-        else:
-            return flask.send_file(filepath)
+            path = get_storage_path()
+            storage_path = os.path.join(path, 'resources')
+            directory = os.path.join(storage_path,
+                                     resource_id[0:3], resource_id[3:6])
+            filepath = os.path.join(directory, resource_id[6:])
+            if preview:
+                return flask.send_file(filepath, mimetype=mimetype)
+            else:
+                return flask.send_file(filepath)
+        except (OSError, IOError):
+            # includes FileNotFoundError
+            return abort(404, _('Resource data not found'))
+        except Exception as e:
+            log.warning("Unhandled exception %s of type %s", e, type(e))
+            raise e
     elif u'url' not in rsc:
         return abort(404, _(u'No download is available'))
     return redirect(rsc[u'url'])
