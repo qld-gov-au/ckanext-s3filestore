@@ -205,7 +205,7 @@ class BaseS3Uploader(object):
             self._cache_delete(filepath)
             self._cache_put(_get_visibility_cache_key(filepath), acl)
         except Exception as e:
-            log.error('Something went very very wrong for %s', str(e))
+            log.error('Something went very very wrong for %s', e)
             raise e
 
     def clear_key(self, filepath):
@@ -632,10 +632,10 @@ class S3ResourceUploader(BaseS3Uploader):
         package = toolkit.get_action('package_show')(
             context={'ignore_auth': True}, data_dict={'id': self.resource['package_id']})
         metadata = {
-            'package_' + field: package[field]
+            'package_' + field: six.moves.urllib.parse.quote(package[field])
             for field in package.keys() if isinstance(package[field], six.string_types)
         }
-        metadata['uploaded_by'] = username
+        metadata['uploaded_by'] = six.moves.urllib.parse.quote(username)
         return metadata
 
     def delete(self, id, filename=None):
