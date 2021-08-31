@@ -205,7 +205,7 @@ class BaseS3Uploader(object):
             self._cache_delete(filepath)
             self._cache_put(_get_visibility_cache_key(filepath), acl)
         except Exception as e:
-            log.error('Something went very very wrong for %s', str(e))
+            log.error('Something went very very wrong for %s', e)
             raise e
 
     def clear_key(self, filepath):
