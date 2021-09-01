@@ -143,7 +143,7 @@ class TestS3Uploader():
 @with_setup(_resource_setup_function)
 class TestS3ResourceUploader():
 
-    def _test_dataset(self, private=False):
+    def _test_dataset(self, private=False, title='Test Dataset', author='test'):
         ''' Creates a test dataset.
         '''
         return factories.Dataset(
@@ -318,9 +318,7 @@ class TestS3ResourceUploader():
     def test_encoding_object_metadata_headers(self):
         ''' Tests that text fields from the package are passed to S3.
         '''
-        dataset = self._test_dataset()
-        dataset['title'] = dataset['title'] + u'—with em dash'
-        dataset['author'] = u'擬製 暗影'
+        dataset = self._test_dataset(title='uTest Dataset—with em dash', author = u'擬製 暗影')
         resource = self._upload_test_resource(dataset)
         uploader = S3ResourceUploader(resource)
 
