@@ -642,10 +642,8 @@ class S3ResourceUploader(BaseS3Uploader):
         package = toolkit.get_action('package_show')(
             context={'ignore_auth': True}, data_dict={'id': self.resource['package_id']})
         metadata = {
-            'package_' + field: ensure_ascii(package[field])
-            for field in package.keys()
-            if field != 'notes'
-            and isinstance(package[field], six.string_types)
+            'package_' + field: ensure_ascii(package[field]) for field in package.keys()
+            if field != 'notes' and isinstance(package[field], six.string_types)
         }
         metadata['uploaded_by'] = ensure_ascii(username)
         return metadata

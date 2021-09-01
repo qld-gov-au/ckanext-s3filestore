@@ -320,7 +320,7 @@ class TestS3ResourceUploader():
     def test_encoding_object_metadata_headers(self):
         ''' Tests that text fields from the package are passed to S3.
         '''
-        dataset = self._test_dataset(title=u'Test Dataset—with em dash', author = u'擬製 暗影')
+        dataset = self._test_dataset(title=u'Test Dataset—with em dash', author=u'擬製 暗影')
         resource = self._upload_test_resource(dataset)
         uploader = S3ResourceUploader(resource)
 
