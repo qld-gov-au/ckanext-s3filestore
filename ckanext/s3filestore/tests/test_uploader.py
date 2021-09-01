@@ -319,8 +319,8 @@ class TestS3ResourceUploader():
         ''' Tests that text fields from the package are passed to S3.
         '''
         dataset = self._test_dataset()
-        dataset['title'] = dataset['title'] + '—with em dash'
-        dataset['author'] = '擬製 暗影'
+        dataset['title'] = dataset['title'] + u'—with em dash'
+        dataset['author'] = u'擬製 暗影'
         resource = self._upload_test_resource(dataset)
         uploader = S3ResourceUploader(resource)
 
