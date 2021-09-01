@@ -320,8 +320,10 @@ class TestS3ResourceUploader():
         '''
         dataset = self._test_dataset()
         dataset['title'] = dataset['title'] + '—with em dash'
+        dataset['author'] = '擬製 暗影'
         resource = self._upload_test_resource(dataset)
         uploader = S3ResourceUploader(resource)
 
         object_metadata = uploader._get_resource_metadata()
         assert_equal(object_metadata['package_title'], 'Test Dataset&#8212;with em dash')
+        assert_equal(object_metadata['package_author'], '&#25836;&#35069; &#26263;&#24433;')
