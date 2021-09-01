@@ -149,6 +149,8 @@ class TestS3ResourceUploader():
         return factories.Dataset(
             name="my-dataset",
             private=private,
+            title=title,
+            author=author,
             owner_org=self.organisation['id'])
 
     def _upload_test_resource(self, dataset=None):
