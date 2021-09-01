@@ -313,6 +313,7 @@ class TestS3ResourceUploader():
 
         object_metadata = uploader._get_resource_metadata()
         assert_equal(object_metadata['package_id'], dataset['id'])
+        assert_false('notes' in object_metadata['package_id'])
 
     def test_encoding_object_metadata_headers(self):
         ''' Tests that text fields from the package are passed to S3.
