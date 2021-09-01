@@ -313,3 +313,14 @@ class TestS3ResourceUploader():
 
         object_metadata = uploader._get_resource_metadata()
         assert_equal(object_metadata['package_id'], dataset['id'])
+
+    def test_encoding_object_metadata_headers(self):
+        ''' Tests that text fields from the package are passed to S3.
+        '''
+        dataset = self._test_dataset()
+        dataset.title = dataset.title + '—with em dash'
+        resource = self._upload_test_resource(dataset)
+        uploader = S3ResourceUploader(resource)
+
+        object_metadata = uploader._get_resource_metadata()
+        assert_equal(object_metadata['package_title'], 'Test Dataset&#8212;with em dash')
