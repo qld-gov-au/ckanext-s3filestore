@@ -65,6 +65,16 @@ def is_path_addressing():
     return False
 
 
+def ensure_ascii(text):
+    """ Returns a version of the specified text that contains
+    only ASCII characters. 'text' should be UTF-8 encoded.
+    Non-ASCII characters may be either stripped or encoded/escaped.
+    """
+    if not isinstance(text, six.text_type):
+        text = six.text_type(text, 'utf-8')
+    return text.encode('ascii', 'xmlcharrefreplace').decode()
+
+
 class S3FileStoreException(Exception):
     pass
 
@@ -632,10 +642,10 @@ class S3ResourceUploader(BaseS3Uploader):
         package = toolkit.get_action('package_show')(
             context={'ignore_auth': True}, data_dict={'id': self.resource['package_id']})
         metadata = {
-            'package_' + field: six.moves.urllib.parse.quote(package[field])
-            for field in package.keys() if isinstance(package[field], six.string_types)
+            'package_' + field: ensure_ascii(package[field]) for field in package.keys()
+            if field != 'notes' and isinstance(package[field], six.string_types)
         }
-        metadata['uploaded_by'] = six.moves.urllib.parse.quote(username)
+        metadata['uploaded_by'] = ensure_ascii(username)
         return metadata
 
     def delete(self, id, filename=None):
