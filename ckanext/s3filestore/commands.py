@@ -13,6 +13,21 @@ from ckan.logic import get_action, ValidationError
 from uploader import get_s3_session
 
 
+class DBConnection:
+
+    def __init__(self, config):
+        self.SQLALCHEMY_URL = config.get('sqlalchemy.url', 'postgresql://user:pass@localhost/db')
+
+    def __enter__(self):
+        self.engine = create_engine(self.SQLALCHEMY_URL)
+        self.connection = self.engine.connect()
+        return self.connection
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.connection.close()
+        self.engine.dispose()
+
+
 class TestConnection(toolkit.CkanCommand):
     '''CKAN S3 FileStore utilities
 
@@ -22,13 +37,20 @@ class TestConnection(toolkit.CkanCommand):
 
             Checks if the configuration entered in the ini file is correct
 
-        s3 upload [pairtree|all]
+        s3 upload [pairtree|<id>|all]
 
             Uploads existing files from disk to S3.
+
+            If 'all' is specified, this will scan for files on disk and
+            attempt to upload each one to the matching resource.
 
             If 'pairtree' is specified, this attempts to upload items from
             the legacy 'Pairtree' storage. NB Selecting 'all' will not
             attempt to load from Pairtree.
+
+            Otherwise, if a UUID is specified, this will attempt to
+            upload the matching resource or all resources in the
+            matching package.
 
     '''
     summary = __doc__.split('\n')[0]
@@ -47,6 +69,8 @@ class TestConnection(toolkit.CkanCommand):
                 self.upload_all()
             elif self.args[1] == 'pairtree':
                 self.upload_pairtree()
+            else:
+                self.upload_single(self.args[1])
         else:
             self.parser.error('Unrecognized command')
 
@@ -79,7 +103,6 @@ class TestConnection(toolkit.CkanCommand):
 
     def upload_all(self):
         BASE_PATH = config.get('ckan.storage_path', '/var/lib/ckan/default/resources')
-        SQLALCHEMY_URL = config.get('sqlalchemy.url', 'postgresql://user:pass@localhost/db')
         resource_ids_and_paths = {}
 
         for root, dirs, files in os.walk(BASE_PATH):
@@ -90,12 +113,9 @@ class TestConnection(toolkit.CkanCommand):
         print('Found {0} resource files in the file system'.format(
             len(resource_ids_and_paths.keys())))
 
-        engine = create_engine(SQLALCHEMY_URL)
-        connection = engine.connect()
+        with DBConnection(config) as connection:
+            resource_ids_and_names = {}
 
-        resource_ids_and_names = {}
-
-        try:
             for resource_id, file_path in resource_ids_and_paths.iteritems():
                 resource = connection.execute(text('''
                     SELECT id, url
@@ -112,12 +132,40 @@ class TestConnection(toolkit.CkanCommand):
                     resource_ids_and_names[_id] = file_name.lower()
                 else:
                     print("{} is an orphan; no resource points to it".format(file_path))
-        finally:
-            connection.close()
-            engine.dispose()
 
         print('{0} resources matched on the database'.format(
             len(resource_ids_and_names.keys())))
+
+        _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths)
+
+    def upload_single(self, id):
+        with DBConnection(config) as connection:
+            resource_ids_and_names = {}
+            for resource in connection.execute(text('''
+                    SELECT id, url
+                    FROM resource
+                    WHERE (id = :id or package_id = :id)
+                    AND state = 'active'
+                    AND url IS NOT NULL
+                    AND url <> ''
+                    AND url_type = 'upload'
+            '''), id=id):
+                _id, url = resource
+                file_name = url.split('/')[-1] if '/' in url else url
+                resource_ids_and_names[_id] = file_name.lower()
+
+        print('{0} resources matched on the database'.format(
+            len(resource_ids_and_names.keys())))
+
+        BASE_PATH = config.get('ckan.storage_path', '/var/lib/ckan/default/resources')
+        resource_ids_and_paths = {}
+        for resource_id in resource_ids_and_names.keys():
+            path = '{}/{}/{}/{}'.format(BASE_PATH, resource_id[0:2], resource_id[3:5], resource[6:])
+            if os.path.isfile(path):
+                resource_ids_and_paths[resource_id] = path
+
+        print('Found {0} resource files in the file system'.format(
+            len(resource_ids_and_paths.keys())))
 
         _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths)
 
@@ -132,7 +180,6 @@ class TestConnection(toolkit.CkanCommand):
             'obj'
         )
         print("Uploading pairtree files from {}".format(BASE_PATH))
-        SQLALCHEMY_URL = config.get('sqlalchemy.url', 'postgresql://user:pass@localhost/db')
         resource_paths = []
         resource_ids_and_paths = {}
 
@@ -146,13 +193,10 @@ class TestConnection(toolkit.CkanCommand):
             len(resource_paths)))
 
         # match files to resource URLs
-        engine = create_engine(SQLALCHEMY_URL)
-        connection = engine.connect()
+        with DBConnection(config) as connection:
+            resource_ids_and_names = {}
 
-        resource_ids_and_names = {}
-
-        SITE_URL = config.get('ckan.site_url')
-        try:
+            SITE_URL = config.get('ckan.site_url')
             BASE_URL = SITE_URL + '/storage/f/'
             for file_path in resource_paths:
                 pairtree_url = BASE_URL + file_path.replace(':', '%3A')
@@ -172,9 +216,6 @@ class TestConnection(toolkit.CkanCommand):
                         resource_ids_and_paths[_id] = BASE_PATH + '/' + file_path
                 else:
                     print("{} is an orphan; no resource points to it".format(file_path))
-        finally:
-            connection.close()
-            engine.dispose()
 
         resource_count = len(resource_ids_and_names.keys())
         print('{0} resources matched on the database'.format(resource_count))
