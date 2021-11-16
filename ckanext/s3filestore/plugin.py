@@ -87,7 +87,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
             if hasattr(uploader, 'update_visibility'):
                 uploader.update_visibility(
                     resource['id'],
-                    target_acl='private' if pkg_dict['private'] else 'public-read')
+                    target_acl='private' if pkg_dict.get('private', False) else 'public-read')
 
     # IRoutes
     # Ignored on CKAN >= 2.8
