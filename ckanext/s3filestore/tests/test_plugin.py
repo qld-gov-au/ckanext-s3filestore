@@ -13,5 +13,7 @@ class TestS3Plugin():
         config = {}
         with mock.patch('ckanext.s3filestore.plugin.toolkit') as mock_toolkit:
             plugin.update_config(config)
-            mock_toolkit.add_template_directory.assert_called_once_with(config, 'templates')
-            mock_toolkit.add_template_directory.assert_called_once_with(config, 'theme/templates')
+            mock_toolkit.add_template_directory.assert_has_calls(
+                [mock.call(config, 'templates'),
+                 mock.call(config, 'theme/templates')]
+            )
