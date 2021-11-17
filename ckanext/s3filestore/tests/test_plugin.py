@@ -22,7 +22,7 @@ class TestS3Plugin():
             )
 
     @parameterized.expand([
-        (None, 'public-read')
+        (None, 'public-read'),
         (True, 'private'),
         (False, 'public-read')
     ])
