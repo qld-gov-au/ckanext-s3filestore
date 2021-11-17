@@ -27,10 +27,10 @@ class TestS3Plugin():
         with mock.patch('ckanext.s3filestore.plugin.toolkit') as mock_toolkit:
             mock_toolkit.get_action.return_value = lambda **kwargs: pkg_dict
             mock_uploader = mock.MagicMock()
-            self.plugin.get_resource_uploader = mock.MagicMock()
-            self.plugin.get_resource_uploader.return_value = mock_uploader
-            mock_uploader.update_visibility = mock.MagicMock()
+            with mock.patch('ckanext.s3filestore.plugin.get_resource_uploader') as mock_get_uploader:
+                mock_get_uploader.return_value = mock_uploader
+                mock_uploader.update_visibility = mock.MagicMock()
 
-            self.plugin.after_update({}, pkg_dict)
-            mock_uploader.update_visibility.assert_called_once_with(
-                'test-resource', 'public-read')
+                self.plugin.after_update({}, pkg_dict)
+                mock_uploader.update_visibility.assert_called_once_with(
+                    'test-resource', 'public-read')
