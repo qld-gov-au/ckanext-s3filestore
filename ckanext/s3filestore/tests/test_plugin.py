@@ -1,6 +1,7 @@
 # encoding: utf-8
 
 import mock
+from parameterized import parameterized
 
 from ckanext.s3filestore.plugin import S3FileStorePlugin
 
@@ -20,10 +21,17 @@ class TestS3Plugin():
                  mock.call(config, 'theme/templates')]
             )
 
-    def test_package_after_update(self):
+    @parameterized.expand([
+        (None, 'public-read')
+        (True, 'private'),
+        (False, 'public-read')
+    ])
+    def test_package_after_update(self, is_private, expected_acl):
         '''S3 object visibility is updated to match package'''
         pkg_dict = {'id': 'test-package',
                     'resources': [{'id': 'test-resource'}]}
+        if is_private is not None:
+            pkg_dict['private'] = is_private
         with mock.patch('ckanext.s3filestore.plugin.toolkit') as mock_toolkit:
             mock_toolkit.get_action.return_value = lambda **kwargs: pkg_dict
             mock_uploader = mock.MagicMock()
@@ -33,4 +41,4 @@ class TestS3Plugin():
 
                 self.plugin.after_update({}, pkg_dict)
                 mock_uploader.update_visibility.assert_called_once_with(
-                    'test-resource', 'public-read')
+                    'test-resource', target_acl=expected_acl)
