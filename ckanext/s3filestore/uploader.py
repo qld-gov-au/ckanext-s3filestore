@@ -197,8 +197,10 @@ class BaseS3Uploader(object):
 
         upload_file.seek(0)
         mime_type = getattr(self, 'mimetype', '') or 'application/octet-stream'
-        log.debug("ckanext.s3filestore.uploader: going to upload %s to bucket %s with mimetype %s",
-                  filepath, self.bucket_name, mime_type)
+        log.debug(
+            "ckanext.s3filestore.uploader: going to upload [%s] to bucket [%s]"
+            "with access [%s] and mimetype [%s]",
+            filepath, self.bucket_name, acl, mime_type)
 
         try:
             kwargs = {
@@ -215,7 +217,7 @@ class BaseS3Uploader(object):
             self._cache_delete(filepath)
             self._cache_put(_get_visibility_cache_key(filepath), acl)
         except Exception as e:
-            log.error('Something went very very wrong for %s', e)
+            log.error('Something went very very wrong when uploading to [%s]: %s', filepath, e)
             raise e
 
     def clear_key(self, filepath):
