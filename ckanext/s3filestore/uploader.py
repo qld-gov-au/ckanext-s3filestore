@@ -293,7 +293,7 @@ class BaseS3Uploader(object):
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
 
         if is_public_read:
-            url = url.split('?')[0]
+            url = url.split('?')[0] + '?ETag=' + metadata['ETag']
 
         self._cache_put(key, url)
         return url
