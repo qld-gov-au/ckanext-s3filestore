@@ -6,6 +6,7 @@ import mock
 from nose.tools import (assert_equal,
                         assert_true,
                         assert_false,
+                        assert_in,
                         with_setup)
 
 import ckanapi
@@ -250,6 +251,7 @@ class TestS3ResourceUploader():
         url = uploader.get_signed_url_to_key(key)
 
         assert_false(_is_presigned_url(url))
+        assert_in('ETag=', url)
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
     def test_resource_url_signed_for_private_dataset(self):
@@ -276,6 +278,7 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         assert_false(_is_presigned_url(url))
+        assert_in('ETag=', url)
 
         helpers.call_action('package_patch',
                             context={'user': self.sysadmin['name']},
@@ -305,6 +308,7 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         assert_false(_is_presigned_url(url))
+        assert_in('ETag=', url)
 
     def test_assembling_object_metadata_headers(self):
         ''' Tests that text fields from the package are passed to S3.
