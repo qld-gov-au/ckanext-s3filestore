@@ -235,7 +235,7 @@ class BaseS3Uploader(object):
         May cache results to reduce API calls.
         '''
         acl_key = _get_visibility_cache_key(key)
-        acl = self._cache_get(acl_key)
+        acl = six.text_type(self._cache_get(acl_key))
         if acl == PUBLIC_ACL:
             return True
         if acl == PRIVATE_ACL:
