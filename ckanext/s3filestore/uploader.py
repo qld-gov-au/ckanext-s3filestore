@@ -1,11 +1,13 @@
-import os
-import re
+# encoding: utf-8
+
 import cgi
-import logging
 import datetime
+import errno
+import logging
 import mimetypes
 import magic
-import errno
+import os
+import re
 import six
 
 import boto3
@@ -117,12 +119,16 @@ class BaseS3Uploader(object):
 
     def _cache_get(self, key):
         ''' Get a value from the cache, if enabled, otherwise return None.
+        Returned values will be converted to text type instead of bytes.
         '''
         if not self.signed_url_cache_enabled:
             return None
         redis_conn = connect_to_redis()
         cache_key = _get_cache_key(key)
-        return redis_conn.get(cache_key)
+        cache_value = redis_conn.get(cache_key)
+        if cache_value is not None:
+            cache_value = six.text_type(cache_value)
+        return cache_value
 
     def _cache_put(self, key, value):
         ''' Set a value in the cache, if enabled, with an appropriate expiry.
