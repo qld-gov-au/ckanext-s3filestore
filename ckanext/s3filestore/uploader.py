@@ -125,7 +125,10 @@ class BaseS3Uploader(object):
             return None
         redis_conn = connect_to_redis()
         cache_key = _get_cache_key(key)
-        return six.text_type(redis_conn.get(cache_key))
+        cache_value = redis_conn.get(cache_key)
+        if cache_value is not None:
+            cache_value = six.text_type(cache_value)
+        return cache_value
 
     def _cache_put(self, key, value):
         ''' Set a value in the cache, if enabled, with an appropriate expiry.
