@@ -1,11 +1,13 @@
-import os
-import re
+# encoding: utf-8
+
 import cgi
-import logging
 import datetime
+import errno
+import logging
 import mimetypes
 import magic
-import errno
+import os
+import re
 import six
 
 import boto3
@@ -94,7 +96,7 @@ def get_s3_session(config):
 
 def _is_presigned_url(url):
     ''' Determines whether a URL represents a presigned S3 URL.'''
-    parts = six.text_type(url).split('?')
+    parts = url.split('?')
     return len(parts) >= 2 and 'Signature=' in parts[1]
 
 
@@ -117,12 +119,13 @@ class BaseS3Uploader(object):
 
     def _cache_get(self, key):
         ''' Get a value from the cache, if enabled, otherwise return None.
+        Returned values will be converted to text type instead of bytes.
         '''
         if not self.signed_url_cache_enabled:
             return None
         redis_conn = connect_to_redis()
         cache_key = _get_cache_key(key)
-        return redis_conn.get(cache_key)
+        return six.text_type(redis_conn.get(cache_key))
 
     def _cache_put(self, key, value):
         ''' Set a value in the cache, if enabled, with an appropriate expiry.
@@ -235,7 +238,7 @@ class BaseS3Uploader(object):
         May cache results to reduce API calls.
         '''
         acl_key = _get_visibility_cache_key(key)
-        acl = six.text_type(self._cache_get(acl_key))
+        acl = self._cache_get(acl_key)
         if acl == PUBLIC_ACL:
             return True
         if acl == PRIVATE_ACL:
