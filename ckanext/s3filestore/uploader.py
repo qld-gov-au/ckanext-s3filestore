@@ -94,7 +94,7 @@ def get_s3_session(config):
 
 def _is_presigned_url(url):
     ''' Determines whether a URL represents a presigned S3 URL.'''
-    parts = url.split('?')
+    parts = six.text_type(url).split('?')
     return len(parts) >= 2 and 'Signature=' in parts[1]
 
 
