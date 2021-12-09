@@ -126,7 +126,7 @@ class BaseS3Uploader(object):
         redis_conn = connect_to_redis()
         cache_key = _get_cache_key(key)
         cache_value = redis_conn.get(cache_key)
-        if cache_value is not None:
+        if cache_value is not None and hasattr(six, 'ensure_text'):
             cache_value = six.ensure_text(cache_value)
         return cache_value
 
