@@ -86,7 +86,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         # 'validation' and 'archiver', so it needs to be efficient when
         # no work is required.
         latest_revision = toolkit.get_action('package_activity_list')(
-            {'ignore_auth': True}, {'id': pkg_id, 'limit': 1})
+            context={'ignore_auth': True}, data_dict={'id': pkg_id, 'limit': 1})
         if latest_revision and latest_revision[0]['data'].get('private', False) == is_private:
             return
 
