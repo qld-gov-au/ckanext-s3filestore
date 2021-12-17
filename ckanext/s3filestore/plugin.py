@@ -76,18 +76,22 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     # IPackageController
 
     def after_update(self, context, pkg_dict):
+        ## It has been found that this is triggered in the worker thread from 'validation' and 'archiver' plugin's.
+
         ''' Update the access of each S3 object to match the package.
         '''
-        LOG.debug("Package %s has been updated, notifying resources", pkg_dict['id'])
+        LOG.debug("after_update: Package %s has been updated, notifying resources", pkg_dict['id'])
         if 'resources' not in pkg_dict:
             pkg_dict = toolkit.get_action('package_show')(
                 context=context, data_dict={'id': pkg_dict['id']})
+        visibility_level = pkg_dict.get('private', False)
         for resource in pkg_dict['resources']:
             uploader = get_resource_uploader(resource)
             if hasattr(uploader, 'update_visibility'):
                 uploader.update_visibility(
                     resource['id'],
-                    target_acl='private' if pkg_dict.get('private', False) else 'public-read')
+                    target_acl='private' if visibility_level else 'public-read')
+        LOG.debug("after_update: Package %s has been updated, notifying resources finished", pkg_dict['id'])
 
     # IRoutes
     # Ignored on CKAN >= 2.8
