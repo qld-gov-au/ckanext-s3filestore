@@ -3,7 +3,7 @@
 import logging
 
 from routes.mapper import SubMapper
-from ckan import model, plugins
+from ckan import plugins
 import ckantoolkit as toolkit
 
 from ckanext.s3filestore import uploader as s3_uploader
@@ -85,12 +85,9 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         # This is triggered repeatedly in the worker thread from plugins like
         # 'validation' and 'archiver', so it needs to be efficient when
         # no work is required.
-        latest_revision = model.Session.query(model.Activity)\
-            .filter(model.Activity.object_id == pkg_id)\
-            .order_by(model.Activity.timestamp.desc())\
-            .first()
-        if latest_revision \
-                and latest_revision.data.get('private', False) == is_private:
+        latest_revision = toolkit.get_action('package_activity_list')(
+            {'ignore_auth': True}, {'id': pkg_id, 'limit': 1})
+        if latest_revision and latest_revision[0]['data'].get('private', False) == is_private:
             return
 
         if 'resources' not in pkg_dict:
