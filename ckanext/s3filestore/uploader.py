@@ -609,12 +609,12 @@ class S3ResourceUploader(BaseS3Uploader):
             log.debug("update_visibility: id: %s already set and found in cache as %s", id, target_acl)
             return
         # iterate through every S3 object matching the resource ID
-        log.trace("update_visibility: id: %s getting item list from store", id)
+        log.debug("update_visibility: id: %s getting item list from store", id)
         resource_objects = client.list_objects_v2(
             Bucket=self.bucket_name,
             Prefix=self.get_directory(id, self.storage_path)
         )
-        log.trace("update_visibility: id: %s finished item list from store", id)
+        log.debug("update_visibility: id: %s finished item list from store", id)
         if not resource_objects['KeyCount']:
             return
 
