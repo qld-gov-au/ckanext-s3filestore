@@ -3,7 +3,7 @@
 import logging
 
 from routes.mapper import SubMapper
-import ckan.plugins as plugins
+from ckan import model, plugins
 import ckantoolkit as toolkit
 
 from ckanext.s3filestore import uploader as s3_uploader
@@ -76,22 +76,35 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     # IPackageController
 
     def after_update(self, context, pkg_dict):
-        ## It has been found that this is triggered in the worker thread from 'validation' and 'archiver' plugin's.
-
         ''' Update the access of each S3 object to match the package.
         '''
-        LOG.debug("after_update: Package %s has been updated, notifying resources", pkg_dict['id'])
+        pkg_id = pkg_dict['id']
+        is_private = pkg_dict.get('private', False)
+        LOG.debug("after_update: Package %s has been updated, notifying resources", pkg_id)
+
+        # This is triggered repeatedly in the worker thread from plugins like
+        # 'validation' and 'archiver', so it needs to be efficient when
+        # no work is required.
+        latest_revision = model.Session.query(model.Activity)\
+            .filter(model.Activity.object_id == pkg_id)\
+            .order_by(model.Activity.timestamp.desc())\
+            .first()
+        if latest_revision \
+                and latest_revision.data.get('private', False) == is_private:
+            return
+
         if 'resources' not in pkg_dict:
             pkg_dict = toolkit.get_action('package_show')(
-                context=context, data_dict={'id': pkg_dict['id']})
-        visibility_level = pkg_dict.get('private', False)
+                context=context, data_dict={'id': pkg_id})
+
+        visibility_level = 'private' if is_private else 'public-read'
         for resource in pkg_dict['resources']:
             uploader = get_resource_uploader(resource)
             if hasattr(uploader, 'update_visibility'):
                 uploader.update_visibility(
                     resource['id'],
-                    target_acl='private' if visibility_level else 'public-read')
-        LOG.debug("after_update: Package %s has been updated, notifying resources finished", pkg_dict['id'])
+                    target_acl=visibility_level)
+        LOG.debug("after_update: Package %s has been updated, notifying resources finished", pkg_id)
 
     # IRoutes
     # Ignored on CKAN >= 2.8
