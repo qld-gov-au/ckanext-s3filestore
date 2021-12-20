@@ -33,7 +33,7 @@ class TestS3Plugin():
         if is_private is not None:
             pkg_dict['private'] = is_private
         with mock.patch('ckanext.s3filestore.plugin.toolkit') as mock_toolkit:
-            mock_toolkit.get_action.return_value = lambda **kwargs: pkg_dict
+            mock_toolkit.get_action.return_value = lambda **kwargs: [] if 'limit' in kwargs['data_dict'] else pkg_dict
             mock_uploader = mock.MagicMock()
             with mock.patch('ckanext.s3filestore.plugin.get_resource_uploader') as mock_get_uploader:
                 mock_get_uploader.return_value = mock_uploader
