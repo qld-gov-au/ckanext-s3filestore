@@ -1,11 +1,13 @@
-import os
-import re
+# encoding: utf-8
+
 import cgi
-import logging
 import datetime
+import errno
+import logging
 import mimetypes
 import magic
-import errno
+import os
+import re
 import six
 
 import boto3
@@ -117,12 +119,16 @@ class BaseS3Uploader(object):
 
     def _cache_get(self, key):
         ''' Get a value from the cache, if enabled, otherwise return None.
+        Returned values will be converted to text type instead of bytes.
         '''
         if not self.signed_url_cache_enabled:
             return None
         redis_conn = connect_to_redis()
         cache_key = _get_cache_key(key)
-        return redis_conn.get(cache_key)
+        cache_value = redis_conn.get(cache_key)
+        if cache_value is not None and hasattr(six, 'ensure_text'):
+            cache_value = six.ensure_text(cache_value)
+        return cache_value
 
     def _cache_put(self, key, value):
         ''' Set a value in the cache, if enabled, with an appropriate expiry.
@@ -598,11 +604,17 @@ class S3ResourceUploader(BaseS3Uploader):
 
         client = self.get_s3_client()
 
+        all_visibility = self._cache_get(_get_visibility_cache_key(id + '/all'))
+        if all_visibility is not None and all_visibility == target_acl:
+            log.debug("update_visibility: id: %s already set and found in cache as %s", id, target_acl)
+            return
         # iterate through every S3 object matching the resource ID
+        log.debug("update_visibility: id: %s getting item list from store", id)
         resource_objects = client.list_objects_v2(
             Bucket=self.bucket_name,
             Prefix=self.get_directory(id, self.storage_path)
         )
+        log.debug("update_visibility: id: %s finished item list from store", id)
         if not resource_objects['KeyCount']:
             return
 
@@ -615,6 +627,7 @@ class S3ResourceUploader(BaseS3Uploader):
                     Bucket=self.bucket_name, Key=upload['Key'], ACL=target_acl)
                 self._cache_delete(upload['Key'])
                 self._cache_put(_get_visibility_cache_key(upload['Key']), target_acl)
+        self._cache_put(_get_visibility_cache_key(id + '/all'), target_acl)
 
     def upload(self, id, max_size=10):
         '''Upload the file to S3.'''

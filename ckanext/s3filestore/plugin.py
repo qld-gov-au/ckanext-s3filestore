@@ -3,7 +3,7 @@
 import logging
 
 from routes.mapper import SubMapper
-import ckan.plugins as plugins
+from ckan import plugins
 import ckantoolkit as toolkit
 
 from ckanext.s3filestore import uploader as s3_uploader
@@ -78,16 +78,30 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     def after_update(self, context, pkg_dict):
         ''' Update the access of each S3 object to match the package.
         '''
-        LOG.debug("Package %s has been updated, notifying resources", pkg_dict['id'])
+        pkg_id = pkg_dict['id']
+        is_private = pkg_dict.get('private', False)
+        LOG.debug("after_update: Package %s has been updated, notifying resources", pkg_id)
+
+        # This is triggered repeatedly in the worker thread from plugins like
+        # 'validation' and 'archiver', so it needs to be efficient when
+        # no work is required.
+        latest_revision = toolkit.get_action('package_activity_list')(
+            context={'ignore_auth': True}, data_dict={'id': pkg_id, 'limit': 1})
+        if latest_revision and latest_revision[0]['data'].get('private', False) == is_private:
+            return
+
         if 'resources' not in pkg_dict:
             pkg_dict = toolkit.get_action('package_show')(
-                context=context, data_dict={'id': pkg_dict['id']})
+                context=context, data_dict={'id': pkg_id})
+
+        visibility_level = 'private' if is_private else 'public-read'
         for resource in pkg_dict['resources']:
             uploader = get_resource_uploader(resource)
             if hasattr(uploader, 'update_visibility'):
                 uploader.update_visibility(
                     resource['id'],
-                    target_acl='private' if pkg_dict.get('private', False) else 'public-read')
+                    target_acl=visibility_level)
+        LOG.debug("after_update: Package %s has been updated, notifying resources finished", pkg_id)
 
     # IRoutes
     # Ignored on CKAN >= 2.8
