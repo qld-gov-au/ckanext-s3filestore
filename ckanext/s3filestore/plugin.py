@@ -97,10 +97,10 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
 
         visibility_level = 'private' if is_private else 'public-read'
         try:
-            self.enqueue_resource_visibility_update_job(self, visibility_level, pkg_id, pkg_dict)
+            self.enqueue_resource_visibility_update_job(visibility_level, pkg_id, pkg_dict)
         except:
             LOG.debug("after_update: Could not put on queue, doing inline")
-            self.after_update_resource_list_update(self, visibility_level, pkg_id, pkg_dict)
+            self.after_update_resource_list_update(visibility_level, pkg_id, pkg_dict)
 
     def after_update_resource_list_update(self, visibility_level, pkg_id, pkg_dict):
 
