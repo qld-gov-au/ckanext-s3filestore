@@ -99,8 +99,8 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         visibility_level = 'private' if is_private else 'public-read'
         try:
             self.enqueue_resource_visibility_update_job(visibility_level, pkg_id, pkg_dict)
-        except Exception:
-            LOG.debug("after_update: Could not put on queue, doing inline")
+        except Exception as e:
+            LOG.debug("after_update: Could not enqueue due to %s, doing inline", e)
             self.after_update_resource_list_update(visibility_level, pkg_id, pkg_dict)
 
     def after_update_resource_list_update(self, visibility_level, pkg_id, pkg_dict):
@@ -114,15 +114,20 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                     target_acl=visibility_level)
         LOG.debug("after_update_resource_list_update: Package %s has been updated, notifying resources finished", pkg_id)
 
-    def enqueue_resource_visibility_update_job(visibility_level, pkg_id, pkg_dict):
+    def enqueue_resource_visibility_update_job(self, visibility_level, pkg_id, pkg_dict):
         ckan_ini_filepath = os.path.abspath(toolkit.config['__file__'])
         resources = pkg_dict
         args = [ckan_ini_filepath, visibility_level, resources]
+        kwargs = {
+            'args': args,
+            'title': "s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id
+        }
         # Optional variable, if not set, default queue is used
         queue = toolkit.config.get('ckanext.s3filestore.queue', None)
-        toolkit.enqueue_job(
-            s3_afterUpdatePackage, args=args,
-            title="s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id, queue=queue)
+        if queue:
+            kwargs['queue'] = queue
+
+        toolkit.enqueue_job(s3_afterUpdatePackage, **kwargs)
         LOG.debug("enqueue_resource_visibility_update_job: Package %s has been enqueued",
                   pkg_id)
 
