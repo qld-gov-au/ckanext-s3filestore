@@ -65,8 +65,8 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
             s3_uploader.BaseS3Uploader().get_s3_bucket(
                 config.get('ckanext.s3filestore.aws_bucket_name'))
 
-        self.async_visibility_update = config.get(
-            'ckanext.s3filestore.acl.async_update', True)
+        self.async_visibility_update = toolkit.asbool(config.get(
+            'ckanext.s3filestore.acl.async_update', 'True'))
 
     # IUploader
 
