@@ -18,6 +18,7 @@ LOG = logging.getLogger(__name__)
 
 
 class S3FileStorePlugin(plugins.SingletonPlugin):
+
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
     plugins.implements(plugins.IUploader)
@@ -117,9 +118,11 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         ckan_ini_filepath = os.path.abspath(toolkit.config['__file__'])
         resources = pkg_dict
         args = [ckan_ini_filepath, visibility_level, resources]
+        # Optional variable, if not set, default queue is used
+        queue = toolkit.config.get('ckanext.s3filestore.queue', None)
         toolkit.enqueue_job(
             s3_afterUpdatePackage, args=args,
-            title="s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id)
+            title="s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id, queue=queue)
         LOG.debug("enqueue_resource_visibility_update_job: Package %s has been enqueued",
                   pkg_id)
 
