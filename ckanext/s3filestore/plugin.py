@@ -4,7 +4,6 @@ import logging
 
 from routes.mapper import SubMapper
 from ckan import plugins
-import ckantoolkit as toolkit
 
 from ckanext.s3filestore import uploader as s3_uploader
 from ckanext.s3filestore.views import\
@@ -15,6 +14,7 @@ from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload,\
 from ckanext.s3filestore.tasks import s3_afterUpdatePackage
 
 LOG = logging.getLogger(__name__)
+toolkit = plugins.toolkit
 
 
 class S3FileStorePlugin(plugins.SingletonPlugin):
@@ -24,7 +24,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IUploader)
     plugins.implements(plugins.IPackageController, inherit=True)
 
-    if plugins.toolkit.check_ckan_version(min_version='2.8.0'):
+    if toolkit.check_ckan_version(min_version='2.8.0'):
         plugins.implements(plugins.IBlueprint)
     else:
         plugins.implements(plugins.IRoutes, inherit=True)
@@ -83,14 +83,6 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         pkg_id = pkg_dict['id']
         is_private = pkg_dict.get('private', False)
         LOG.debug("after_update: Package %s has been updated, notifying resources", pkg_id)
-
-        # This is triggered repeatedly in the worker thread from plugins like
-        # 'validation' and 'archiver', so it needs to be efficient when
-        # no work is required.
-        latest_revision = toolkit.get_action('package_activity_list')(
-            context={'ignore_auth': True}, data_dict={'id': pkg_id, 'limit': 1})
-        if latest_revision and latest_revision[0]['data'].get('private', False) == is_private:
-            return
 
         if 'resources' not in pkg_dict:
             pkg_dict = toolkit.get_action('package_show')(
