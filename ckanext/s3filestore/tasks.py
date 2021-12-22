@@ -27,8 +27,8 @@ def s3_afterUpdatePackage(ckan_ini_filepath, visibility_level, pkg_id, pkg_dict)
     except Exception as e:
         if os.environ.get('DEBUG'):
             raise
-        # Any problem at all is logged and reraised so that celery can log it
-        # too
+        # Any problem at all is logged and reraised so that the job queue
+        # can log it too
         log.error('Error occurred during s3_afterUpdatePackage of package %s: %s',
                   pkg_id, e)
         raise

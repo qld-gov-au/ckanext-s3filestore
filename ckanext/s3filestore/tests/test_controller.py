@@ -30,8 +30,7 @@ if toolkit.check_ckan_version('2.9'):
 
             file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
             resource = helpers.call_action('resource_create', context={'ignore_auth': True}, package_id='my-dataset',
-                                           upload=open(file_path),
-                                           url='file.txt')
+                                           upload=open(file_path))
             return resource
 
         @helpers.change_config('ckan.site_url', 'http://mytest.ckan.net')
@@ -133,8 +132,7 @@ else:
 
             file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
             resource = demo.action.resource_create(package_id='my-dataset',
-                                                   upload=open(file_path),
-                                                   url='file.txt')
+                                                   upload=open(file_path))
             return resource, demo, app
 
         @helpers.change_config('ckan.site_url', 'http://mytest.ckan.net')
