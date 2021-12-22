@@ -1,5 +1,5 @@
 # encoding: utf-8
-
+import os
 import logging
 
 from routes.mapper import SubMapper
@@ -12,11 +12,13 @@ from ckanext.s3filestore.views import\
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload,\
     get_resource_uploader
 
+from ckanext.s3filestore.tasks import s3_afterUpdatePackage
 
 LOG = logging.getLogger(__name__)
 
 
 class S3FileStorePlugin(plugins.SingletonPlugin):
+
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
     plugins.implements(plugins.IUploader)
@@ -77,7 +79,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
 
     def after_update(self, context, pkg_dict):
         ''' Update the access of each S3 object to match the package.
-        '''
+                '''
         pkg_id = pkg_dict['id']
         is_private = pkg_dict.get('private', False)
         LOG.debug("after_update: Package %s has been updated, notifying resources", pkg_id)
@@ -95,13 +97,34 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                 context=context, data_dict={'id': pkg_id})
 
         visibility_level = 'private' if is_private else 'public-read'
+        try:
+            self.enqueue_resource_visibility_update_job(visibility_level, pkg_id, pkg_dict)
+        except Exception:
+            LOG.debug("after_update: Could not put on queue, doing inline")
+            self.after_update_resource_list_update(visibility_level, pkg_id, pkg_dict)
+
+    def after_update_resource_list_update(self, visibility_level, pkg_id, pkg_dict):
+
+        LOG.debug("after_update_resource_list_update: Package %s has been updated, notifying resources", pkg_id)
         for resource in pkg_dict['resources']:
             uploader = get_resource_uploader(resource)
             if hasattr(uploader, 'update_visibility'):
                 uploader.update_visibility(
                     resource['id'],
                     target_acl=visibility_level)
-        LOG.debug("after_update: Package %s has been updated, notifying resources finished", pkg_id)
+        LOG.debug("after_update_resource_list_update: Package %s has been updated, notifying resources finished", pkg_id)
+
+    def enqueue_resource_visibility_update_job(visibility_level, pkg_id, pkg_dict):
+        ckan_ini_filepath = os.path.abspath(toolkit.config['__file__'])
+        resources = pkg_dict
+        args = [ckan_ini_filepath, visibility_level, resources]
+        # Optional variable, if not set, default queue is used
+        queue = toolkit.config.get('ckanext.s3filestore.queue', None)
+        toolkit.enqueue_job(
+            s3_afterUpdatePackage, args=args,
+            title="s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id, queue=queue)
+        LOG.debug("enqueue_resource_visibility_update_job: Package %s has been enqueued",
+                  pkg_id)
 
     # IRoutes
     # Ignored on CKAN >= 2.8
