@@ -98,7 +98,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         visibility_level = 'private' if is_private else 'public-read'
         try:
             self.enqueue_resource_visibility_update_job(visibility_level, pkg_id, pkg_dict)
-        except:
+        except Exception:
             LOG.debug("after_update: Could not put on queue, doing inline")
             self.after_update_resource_list_update(visibility_level, pkg_id, pkg_dict)
 
@@ -114,13 +114,12 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         LOG.debug("after_update_resource_list_update: Package %s has been updated, notifying resources finished", pkg_id)
 
     def enqueue_resource_visibility_update_job(visibility_level, pkg_id, pkg_dict):
-        from ckan.plugins.toolkit import config
-
-        ckan_ini_filepath = os.path.abspath(config['__file__'])
+        ckan_ini_filepath = os.path.abspath(toolkit.config['__file__'])
         resources = pkg_dict
         args = [ckan_ini_filepath, visibility_level, resources]
-        toolkit.enqueue_job(s3_afterUpdatePackage, args=args,
-                    title="s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id)
+        toolkit.enqueue_job(
+            s3_afterUpdatePackage, args=args,
+            title="s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id)
         LOG.debug("enqueue_resource_visibility_update_job: Package %s has been enqueued",
                   pkg_id)
 
