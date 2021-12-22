@@ -65,6 +65,9 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
             s3_uploader.BaseS3Uploader().get_s3_bucket(
                 config.get('ckanext.s3filestore.aws_bucket_name'))
 
+        self.async_visibility_update = config.get(
+            'ckanext.s3filestore.acl.async_update', True)
+
     # IUploader
 
     def get_resource_uploader(self, data_dict):
@@ -89,10 +92,14 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                 context=context, data_dict={'id': pkg_id})
 
         visibility_level = 'private' if is_private else 'public-read'
-        try:
-            self.enqueue_resource_visibility_update_job(visibility_level, pkg_id, pkg_dict)
-        except Exception as e:
-            LOG.debug("after_update: Could not enqueue due to %s, doing inline", e)
+        async_update = self.async_visibility_update
+        if async_update:
+            try:
+                self.enqueue_resource_visibility_update_job(visibility_level, pkg_id, pkg_dict)
+            except Exception as e:
+                LOG.debug("after_update: Could not enqueue due to %s, doing inline", e)
+                async_update = False
+        if not async_update:
             self.after_update_resource_list_update(visibility_level, pkg_id, pkg_dict)
 
     def after_update_resource_list_update(self, visibility_level, pkg_id, pkg_dict):
