@@ -1,5 +1,5 @@
 # encoding: utf-8
-
+import os
 import logging
 
 from routes.mapper import SubMapper
@@ -97,7 +97,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
 
         visibility_level = 'private' if is_private else 'public-read'
         try:
-            self.enqueue_resource_visability_update_job(self, visibility_level, pkg_id, pkg_dict)
+            self.enqueue_resource_visibility_update_job(self, visibility_level, pkg_id, pkg_dict)
         except:
             LOG.debug("after_update: Could not put on queue, doing inline")
             self.after_update_resource_list_update(self, visibility_level, pkg_id, pkg_dict)
@@ -113,17 +113,15 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                     target_acl=visibility_level)
         LOG.debug("after_update_resource_list_update: Package %s has been updated, notifying resources finished", pkg_id)
 
-    def enqueue_resource_visability_update_job(visibility_level, pkg_id, pkg_dict):
-        from ckan.plugins.toolkit import enqueue_job
+    def enqueue_resource_visibility_update_job(visibility_level, pkg_id, pkg_dict):
         from ckan.plugins.toolkit import config
-        import os
 
         ckan_ini_filepath = os.path.abspath(config['__file__'])
         resources = pkg_dict
         args = [ckan_ini_filepath, visibility_level, resources]
-        enqueue_job(s3_afterUpdatePackage, args=args,
+        toolkit.enqueue_job(s3_afterUpdatePackage, args=args,
                     title="s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id)
-        LOG.debug("enqueue_resource_visability_update_job: Package %s has been enqueued",
+        LOG.debug("enqueue_resource_visibility_update_job: Package %s has been enqueued",
                   pkg_id)
 
     # IRoutes

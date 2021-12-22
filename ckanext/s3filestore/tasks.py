@@ -1,10 +1,8 @@
-#!/usr/bin/env python
 # encoding: utf-8
 
 
 import os
 from ckan import plugins as p
-from ckanext.s3filestore import plugin
 from six.moves.urllib import parse as urlparse
 import routes
 
@@ -25,6 +23,7 @@ def s3_afterUpdatePackage(ckan_ini_filepath, visibility_level, pkg_id, pkg_dict)
     # Also put try/except around it is easier to monitor ckan's log rather than
     # celery's task status.
     try:
+        plugin = p.get_plugin("s3filestore")
         plugin.after_update_resource_list_update(visibility_level, pkg_id, pkg_dict)
     except Exception as e:
         if os.environ.get('DEBUG'):
