@@ -86,6 +86,13 @@ Optional::
     # An optional setting to change the acl of the uploaded files. Default public-read.
     ckanext.s3filestore.acl = private
 
+    # An optional setting to control whether the ACLs of uploaded files
+    # are updated immediately when the dataset is updated, or queued
+    # for asynchronous processing. Defaults to True (ie asynchronous).
+    # NB Inline updates occur during the same transaction as the dataset update,
+    # and may cause significant overhead for datasets with many resources.
+    ckanext.s3filestore.acl.async_update = False
+
     # An optional setting to specify which addressing style to use.
     # This controls whether the bucket name is in the hostname or is
     # part of the URL path. Options are 'path', 'virtual', and 'auto';
@@ -121,6 +128,9 @@ Optional::
     ckanext.s3filestore.signed_url_expiry = 3600
     ckanext.s3filestore.signed_url_cache_window = 1800
 
+    # Queue used by s3 plugin, if not set, default queue is used
+    # i.e.
+    ckanext.s3filestore.queue = bulk
 
 ------------------------
 Development Installation
