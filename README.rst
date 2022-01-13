@@ -129,7 +129,6 @@ Optional::
     ckanext.s3filestore.signed_url_cache_window = 1800
 
     # Queue used by s3 plugin, if not set, default queue is used
-    # i.e.
     ckanext.s3filestore.queue = bulk
 
 ------------------------
