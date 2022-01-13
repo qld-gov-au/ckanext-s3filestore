@@ -116,7 +116,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     def enqueue_resource_visibility_update_job(self, visibility_level, pkg_id, pkg_dict):
         ckan_ini_filepath = os.path.abspath(toolkit.config['__file__'])
         resources = pkg_dict
-        args = [ckan_ini_filepath, visibility_level, resources]
+        args = [ckan_ini_filepath, visibility_level, pkg_id, resources]
         kwargs = {
             'args': args,
             'title': "s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id
