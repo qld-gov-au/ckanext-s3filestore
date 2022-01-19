@@ -150,24 +150,31 @@ class BaseS3Uploader(object):
         directory = os.path.join(storage_path, id)
         return directory
 
-    def get_s3_resource(self):
-        return get_s3_session(config).resource('s3',
-                                               endpoint_url=self.host_name,
-                                               config=Config(
-                                                   signature_version=self.signature,
-                                                   s3={'addressing_style': self.addressing_style}
-                                               ))
+    def _get_s3_config(self):
+        return Config(
+            signature_version=self.signature,
+            s3={'addressing_style': self.addressing_style}
+        )
 
-    def get_s3_client(self):
-        return get_s3_session(config).client('s3',
-                                             endpoint_url=self.host_name,
-                                             config=Config(
-                                                 signature_version=self.signature,
-                                                 s3={'addressing_style': self.addressing_style}
-                                             ))
+    def get_s3_resource(self, session=None):
+        if not session:
+            session = get_s3_session(config)
+        return session.resource('s3',
+                                endpoint_url=self.host_name,
+                                config=self._get_s3_config())
 
-    def get_s3_bucket(self, bucket_name):
+    def get_s3_client(self, session=None):
+        if not session:
+            session = get_s3_session(config)
+        return session.client('s3',
+                              endpoint_url=self.host_name,
+                              config=self._get_s3_config())
+
+    def get_s3_bucket(self, bucket_name=None):
         '''Return a boto bucket, creating it if it doesn't exist.'''
+
+        if not bucket_name:
+            bucket_name = self.bucket_name
 
         # make s3 connection using boto3
         s3 = self.get_s3_resource()
@@ -204,7 +211,7 @@ class BaseS3Uploader(object):
         upload_file.seek(0)
         mime_type = getattr(self, 'mimetype', '') or 'application/octet-stream'
         log.debug(
-            "ckanext.s3filestore.uploader: going to upload [%s] to bucket [%s]"
+            "ckanext.s3filestore.uploader: going to upload [%s] to bucket [%s] "
             "with access [%s] and mimetype [%s]",
             filepath, self.bucket_name, acl, mime_type)
 
