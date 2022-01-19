@@ -144,7 +144,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                           action='resource_download')
 
             # fallback controller action to download from the filesystem
-            m.connect('filesystem_resource_download',
+            m.connect('s3_resource.filesystem_resource_download',
                       '/dataset/{id}/resource/{resource_id}/fs_download/{filename}',
                       action='filesystem_resource_download')
 
