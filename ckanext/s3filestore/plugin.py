@@ -6,8 +6,6 @@ from routes.mapper import SubMapper
 from ckan import plugins
 
 from ckanext.s3filestore import uploader as s3_uploader
-from ckanext.s3filestore.views import\
-    resource as resource_view, uploads as uploads_view
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload,\
     get_resource_uploader
 
@@ -24,8 +22,9 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IUploader)
     plugins.implements(plugins.IPackageController, inherit=True)
 
-    if toolkit.check_ckan_version(min_version='2.8.0'):
+    if toolkit.check_ckan_version(min_version='2.9.0'):
         plugins.implements(plugins.IBlueprint)
+        plugins.implements(plugins.IClick)
     else:
         plugins.implements(plugins.IRoutes, inherit=True)
 
@@ -166,4 +165,13 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     # Ignored on CKAN < 2.8
 
     def get_blueprint(self):
-        return resource_view.get_blueprints() + uploads_view.get_blueprints()
+        from ckanext.s3filestore.views import\
+            resource, uploads
+        return resource.get_blueprints() + uploads.get_blueprints()
+
+    # IClick
+    # Ignored on CKAN < 2.9
+
+    def get_commands(self):
+        from ckanext.s3filestore import click_commands
+        return [click_commands.s3]
