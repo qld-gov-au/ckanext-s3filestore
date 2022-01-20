@@ -2,9 +2,8 @@
 import os
 import logging
 
-from routes.mapper import SubMapper
 from ckan import plugins
-
+import ckantoolkit as toolkit
 from ckanext.s3filestore import uploader as s3_uploader
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload,\
     get_resource_uploader
@@ -12,7 +11,6 @@ from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload,\
 from ckanext.s3filestore.tasks import s3_afterUpdatePackage
 
 LOG = logging.getLogger(__name__)
-toolkit = plugins.toolkit
 
 
 class S3FileStorePlugin(plugins.SingletonPlugin):
@@ -130,16 +128,18 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                   pkg_id)
 
     # IRoutes
-    # Ignored on CKAN >= 2.8
+    # Ignored on CKAN >= 2.9
 
     def before_map(self, map):
+        from routes.mapper import SubMapper
+
         with SubMapper(map, controller='ckanext.s3filestore.controller:S3Controller') as m:
             # Override the resource download links
             if not hasattr(DefaultResourceUpload, 'download'):
-                m.connect('resource_download',
+                m.connect('s3_resource.resource_download',
                           '/dataset/{id}/resource/{resource_id}/download',
                           action='resource_download')
-                m.connect('resource_download',
+                m.connect('s3_resource.resource_download',
                           '/dataset/{id}/resource/{resource_id}/download/{filename}',
                           action='resource_download')
 
@@ -151,7 +151,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
             # Allow fallback to access old files
             use_filename = toolkit.asbool(toolkit.config.get('ckanext.s3filestore.use_filename', False))
             if not use_filename:
-                m.connect('resource_download',
+                m.connect('s3_resource.resource_download',
                           '/dataset/{id}/resource/{resource_id}/orig_download/{filename}',
                           action='resource_download')
 
@@ -162,7 +162,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         return map
 
     # IBlueprint
-    # Ignored on CKAN < 2.8
+    # Ignored on CKAN < 2.9
 
     def get_blueprint(self):
         from ckanext.s3filestore.views import\

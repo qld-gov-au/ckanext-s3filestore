@@ -20,7 +20,7 @@ from ckan.tests import factories
 
 from ckanext.s3filestore import uploader
 
-from . import _get_status_code, _get_response_body
+from . import _get_status_code, _get_response_body, teardown_function
 
 log = logging.getLogger(__name__)
 
@@ -31,10 +31,6 @@ def setup_function(self):
     assert_equal(config.get('ckanext.s3filestore.signature_version'), 's3v4')
     self.bucket_name = config.get(u'ckanext.s3filestore.aws_bucket_name')
     uploader.BaseS3Uploader().get_s3_bucket(self.bucket_name)
-
-
-def teardown_function(self):
-    helpers.reset_db()
 
 
 def _test_org():
