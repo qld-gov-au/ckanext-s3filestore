@@ -22,5 +22,5 @@ def _get_response_body(response):
         return response.body
 
 
-def teardown_function(self):
+def teardown_function(self=None):
     helpers.reset_db()
