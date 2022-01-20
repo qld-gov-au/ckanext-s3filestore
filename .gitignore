@@ -38,8 +38,9 @@ htmlcov/
 nosetests.xml
 coverage.xml
 
+.idea
+
 # Sphinx documentation
 docs/_build/
 
 subdir/
-*.idea

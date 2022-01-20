@@ -2,19 +2,15 @@
 import os
 import logging
 
-from routes.mapper import SubMapper
 from ckan import plugins
-
+import ckantoolkit as toolkit
 from ckanext.s3filestore import uploader as s3_uploader
-from ckanext.s3filestore.views import\
-    resource as resource_view, uploads as uploads_view
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload,\
     get_resource_uploader
 
 from ckanext.s3filestore.tasks import s3_afterUpdatePackage
 
 LOG = logging.getLogger(__name__)
-toolkit = plugins.toolkit
 
 
 class S3FileStorePlugin(plugins.SingletonPlugin):
@@ -24,8 +20,9 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IUploader)
     plugins.implements(plugins.IPackageController, inherit=True)
 
-    if toolkit.check_ckan_version(min_version='2.8.0'):
+    if toolkit.check_ckan_version(min_version='2.9.0'):
         plugins.implements(plugins.IBlueprint)
+        plugins.implements(plugins.IClick)
     else:
         plugins.implements(plugins.IRoutes, inherit=True)
 
@@ -116,7 +113,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
     def enqueue_resource_visibility_update_job(self, visibility_level, pkg_id, pkg_dict):
         ckan_ini_filepath = os.path.abspath(toolkit.config['__file__'])
         resources = pkg_dict
-        args = [ckan_ini_filepath, visibility_level, resources]
+        args = [ckan_ini_filepath, visibility_level, pkg_id, resources]
         kwargs = {
             'args': args,
             'title': "s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id
@@ -131,28 +128,30 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                   pkg_id)
 
     # IRoutes
-    # Ignored on CKAN >= 2.8
+    # Ignored on CKAN >= 2.9
 
     def before_map(self, map):
+        from routes.mapper import SubMapper
+
         with SubMapper(map, controller='ckanext.s3filestore.controller:S3Controller') as m:
             # Override the resource download links
             if not hasattr(DefaultResourceUpload, 'download'):
-                m.connect('resource_download',
+                m.connect('s3_resource.resource_download',
                           '/dataset/{id}/resource/{resource_id}/download',
                           action='resource_download')
-                m.connect('resource_download',
+                m.connect('s3_resource.resource_download',
                           '/dataset/{id}/resource/{resource_id}/download/{filename}',
                           action='resource_download')
 
             # fallback controller action to download from the filesystem
-            m.connect('filesystem_resource_download',
+            m.connect('s3_resource.filesystem_resource_download',
                       '/dataset/{id}/resource/{resource_id}/fs_download/{filename}',
                       action='filesystem_resource_download')
 
             # Allow fallback to access old files
             use_filename = toolkit.asbool(toolkit.config.get('ckanext.s3filestore.use_filename', False))
             if not use_filename:
-                m.connect('resource_download',
+                m.connect('s3_resource.resource_download',
                           '/dataset/{id}/resource/{resource_id}/orig_download/{filename}',
                           action='resource_download')
 
@@ -163,7 +162,16 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         return map
 
     # IBlueprint
-    # Ignored on CKAN < 2.8
+    # Ignored on CKAN < 2.9
 
     def get_blueprint(self):
-        return resource_view.get_blueprints() + uploads_view.get_blueprints()
+        from ckanext.s3filestore.views import\
+            resource, uploads
+        return resource.get_blueprints() + uploads.get_blueprints()
+
+    # IClick
+    # Ignored on CKAN < 2.9
+
+    def get_commands(self):
+        from ckanext.s3filestore import click_commands
+        return [click_commands.s3]

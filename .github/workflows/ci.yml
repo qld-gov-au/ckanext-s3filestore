@@ -1,0 +1,97 @@
+
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: master
+
+jobs:
+  code_quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+
+      - name: Install flake8
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8
+
+      - name: Lint with flake8
+        run: |
+          flake8 . --count --select=E901,E999,F821,F822,F823 --show-source --statistics --exclude ckan
+
+  test:
+    runs-on: ubuntu-latest
+    needs: code_quality
+    strategy:
+      matrix:
+        ckan-version: ['2.9', '2.9-py2', '2.8', '2.7']
+      fail-fast: false
+
+    name: CKAN ${{ matrix.ckan-version }}
+    container:
+      image: openknowledge/ckan-dev:${{ matrix.ckan-version }}
+    services:
+      postgresql:
+        image: ckan/ckan-postgres-dev:${{ matrix.ckan-version }}
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+      moto:
+        image: motoserver/moto
+        ports:
+          - "5000"
+
+      solr:
+        image: ckan/ckan-solr-dev:${{ matrix.ckan-version }}
+
+    env:
+      CKAN_SQLALCHEMY_URL: postgresql://ckan_default:pass@postgresql/ckan_test
+      CKAN_DATASTORE_WRITE_URL: postgresql://datastore_write:pass@postgresql/datastore_test
+      CKAN_DATASTORE_READ_URL: postgresql://datastore_read:pass@postgresql/datastore_test
+      CKAN_SOLR_URL: http://solr:8983/solr/ckan
+      CKAN_REDIS_URL: redis://redis:6379/1
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install requirements
+        run: |
+          pip install -r requirements.txt
+          pip install -r dev-requirements.txt
+          pip install -e .
+          # Replace default path to CKAN core config file with the one on the container
+          sed -i -e 's/use = config:.*/use = config:\/srv\/app\/src\/ckan\/test-core.ini/' test.ini
+
+      - name: Setup CKAN
+        run: |
+          chmod u+x ./scripts/ckan_cli
+          CKAN_INI=test.ini ./scripts/ckan_cli db init
+
+      - name: Run tests
+        run: pytest --ckan-ini=test.ini --cov=ckanext.s3filestore

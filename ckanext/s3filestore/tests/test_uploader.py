@@ -1,5 +1,6 @@
 # encoding: utf-8
 import datetime
+import io
 import os
 
 import mock
@@ -9,21 +10,19 @@ from nose.tools import (assert_equal,
                         assert_in,
                         with_setup)
 
-import ckanapi
-from ckantoolkit import config
 from botocore.exceptions import ClientError
 
 from werkzeug.datastructures import FileStorage as FlaskFileStorage
 
-import ckantoolkit as toolkit
+from ckan.plugins import toolkit
+from ckan.plugins.toolkit import config
 from ckan.tests import helpers
 import ckan.tests.factories as factories
 
-from ckanext.s3filestore.uploader import (S3Uploader,
-                                          S3ResourceUploader,
-                                          _is_presigned_url)
+from ckanext.s3filestore.uploader import (
+    BaseS3Uploader, S3Uploader, S3ResourceUploader, _is_presigned_url)
 
-from . import BUCKET_NAME, endpoint_url, s3
+from . import _get_status_code
 
 
 DIRECT_DOWNLOAD_URL_FORMAT = '/dataset/{0}/resource/{1}/orig_download/{2}'
@@ -34,11 +33,16 @@ def _setup_function(self):
     self.app = helpers._get_test_app()
     self.sysadmin = factories.Sysadmin(apikey="my-test-key")
     self.organisation = factories.Organization(name='my-organisation')
+    self.endpoint_url = config.get('ckanext.s3filestore.host_name')
+    uploader = BaseS3Uploader()
+    self.s3 = uploader.get_s3_client()
+    # ensure the bucket exists, create if needed
+    self.bucket_name = config.get('ckanext.s3filestore.aws_bucket_name')
+    uploader.get_s3_bucket(self.bucket_name)
 
 
 def _resource_setup_function(self):
     _setup_function(self)
-    self.demo = ckanapi.TestAppCKAN(self.app, apikey='my-test-key')
 
 
 def _get_object_key(resource):
@@ -55,7 +59,7 @@ class TestS3Uploader():
     def test_get_bucket(self):
         '''S3Uploader retrieves bucket as expected'''
         uploader = S3Uploader('')
-        assert_true(uploader.get_s3_bucket(BUCKET_NAME))
+        assert_true(uploader.get_s3_bucket(self.bucket_name))
 
     def test_clean_dict(self):
         '''S3Uploader retrieves bucket as expected'''
@@ -75,7 +79,7 @@ class TestS3Uploader():
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
         file_name = 'somename.png'
 
-        img_uploader = FlaskFileStorage(filename=file_name, stream=open(file_path), content_type='image/png')
+        img_uploader = FlaskFileStorage(filename=file_name, stream=io.open(file_path, 'rb'), content_type='image/png')
 
         with mock.patch('ckanext.s3filestore.uploader.datetime') as mock_date:
             mock_date.datetime.utcnow.return_value = \
@@ -92,15 +96,15 @@ class TestS3Uploader():
 
         # check whether the object exists in S3
         # will throw exception if not existing
-        s3.head_object(Bucket=BUCKET_NAME, Key=key)
+        self.s3.head_object(Bucket=self.bucket_name, Key=key)
 
         # requesting image redirects to s3
         # attempt redirect to linked url
         image_file_url = '/uploads/group/2001-01-29-000000{0}'.format(file_name)
-        r = self.app.get(image_file_url, status=[302, 301])
-        assert_equal(r.location.split('?')[0],
+        status_code, location = self._get_expecting_redirect(self.app, image_file_url)
+        assert_equal(location.split('?')[0],
                      '{0}/my-bucket/my-path/storage/uploads/group/2001-01-29-000000{1}'
-                     .format(endpoint_url, file_name))
+                     .format(self.endpoint_url, file_name))
 
     def test_group_image_upload_then_clear(self):
         '''Test that clearing an upload removes the S3 key'''
@@ -108,7 +112,7 @@ class TestS3Uploader():
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
         file_name = "somename.png"
 
-        img_uploader = FlaskFileStorage(filename=file_name, stream=open(file_path), content_type='image/png')
+        img_uploader = FlaskFileStorage(filename=file_name, stream=io.open(file_path, 'rb'), content_type='image/png')
 
         with mock.patch('ckanext.s3filestore.uploader.datetime') as mock_date:
             mock_date.datetime.utcnow.return_value = \
@@ -124,7 +128,7 @@ class TestS3Uploader():
 
         # check whether the object exists in S3
         # will throw exception if not existing
-        s3.head_object(Bucket=BUCKET_NAME, Key=key)
+        self.s3.head_object(Bucket=self.bucket_name, Key=key)
 
         # clear upload
         helpers.call_action('group_update', context=context,
@@ -133,12 +137,30 @@ class TestS3Uploader():
 
         # key shouldn't exist
         try:
-            s3.head_object(Bucket=BUCKET_NAME, Key=key)
+            self.s3.head_object(Bucket=self.bucket_name, Key=key)
             # broken by https://github.com/ckan/ckan/commit/48afb9da4d
             # assert_false(True, "file '{}' should not exist".format(key))
         except ClientError:
             # passed
             assert_true(True, "passed")
+
+    if toolkit.check_ckan_version('2.9'):
+
+        def _get_expecting_redirect(self, app, url):
+            response = app.get(url, follow_redirects=False)
+            status_code = _get_status_code(response)
+            assert_in(status_code, [301, 302],
+                      "%s resulted in %s instead of a redirect" % (url, status_code))
+            return status_code, response.location
+
+    else:
+
+        def _get_expecting_redirect(self, app, url):
+            response = app.get(url)
+            status_code = _get_status_code(response)
+            assert_in(status_code, [301, 302],
+                      "%s resulted in %s instead of a redirect" % (url, status_code))
+            return status_code, response.headers['Location']
 
 
 @with_setup(_resource_setup_function)
@@ -161,8 +183,11 @@ class TestS3ResourceUploader():
         if not dataset:
             dataset = self._test_dataset()
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
-        return self.demo.action.resource_create(
-            package_id=dataset['id'], upload=open(file_path), url='file.txt')
+        return helpers.call_action(
+            'resource_create',
+            package_id=dataset['id'],
+            upload=FlaskFileStorage(io.open(file_path, 'rb')),
+            url='file.txt')
 
     def test_resource_upload(self):
         '''Test a basic resource file upload'''
@@ -173,41 +198,12 @@ class TestS3ResourceUploader():
 
         # check whether the object exists in S3
         # will throw exception if not existing
-        s3.head_object(Bucket=BUCKET_NAME, Key=key)
+        self.s3.head_object(Bucket=self.bucket_name, Key=key)
 
         # test the file contains what's expected
-        obj = s3.get_object(Bucket=BUCKET_NAME, Key=key)
+        obj = self.s3.get_object(Bucket=self.bucket_name, Key=key)
         data = obj['Body'].read()
-        assert_equal(data, open(file_path).read())
-
-    def test_resource_upload_then_clear(self):
-        '''Test that clearing an upload removes the S3 key'''
-
-        dataset = self._test_dataset()
-        resource = self._upload_test_resource(dataset)
-        key = _get_object_key(resource)
-
-        # check whether the object exists in S3
-        # will throw exception if not existing
-        s3.head_object(Bucket=BUCKET_NAME, Key=key)
-
-        # clear upload
-        url = toolkit.url_for(controller='package', action='resource_edit',
-                              id=dataset['id'], resource_id=resource['id'])
-        env = {'REMOTE_USER': self.sysadmin['name'].encode('ascii')}
-        self.app.post(
-            url,
-            {'clear_upload': True,
-             'url': 'http://asdf', 'save': 'save'},
-            extra_environ=env)
-
-        # key shouldn't exist
-        try:
-            s3.head_object(Bucket=BUCKET_NAME, Key=key)
-            assert_false(True, "file should not exist")
-        except ClientError:
-            # passed
-            assert_true(True, "passed")
+        assert_equal(data, io.open(file_path, 'rb').read())
 
     def test_uploader_get_path(self):
         '''Uploader get_path returns as expected'''
@@ -218,22 +214,6 @@ class TestS3ResourceUploader():
         returned_path = uploader.get_path(resource['id'], 'myfile.txt')
         assert_equal(returned_path,
                      'my-path/resources/{0}/myfile.txt'.format(resource['id']))
-
-    def test_resource_upload_with_url_and_clear(self):
-        '''Test that clearing an upload and using a URL does not crash'''
-
-        dataset = factories.Dataset(name="my-dataset")
-
-        url = toolkit.url_for(controller='package', action='new_resource',
-                              id=dataset['id'])
-        env = {'REMOTE_USER': self.sysadmin['name'].encode('ascii')}
-
-        self.app.post(
-            url,
-            {'clear_upload': True,
-             'id': '',    # Empty id from the form
-             'url': 'http://asdf', 'save': 'save'},
-            extra_environ=env)
 
     def test_is_presigned_url(self):
         ''' Tests that presigned URLs are correctly recognised.'''
@@ -331,3 +311,34 @@ class TestS3ResourceUploader():
         object_metadata = uploader._get_resource_metadata()
         assert_equal(object_metadata['package_title'], 'Test Dataset&#8212;with em dash')
         assert_equal(object_metadata['package_author'], '&#25836;&#35069; &#26263;&#24433;')
+
+    if toolkit.check_ckan_version(max_version='2.8.99'):
+
+        def test_resource_upload_then_clear(self):
+            '''Test that clearing an upload removes the S3 key'''
+
+            dataset = self._test_dataset()
+            resource = self._upload_test_resource(dataset)
+            key = _get_object_key(resource)
+
+            # check whether the object exists in S3
+            # will throw exception if not existing
+            self.s3.head_object(Bucket=self.bucket_name, Key=key)
+
+            # clear upload
+            url = toolkit.url_for(controller='package', action='resource_edit',
+                                  id=dataset['id'], resource_id=resource['id'])
+            env = {'REMOTE_USER': self.sysadmin['name'].encode('ascii')}
+            self.app.post(
+                url,
+                {'clear_upload': True,
+                 'url': 'http://asdf', 'save': 'save'},
+                extra_environ=env)
+
+            # key shouldn't exist
+            try:
+                self.s3.head_object(Bucket=self.bucket_name, Key=key)
+                assert_false(True, "file should not exist")
+            except ClientError:
+                # passed
+                assert_true(True, "passed")

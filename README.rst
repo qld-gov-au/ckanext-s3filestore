@@ -1,10 +1,5 @@
-.. You should enable this project on travis-ci.org and coveralls.io to make
-   these badges work. The necessary Travis and Coverage config files have been
-   generated for you.
-
-.. image:: https://travis-ci.org/okfn/ckanext-s3filestore.svg?branch=master
-    :target: https://travis-ci.org/okfn/ckanext-s3filestore
-
+.. You should enable this project on coveralls.io to make these badges
+   work. The necessary Coverage config file has been generated for you.
 
 .. image:: https://coveralls.io/repos/okfn/ckanext-s3filestore/badge.svg
   :target: https://coveralls.io/r/okfn/ckanext-s3filestore
@@ -59,7 +54,6 @@ Config Settings
 
 Required::
 
-
     ckanext.s3filestore.aws_bucket_name = a-bucket-to-store-your-stuff
     ckanext.s3filestore.region_name = region-name
     ckanext.s3filestore.signature_version = s3v4
@@ -107,10 +101,11 @@ Optional::
     # To use user provided filepath and not use internal url basename
     # on download. This affects behaviour when using a URL that points
     # to an earlier version of a resource, with a different file name.
-    # If True, the older file will be served; if False, the newest file
-    # will be served, but the older file will be available at
+    # If True, the older file will be served.
+    # If False, the newest file will be served (similarly to the default
+    # CKAN filestore behaviour), but the older file will be available at
     # /dataset/{id}/resource/{resource_id}/orig_download/{filename}
-    # Set to False to be backwards compatible to ckan file store.
+    # Defaults to False.
     ckanext.s3filestore.use_filename = True
 
     # To mask the S3 endpoint with your own domain/endpoint when serving URLs to end users.
@@ -129,8 +124,17 @@ Optional::
     ckanext.s3filestore.signed_url_cache_window = 1800
 
     # Queue used by s3 plugin, if not set, default queue is used
-    # i.e.
     ckanext.s3filestore.queue = bulk
+
+
+-----------------
+CLI
+-----------------
+
+To upload all local resources located in `ckan.storage_path` location dir to the configured S3 bucket use::
+
+    ckan -c /etc/ckan/default/production.ini s3 upload all
+
 
 ------------------------
 Development Installation
@@ -152,12 +156,12 @@ Running the Tests
 
 To run the tests, do::
 
-    nosetests --ckan --nologcapture --with-pylons=test.ini
+    pytest --ckan-ini=test.ini
 
 To run the tests and produce a coverage report, first make sure you have
 coverage installed in your virtualenv (``pip install coverage``) then run::
 
-    nosetests --ckan --nologcapture --with-pylons=test.ini --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests
+    pytest --ckan-ini=test.ini --cov=ckanext.s3filestore
 
 ------------------------
 Docker environment setup
