@@ -1,6 +1,5 @@
-.. You should enable this project on travis-ci.org and coveralls.io to make
-   these badges work. The necessary Travis and Coverage config files have been
-   generated for you.
+.. You should enable this project on coveralls.io to make these badges work.
+   The necessary Travis and Coverage config files have been generated for you.
 
 .. image:: https://github.com/keitaroinc/ckanext-s3filestore/workflows/CI/badge.svg
     :target: https://github.com/keitaroinc/ckanext-s3filestore/actions
@@ -68,7 +67,7 @@ Config Settings
 Required::
 
     ckanext.s3filestore.aws_bucket_name = a-bucket-to-store-your-stuff
-    ckanext.s3filestore.region_name= region-name
+    ckanext.s3filestore.region_name = region-name
     ckanext.s3filestore.signature_version = s3v4
 
 Conditional::
@@ -93,10 +92,14 @@ Optional::
     # An optional setting to change the acl of the uploaded files. Default public-read.
     ckanext.s3filestore.acl = private
 
-    # An optional setting to specify which addressing style to use. This controls whether the bucket name is in the hostname or is part of the URL. Default auto.
+    # An optional setting to specify which addressing style to use.
+    # This controls whether the bucket name is in the hostname or is
+    # part of the URL path. Options are 'path', 'virtual', and 'auto';
+    # default is 'auto'.
     ckanext.s3filestore.addressing_style = path
 
-    # Set this parameter only if you want to use Minio as a filestore service instead of S3.
+    # Set this parameter only if you want to use a provider like Minio
+    # as a filestore service instead of S3.
     ckanext.s3filestore.host_name = http://minio-service.com
 
     # To mask the S3 endpoint with your own domain/endpoint when serving URLs to end users.
@@ -127,7 +130,7 @@ Development Installation
 To install ckanext-s3filestore for development, activate your CKAN virtualenv and
 do::
 
-    git clone https://github.com/okfn/ckanext-s3filestore.git
+    git clone https://github.com/keitaroinc/ckanext-s3filestore.git
     cd ckanext-s3filestore
     python setup.py develop
     pip install -r dev-requirements.txt

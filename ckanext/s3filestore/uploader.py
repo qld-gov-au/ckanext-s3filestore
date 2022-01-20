@@ -1,26 +1,27 @@
+# encoding: utf-8
+
+import cgi
+import datetime
+import logging
+import magic
+import mimetypes
 import os
 import re
-import cgi
-import logging
-import datetime
-import mimetypes
-import magic
 
 import boto3
-import botocore
 from botocore.client import Config as BotoConfig
 from botocore.exceptions import ClientError
 import ckantoolkit as toolkit
 
-import ckan.model as model
-import ckan.lib.munge as munge
+from ckan import model
+from ckan.lib import munge
 
 if toolkit.check_ckan_version(min_version='2.7.0'):
     from werkzeug.datastructures import FileStorage as FlaskFileStorage
 
     ALLOWED_UPLOAD_TYPES = (cgi.FieldStorage, FlaskFileStorage)
 else:
-    ALLOWED_UPLOAD_TYPES = cgi.FieldStorage
+    ALLOWED_UPLOAD_TYPES = (cgi.FieldStorage)
 
 config = toolkit.config
 log = logging.getLogger(__name__)
@@ -51,13 +52,10 @@ class BaseS3Uploader(object):
         self.region = config.get('ckanext.s3filestore.region_name')
         self.signature = config.get('ckanext.s3filestore.signature_version')
         self.host_name = config.get('ckanext.s3filestore.host_name', None)
-        self.download_proxy = \
-            config.get('ckanext.s3filestore.download_proxy', None)
+        self.download_proxy = config.get('ckanext.s3filestore.download_proxy', None)
         self.acl = config.get('ckanext.s3filestore.acl', 'public-read')
-        self.addressing_style = \
-            config.get('ckanext.s3filestore.addressing_style', 'auto')
-        self.signed_url_expiry = \
-            int(config.get('ckanext.s3filestore.signed_url_expiry', '3600'))
+        self.addressing_style = config.get('ckanext.s3filestore.addressing_style', 'auto')
+        self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry', '3600'))
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
@@ -87,8 +85,11 @@ class BaseS3Uploader(object):
                             s3={'addressing_style': self.addressing_style}),
                         region_name=self.region)
 
-    def get_s3_bucket(self, bucket_name):
+    def get_s3_bucket(self, bucket_name=None):
         '''Return a boto bucket, creating it if it doesn't exist.'''
+
+        if not bucket_name:
+            bucket_name = self.bucket_name
 
         # make s3 connection using boto3
         s3 = self.get_s3_resource()
@@ -96,12 +97,12 @@ class BaseS3Uploader(object):
         bucket = s3.Bucket(bucket_name)
         try:
             s3.meta.client.head_bucket(Bucket=bucket_name)
-            log.debug('Bucket {0} found!'.format(bucket_name))
-        except botocore.exceptions.ClientError as e:
-            error_code = int(e.response['Error']['Code'])
-            if error_code == 404:
-                log.warning('Bucket {0} could not be found, '
-                            'attempting to create it...'.format(bucket_name))
+            log.debug('Bucket %s found!', bucket_name)
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            if error_code == '404':
+                log.warning('Bucket %s could not be found, '
+                            'attempting to create it...', bucket_name)
                 try:
                     bucket = \
                         s3.create_bucket(Bucket=bucket_name,
@@ -109,11 +110,11 @@ class BaseS3Uploader(object):
                                              'LocationConstraint': self.region
                                          })
                     log.info(
-                        'Bucket {0} successfully created'.format(bucket_name))
-                except botocore.exceptions.ClientError as e:
-                    log.warning('Could not create bucket {0}: {1}'.format(
-                        bucket_name, str(e)))
-            elif error_code == 403:
+                        'Bucket %s successfully created', bucket_name)
+                except ClientError as e:
+                    log.warning('Could not create bucket %s: %s',
+                                bucket_name, str(e))
+            elif error_code == '403':
                 raise S3FileStoreException(
                     'Access to bucket {0} denied'.format(bucket_name))
             else:
@@ -127,25 +128,22 @@ class BaseS3Uploader(object):
 
         upload_file.seek(0)
 
-        s3 = self.get_s3_resource()
-
         try:
-            s3.Object(self.bucket_name, filepath).put(
+            self.get_s3_resource().Object(self.bucket_name, filepath).put(
                 Body=upload_file.read(),
                 ACL='public-read' if make_public else self.acl,
                 ContentType=getattr(self, 'mimetype', '') or 'text/plain')
-            log.info("Successfully uploaded {0} to S3!".format(filepath))
+            log.info("Successfully uploaded %s to S3!", filepath)
         except Exception as e:
-            log.error('Something went very very wrong for {0}'.format(str(e)))
+            log.error('Something went very very wrong when uploading to [%s]: %s', filepath, str(e))
             raise e
 
     def clear_key(self, filepath):
         '''Deletes the contents of the key at `filepath` on `self.bucket`.'''
 
-        s3 = self.get_s3_resource()
-
         try:
-            s3.Object(self.bucket_name, filepath).delete()
+            self.get_s3_resource().Object(self.bucket_name, filepath).delete()
+            log.info("Removed %s from S3", filepath)
         except Exception as e:
             raise e
 
@@ -210,9 +208,8 @@ class S3Uploader(BaseS3Uploader):
         return os.path.join(path, 'storage', 'uploads', upload_to)
 
     def update_data_dict(self, data_dict, url_field, file_field, clear_field):
-        '''Manipulate data from the data_dict. This needs
-        to be called before it
-        reaches any validators.
+        '''Manipulate data from the data_dict. This needs to be called
+        before it reaches any validators.
 
         `url_field` is the name of the field where the upload is going to be.
 
@@ -269,8 +266,8 @@ class S3Uploader(BaseS3Uploader):
         try:
             self.clear_key(key_path)
         except ClientError:
-            log.warning('Key {0} not found in bucket {1} for delete'
-                        .format(key_path, self.bucket_name))
+            log.warning("Key '%s' not found in bucket '%s' for delete",
+                        key_path, self.bucket_name)
             pass
 
 
@@ -311,9 +308,10 @@ class S3ResourceUploader(BaseS3Uploader):
 
             # Check the resource format from its filename extension,
             # if no extension use the default CKAN implementation
-            resource_format = os.path.splitext(self.filename)[1][1:]
-            if resource_format:
-                resource['format'] = resource_format
+            if 'format' not in resource:
+                resource_format = os.path.splitext(self.filename)[1][1:]
+                if resource_format:
+                    resource['format'] = resource_format
 
             self.upload_file = _get_underlying_file(upload_field_storage)
             self.upload_file.seek(0, os.SEEK_END)
@@ -355,7 +353,7 @@ class S3ResourceUploader(BaseS3Uploader):
         '''Return the key used for this resource in S3.
 
         Keys are in the form:
-        <ckanext.s3filestore.aws_storage_path>/resources/<resourceid>/<filename>
+        <ckanext.s3filestore.aws_storage_path>/resources/<resource_id>/<filename>
 
         e.g.:
         my_storage_path/resources/165900ba-3c60-43c5-9e9c-9f8acd0aa93f/data.csv
@@ -392,6 +390,6 @@ class S3ResourceUploader(BaseS3Uploader):
         try:
             self.clear_key(key_path)
         except ClientError:
-            log.warning('Key {0} not found in bucket {1} for delete'
-                        .format(key_path, self.bucket_name))
+            log.warning("Key '%s' not found in bucket '%s' for delete",
+                        key_path, self.bucket_name)
             pass
