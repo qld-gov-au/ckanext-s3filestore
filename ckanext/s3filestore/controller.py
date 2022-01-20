@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-from ckan.plugins.toolkit import BaseController
+from ckantoolkit import BaseController
 
 from .views import resource_download, filesystem_resource_download, uploaded_file_redirect
 
