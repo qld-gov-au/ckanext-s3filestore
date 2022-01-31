@@ -376,7 +376,8 @@ class S3Uploader(BaseS3Uploader):
 
         if not self.storage_path:
             return
-        if isinstance(self.upload_field_storage, ALLOWED_UPLOAD_TYPES):
+        if isinstance(self.upload_field_storage, ALLOWED_UPLOAD_TYPES) \
+                and self.upload_field_storage.filename:
             self.filename = self.upload_field_storage.filename
             if not self.preserve_filename:
                 self.filename = str(datetime.datetime.utcnow()) + self.filename
@@ -530,7 +531,8 @@ class S3ResourceUploader(BaseS3Uploader):
 
         mime = magic.Magic(mime=True)
 
-        if isinstance(upload_field_storage, ALLOWED_UPLOAD_TYPES):
+        if isinstance(upload_field_storage, ALLOWED_UPLOAD_TYPES) \
+                and upload_field_storage.filename:
             self.filesize = 0  # bytes
 
             self.filename = upload_field_storage.filename
