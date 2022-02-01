@@ -1,13 +1,16 @@
 # encoding: utf-8
+
 import datetime
 import io
 import os
+import six
 
 import mock
 from nose.tools import (assert_equal,
                         assert_true,
                         assert_false,
                         assert_in,
+                        assert_is_none,
                         with_setup)
 
 from botocore.exceptions import ClientError
@@ -311,6 +314,28 @@ class TestS3ResourceUploader():
         object_metadata = uploader._get_resource_metadata()
         assert_equal(object_metadata['package_title'], 'Test Dataset&#8212;with em dash')
         assert_equal(object_metadata['package_author'], '&#25836;&#35069; &#26263;&#24433;')
+
+    def test_ignoring_non_uploads(self):
+        ''' Tests that resources not containing an upload are ignored.
+        '''
+        dataset = self._test_dataset()
+        resources = [factories.Resource(package_id=dataset['id'], url='https://example.com'),
+                     helpers.call_action(
+                         'resource_create',
+                         package_id=dataset['id'],
+                         upload=FlaskFileStorage(six.BytesIO(b'')),
+                         url='https://example.com')
+                     ]
+        for resource in resources:
+            uploader = S3ResourceUploader(resource)
+            assert_equal(resource['url'], 'https://example.com')
+            assert_is_none(getattr(uploader, 'filename', None))
+            assert_is_none(getattr(uploader, 'filesize', None))
+            with mock.patch('ckanext.s3filestore.uploader.S3ResourceUploader.update_visibility') as mock_update_visibility,\
+                    mock.patch('ckanext.s3filestore.uploader.S3ResourceUploader.upload_to_key') as mock_upload_to_key:
+                uploader.upload(resource['id'])
+                mock_upload_to_key.assert_not_called()
+                mock_update_visibility.assert_called_once_with(resource['id'])
 
     if toolkit.check_ckan_version(max_version='2.8.99'):
 
