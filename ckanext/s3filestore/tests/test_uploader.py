@@ -10,6 +10,7 @@ from nose.tools import (assert_equal,
                         assert_true,
                         assert_false,
                         assert_in,
+                        assert_none,
                         with_setup)
 
 from botocore.exceptions import ClientError
@@ -328,8 +329,8 @@ class TestS3ResourceUploader():
         for resource in resources:
             uploader = S3ResourceUploader(resource)
             assert_equal(resource['url'], 'https://example.com')
-            assert_false(hasattr(uploader, 'filename'), "Uploader should not have filename for resource {}".format(resource))
-            assert_false(hasattr(uploader, 'filesize'), "Uploader should not have filesize for resource {}".format(resource))
+            assert_none(getattr(uploader, 'filename', None))
+            assert_none(getattr(uploader, 'filesize', None))
             with mock.patch('ckanext.s3filestore.uploader.S3ResourceUploader.update_visibility') as mock_update_visibility,\
                     mock.patch('ckanext.s3filestore.uploader.S3ResourceUploader.upload_to_key') as mock_upload_to_key:
                 uploader.upload(resource['id'])
