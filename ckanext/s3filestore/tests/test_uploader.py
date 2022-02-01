@@ -10,7 +10,6 @@ from nose.tools import (assert_equal,
                         assert_true,
                         assert_false,
                         assert_in,
-                        assert_not_in,
                         with_setup)
 
 from botocore.exceptions import ClientError
@@ -319,38 +318,23 @@ class TestS3ResourceUploader():
         ''' Tests that resources not containing an upload are ignored.
         '''
         dataset = self._test_dataset()
-        resource = factories.Resource(package_id=dataset['id'], url='https://example.com')
-        uploader = S3ResourceUploader(resource)
-        assert_equal(resource['url'], 'https://example.com')
-        assert_not_in('filename', uploader)
-        assert_not_in('filesize', uploader)
-        with mock.patch('ckanext.s3filestore.uploader.S3ResourceUploader.update_visibility') as mock_update_visibility,\
-                mock.patch('ckanext.s3filestore.uploader.S3ResourceUploader.upload_to_key') as mock_upload_to_key:
-            uploader.upload(resource['id'])
-            mock_upload_to_key.assert_not_called()
-            mock_update_visibility.assert_called_once_with(resource['id'])
-
-    def test_ignoring_blank_uploads(self):
-        ''' Tests that resources containing a zero-length placeholder
-        upload are ignored.
-        '''
-        dataset = self._test_dataset()
-        resource = helpers.call_action(
-            'resource_create',
-            package_id=dataset['id'],
-            upload=FlaskFileStorage(six.BytesIO(b'')),
-            url='https://example.com')
-
-        resource = factories.Resource(package_id=dataset['id'], url='https://example.com')
-        uploader = S3ResourceUploader(resource)
-        assert_equal(resource['url'], 'https://example.com')
-        assert_not_in('filename', uploader)
-        assert_not_in('filesize', uploader)
-        with mock.patch('ckanext.s3filestore.uploader.S3ResourceUploader.update_visibility') as mock_update_visibility,\
-                mock.patch('ckanext.s3filestore.uploader.S3ResourceUploader.upload_to_key') as mock_upload_to_key:
-            uploader.upload(resource['id'])
-            mock_upload_to_key.assert_not_called()
-            mock_update_visibility.assert_called_once_with(resource['id'])
+        resources = [factories.Resource(package_id=dataset['id'], url='https://example.com'),
+                     helpers.call_action(
+                         'resource_create',
+                         package_id=dataset['id'],
+                         upload=FlaskFileStorage(six.BytesIO(b'')),
+                         url='https://example.com')
+                     ]
+        for resource in resources:
+            uploader = S3ResourceUploader(resource)
+            assert_equal(resource['url'], 'https://example.com')
+            assert_false(hasattr(uploader, 'filename'), "Uploader should not have filename for resource {}".format(resource))
+            assert_false(hasattr(uploader, 'filesize'), "Uploader should not have filesize for resource {}".format(resource))
+            with mock.patch('ckanext.s3filestore.uploader.S3ResourceUploader.update_visibility') as mock_update_visibility,\
+                    mock.patch('ckanext.s3filestore.uploader.S3ResourceUploader.upload_to_key') as mock_upload_to_key:
+                uploader.upload(resource['id'])
+                mock_upload_to_key.assert_not_called()
+                mock_update_visibility.assert_called_once_with(resource['id'])
 
     if toolkit.check_ckan_version(max_version='2.8.99'):
 
