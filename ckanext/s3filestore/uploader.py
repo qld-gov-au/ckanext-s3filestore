@@ -38,16 +38,13 @@ _max_image_size = None
 
 URL_HOST = re.compile('^https?://[^/]*/')
 REDIS_PREFIX = 'ckanext-s3filestore:'
+VISIBILITY_CACHE_PATH = '/visibility'
 PUBLIC_ACL = 'public-read'
 PRIVATE_ACL = 'private'
 
 
 def _get_cache_key(path):
     return REDIS_PREFIX + path
-
-
-def _get_visibility_cache_key(path):
-    return _get_cache_key(path) + '/visibility'
 
 
 def _get_underlying_file(wrapper):
@@ -228,8 +225,8 @@ class BaseS3Uploader(object):
             self.get_s3_resource().Object(self.bucket_name, filepath).put(**kwargs)
             log.info("Successfully uploaded %s to S3!", filepath)
             self._cache_delete(filepath)
-            self._cache_delete(filepath + '/all')
-            self._cache_put(_get_visibility_cache_key(filepath), acl)
+            self._cache_delete(filepath + VISIBILITY_CACHE_PATH + '/all')
+            self._cache_put(filepath + VISIBILITY_CACHE_PATH, acl)
         except Exception as e:
             log.error('Something went very very wrong when uploading to [%s]: %s', filepath, e)
             raise e
@@ -240,7 +237,7 @@ class BaseS3Uploader(object):
             self.get_s3_resource().Object(self.bucket_name, filepath).delete()
             log.info("Removed %s from S3", filepath)
             self._cache_delete(filepath)
-            self._cache_delete(_get_visibility_cache_key(filepath))
+            self._cache_delete(filepath + VISIBILITY_CACHE_PATH)
         except Exception as e:
             raise e
 
@@ -248,7 +245,7 @@ class BaseS3Uploader(object):
         ''' Check whether an S3 object key is publicly readable.
         May cache results to reduce API calls.
         '''
-        acl_key = _get_visibility_cache_key(key)
+        acl_key = key + VISIBILITY_CACHE_PATH
         acl = self._cache_get(acl_key)
         if acl == PUBLIC_ACL:
             return True
@@ -614,7 +611,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
         client = self.get_s3_client()
 
-        all_visibility = self._cache_get(_get_visibility_cache_key(id + '/all'))
+        all_visibility = self._cache_get(id + VISIBILITY_CACHE_PATH + '/all')
         if all_visibility is not None and all_visibility == target_acl:
             log.warn("update_visibility: id: %s already set and found in cache as %s", id, target_acl)
             return
@@ -643,8 +640,8 @@ class S3ResourceUploader(BaseS3Uploader):
                 client.put_object_acl(
                     Bucket=self.bucket_name, Key=upload_key, ACL=acl)
                 self._cache_delete(upload_key)
-                self._cache_put(_get_visibility_cache_key(upload_key), acl)
-        self._cache_put(_get_visibility_cache_key(id + '/all'), target_acl)
+                self._cache_put(upload_key + VISIBILITY_CACHE_PATH, acl)
+        self._cache_put(id + VISIBILITY_CACHE_PATH + '/all', target_acl)
 
     def upload(self, id, max_size=10):
         '''Upload the file to S3.'''
