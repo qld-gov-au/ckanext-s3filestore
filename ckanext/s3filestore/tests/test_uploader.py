@@ -233,7 +233,7 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
 
-        assert_false(_is_presigned_url(url))
+        assert_false(_is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(resource, url))
         assert_in('ETag=', url)
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
@@ -260,7 +260,7 @@ class TestS3ResourceUploader():
         uploader = S3ResourceUploader(resource)
 
         url = uploader.get_signed_url_to_key(key)
-        assert_false(_is_presigned_url(url))
+        assert_false(_is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(resource, url))
         assert_in('ETag=', url)
 
         helpers.call_action('package_patch',
@@ -290,7 +290,7 @@ class TestS3ResourceUploader():
                             private=False)
 
         url = uploader.get_signed_url_to_key(key)
-        assert_false(_is_presigned_url(url))
+        assert_false(_is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(resource, url))
         assert_in('ETag=', url)
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
@@ -311,7 +311,7 @@ class TestS3ResourceUploader():
 
         key = uploader.get_path(resource['id'])
         url = uploader.get_signed_url_to_key(key)
-        assert_false(_is_presigned_url(url))
+        assert_false(_is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(resource, url))
 
         key = uploader.get_path(resource['id'], 'data.csv')
         url = uploader.get_signed_url_to_key(key)
