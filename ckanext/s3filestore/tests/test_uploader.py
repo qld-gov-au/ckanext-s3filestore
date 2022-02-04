@@ -2,7 +2,6 @@
 
 import datetime
 import io
-import logging
 import os
 import six
 
@@ -235,10 +234,9 @@ class TestS3ResourceUploader():
         assert_false(_is_presigned_url('https://example.s3.amazonaws.com/resources/foo'))
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
-    def test_resource_url_unsigned_for_public_dataset(self, caplog=None):
+    def test_resource_url_unsigned_for_public_dataset(self):
         ''' Tests that resources in public datasets give unsigned URLs.
         '''
-        caplog.set_level(logging.DEBUG)
         resource = self._upload_test_resource()
         key = _get_object_key(resource)
         uploader = S3ResourceUploader(resource)
@@ -262,11 +260,10 @@ class TestS3ResourceUploader():
         _assert_private(resource, url, uploader)
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
-    def test_making_dataset_private_updates_object_visibility(self, caplog=None):
+    def test_making_dataset_private_updates_object_visibility(self):
         ''' Tests that a dataset that changes from public to private
         will change from unsigned to signed URLs.
         '''
-        caplog.set_level(logging.DEBUG)
         dataset = self._test_dataset()
         resource = self._upload_test_resource(dataset)
         key = _get_object_key(resource)

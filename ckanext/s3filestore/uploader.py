@@ -615,7 +615,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
         all_visibility = self._cache_get(_get_visibility_cache_key(id + '/all'))
         if all_visibility is not None and all_visibility == target_acl:
-            log.debug("update_visibility: id: %s already set and found in cache as %s", id, target_acl)
+            log.warn("update_visibility: id: %s already set and found in cache as %s", id, target_acl)
             return
         # iterate through every S3 object matching the resource ID
         log.debug("update_visibility: id: %s getting item list from store", id)
@@ -636,7 +636,7 @@ class S3ResourceUploader(BaseS3Uploader):
             is_public_read = self.is_key_public(upload['Key'])
             # if the ACL status doesn't match what we want, update it
             if (acl == PUBLIC_ACL) != is_public_read:
-                log.debug("Updating ACL for object %s to %s", upload['Key'], acl)
+                log.warn("Updating ACL for object %s to %s", upload['Key'], acl)
                 client.put_object_acl(
                     Bucket=self.bucket_name, Key=upload['Key'], ACL=acl)
                 self._cache_delete(upload['Key'])
