@@ -200,7 +200,7 @@ class TestS3ResourceUploader():
             'resource_create',
             package_id=dataset['id'],
             upload=FlaskFileStorage(io.open(file_path, 'rb')),
-            url='file.txt')
+            url='data.csv')
 
     def test_resource_upload(self):
         '''Test a basic resource file upload'''
@@ -315,7 +315,7 @@ class TestS3ResourceUploader():
             'resource_patch',
             id=resource['id'],
             upload=FlaskFileStorage(io.open(file_path, 'rb')),
-            url='file.txt')
+            url='data.txt')
 
         uploader = S3ResourceUploader(resource)
 
