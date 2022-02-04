@@ -228,6 +228,7 @@ class BaseS3Uploader(object):
             self.get_s3_resource().Object(self.bucket_name, filepath).put(**kwargs)
             log.info("Successfully uploaded %s to S3!", filepath)
             self._cache_delete(filepath)
+            self._cache_delete(filepath + '/all')
             self._cache_put(_get_visibility_cache_key(filepath), acl)
         except Exception as e:
             log.error('Something went very very wrong when uploading to [%s]: %s', filepath, e)
