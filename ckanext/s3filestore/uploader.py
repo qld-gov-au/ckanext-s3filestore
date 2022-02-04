@@ -627,15 +627,20 @@ class S3ResourceUploader(BaseS3Uploader):
         if not resource_objects['KeyCount']:
             return
 
+        current_key = self.get_path(id)
         for upload in resource_objects['Contents']:
+            if upload['Key'] == current_key:
+                acl = target_acl
+            else:
+                acl = 'private'
             is_public_read = self.is_key_public(upload['Key'])
             # if the ACL status doesn't match what we want, update it
-            if (target_acl == PUBLIC_ACL) != is_public_read:
-                log.debug("Updating ACL for object %s to %s", upload['Key'], target_acl)
+            if (acl == PUBLIC_ACL) != is_public_read:
+                log.debug("Updating ACL for object %s to %s", upload['Key'], acl)
                 client.put_object_acl(
-                    Bucket=self.bucket_name, Key=upload['Key'], ACL=target_acl)
+                    Bucket=self.bucket_name, Key=upload['Key'], ACL=acl)
                 self._cache_delete(upload['Key'])
-                self._cache_put(_get_visibility_cache_key(upload['Key']), target_acl)
+                self._cache_put(_get_visibility_cache_key(upload['Key']), acl)
         self._cache_put(_get_visibility_cache_key(id + '/all'), target_acl)
 
     def upload(self, id, max_size=10):

@@ -293,6 +293,30 @@ class TestS3ResourceUploader():
         assert_false(_is_presigned_url(url))
         assert_in('ETag=', url)
 
+    @helpers.change_config('ckanext.s3filestore.acl', 'auto')
+    def test_non_current_objects_are_private(self):
+        ''' Tests that prior versions of a resource, with different
+        filenames, are made private.
+        '''
+        dataset = self._test_dataset(private=False)
+        resource = self._upload_test_resource(dataset)
+        file_path = os.path.join(os.path.dirname(__file__), 'data.txt')
+        resource = helpers.call_action(
+            'resource_patch',
+            id=resource['id'],
+            upload=FlaskFileStorage(io.open(file_path, 'rb')),
+            url='file.txt')
+
+        uploader = S3ResourceUploader(resource)
+
+        key = uploader.get_path(resource['id'])
+        url = uploader.get_signed_url_to_key(key)
+        assert_false(_is_presigned_url(url))
+
+        key = uploader.get_path(resource['id'], 'data.csv')
+        url = uploader.get_signed_url_to_key(key)
+        assert_true(_is_presigned_url(url))
+
     def test_assembling_object_metadata_headers(self):
         ''' Tests that text fields from the package are passed to S3.
         '''
