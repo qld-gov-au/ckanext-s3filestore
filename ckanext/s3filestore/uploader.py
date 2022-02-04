@@ -611,7 +611,8 @@ class S3ResourceUploader(BaseS3Uploader):
 
         client = self.get_s3_client()
 
-        all_visibility = self._cache_get(id + VISIBILITY_CACHE_PATH + '/all')
+        current_key = self.get_path(id)
+        all_visibility = self._cache_get(current_key + VISIBILITY_CACHE_PATH + '/all')
         if all_visibility is not None and all_visibility == target_acl:
             log.warn("update_visibility: id: %s already set and found in cache as %s", id, target_acl)
             return
@@ -625,7 +626,6 @@ class S3ResourceUploader(BaseS3Uploader):
         if not resource_objects['KeyCount']:
             return
 
-        current_key = self.get_path(id)
         for upload in resource_objects['Contents']:
             upload_key = upload['Key']
             log.warn("Setting visibility for key [%s], current object is [%s]", upload_key, current_key)
@@ -641,7 +641,7 @@ class S3ResourceUploader(BaseS3Uploader):
                     Bucket=self.bucket_name, Key=upload_key, ACL=acl)
                 self._cache_delete(upload_key)
                 self._cache_put(upload_key + VISIBILITY_CACHE_PATH, acl)
-        self._cache_put(id + VISIBILITY_CACHE_PATH + '/all', target_acl)
+        self._cache_put(current_key + VISIBILITY_CACHE_PATH + '/all', target_acl)
 
     def upload(self, id, max_size=10):
         '''Upload the file to S3.'''
