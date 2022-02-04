@@ -2,7 +2,6 @@
 
 from botocore.exceptions import ClientError
 import os
-import six
 import sys
 
 from sqlalchemy import create_engine
@@ -208,6 +207,7 @@ def _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths):
 
     print('Done, uploaded {0} resources to S3'.format(len(uploaded_resources)))
 
+
 def update_all_visibility(self):
     if config.get('ckanext.s3filestore.acl', None) != 'auto':
         print("ckanext.s3filestore.acl must be set to 'auto' to execute update_all_visibility")
@@ -230,7 +230,7 @@ def update_all_visibility(self):
 
         if packages.rowcount:
             for package in packages:
-                #package[0] is expected to be the id within the tuple
+                # package[0] is expected to be the id within the tuple
                 packages_ids.append(package[0])
         else:
             print("No resources found to make visible")
@@ -238,5 +238,5 @@ def update_all_visibility(self):
     for package_id in packages_ids:
         try:
             get_action('package_patch')(data_dict={'id': package_id}, context={'ignore_auth': True})
-        except:
-            print("Unable to package_patch on package_id {} ".format(package_id))
+        except Exception as e:
+            print("Unable to package_patch on package_id '{}', exception {} ".format(package_id, e))
