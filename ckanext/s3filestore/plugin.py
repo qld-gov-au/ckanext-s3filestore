@@ -84,19 +84,18 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         is_private = pkg_dict.get('private', False)
         LOG.debug("after_update: Package %s has been updated, notifying resources", pkg_id)
 
-        if 'resources' not in pkg_dict:
-            pkg_dict = toolkit.get_action('package_show')(
-                context=context, data_dict={'id': pkg_id})
-
         visibility_level = 'private' if is_private else 'public-read'
         async_update = self.async_visibility_update
         if async_update:
             try:
-                self.enqueue_resource_visibility_update_job(visibility_level, pkg_id, pkg_dict)
+                self.enqueue_resource_visibility_update_job(visibility_level, pkg_id)
             except Exception as e:
                 LOG.debug("after_update: Could not enqueue due to %s, doing inline", e)
                 async_update = False
         if not async_update:
+            if 'resources' not in pkg_dict:
+                pkg_dict = toolkit.get_action('package_show')(
+                    context=context, data_dict={'id': pkg_id})
             self.after_update_resource_list_update(visibility_level, pkg_id, pkg_dict)
 
     def after_update_resource_list_update(self, visibility_level, pkg_id, pkg_dict):
@@ -110,10 +109,9 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                     target_acl=visibility_level)
         LOG.debug("after_update_resource_list_update: Package %s has been updated, notifying resources finished", pkg_id)
 
-    def enqueue_resource_visibility_update_job(self, visibility_level, pkg_id, pkg_dict):
+    def enqueue_resource_visibility_update_job(self, visibility_level, pkg_id):
         ckan_ini_filepath = os.path.abspath(toolkit.config['__file__'])
-        resources = pkg_dict
-        args = [ckan_ini_filepath, visibility_level, pkg_id, resources]
+        args = [ckan_ini_filepath, visibility_level, pkg_id]
         kwargs = {
             'args': args,
             'title': "s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id
