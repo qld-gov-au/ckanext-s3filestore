@@ -83,10 +83,6 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         pkg_id = pkg_dict['id']
         LOG.debug("after_update: Package %s has been updated, notifying resources", pkg_id)
 
-        if 'resources' not in pkg_dict:
-            pkg_dict = toolkit.get_action('package_show')(
-                context=context, data_dict={'id': pkg_id})
-
         visibility_level = 'private' if pkg_dict.get('private', False) else 'public-read'
         async_update = self.async_visibility_update
         if async_update:
