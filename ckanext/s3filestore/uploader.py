@@ -132,39 +132,38 @@ class BaseS3Uploader(object):
         '''
         if not self.signed_url_cache_enabled:
             return None
-        redis_conn = connect_to_redis()
         cache_key = _get_cache_key(key)
-        cache_value = redis_conn.get(cache_key)
+        try:
+            redis_conn = connect_to_redis()
+            cache_value = redis_conn.get(cache_key)
+        except Exception as e:
+            log.error("Failed to connect to Redis cache: %s", e)
+            cache_value = None
         if cache_value is not None and hasattr(six, 'ensure_text'):
             cache_value = six.ensure_text(cache_value)
         return cache_value
 
-    def _cache_put_url(self, key, value):
+    def _cache_put(self, key, value, expiry=None):
         ''' Set a URL value in the cache, if enabled, with an appropriate expiry.
         '''
-        cache_key = _get_cache_key(key)
-        if self.signed_url_cache_enabled:
-            if _is_presigned_url(value):
-                expiry = self.signed_url_cache_window
-            else:
-                expiry = self.public_url_cache_window
-            redis_conn = connect_to_redis()
-            redis_conn.set(cache_key, value, ex=expiry)
-
-    def _cache_put_acl(self, key, value):
-        ''' Set an ACL value in the cache, with an appropriate expiry.
-        '''
-        cache_key = _get_cache_key(key)
-        redis_conn = connect_to_redis()
-        redis_conn.set(cache_key, value, ex=self.acl_cache_window)
+        if expiry:
+            cache_key = _get_cache_key(key)
+            try:
+                redis_conn = connect_to_redis()
+                redis_conn.set(cache_key, value, ex=expiry)
+            except Exception as e:
+                log.error("Failed to connect to Redis cache: %s", e)
 
     def _cache_delete(self, key):
         ''' Delete a value from the cache, if enabled.
         '''
         cache_key = _get_cache_key(key)
         if self.signed_url_cache_enabled:
-            redis_conn = connect_to_redis()
-            redis_conn.delete(cache_key)
+            try:
+                redis_conn = connect_to_redis()
+                redis_conn.delete(cache_key)
+            except Exception as e:
+                log.error("Failed to connect to Redis cache: %s", e)
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
@@ -249,7 +248,7 @@ class BaseS3Uploader(object):
             log.info("Successfully uploaded %s to S3!", filepath)
             self._cache_delete(filepath)
             self._cache_delete(filepath + VISIBILITY_CACHE_PATH + '/all')
-            self._cache_put_acl(filepath + VISIBILITY_CACHE_PATH, acl)
+            self._cache_put(filepath + VISIBILITY_CACHE_PATH, acl, expiry=self.acl_cache_window)
         except Exception as e:
             log.error('Something went very very wrong when uploading to [%s]: %s', filepath, e)
             raise e
@@ -282,7 +281,7 @@ class BaseS3Uploader(object):
             and grant['Grantee'].get('URI', '').endswith('AllUsers')
             for grant in client.get_object_acl(Bucket=self.bucket_name, Key=key)['Grants']
         ) else PRIVATE_ACL
-        self._cache_put_acl(acl_key, acl)
+        self._cache_put(acl_key, acl, expiry=self.acl_cache_window)
         return acl == PUBLIC_ACL
 
     def get_signed_url_to_key(self, key, extra_params={}):
@@ -297,6 +296,13 @@ class BaseS3Uploader(object):
         be configured to set the Host header back to the true value when
         forwarding the request (CloudFront does this automatically).
         '''
+        cache_url = self._cache_get(key)
+        if cache_url:
+            log.debug('Returning cached URL for path %s', key)
+            return cache_url
+        else:
+            log.debug('No cache found for %s; generating a new URL', key)
+
         client = self.get_s3_client()
 
         # check whether the object exists in S3
@@ -308,15 +314,6 @@ class BaseS3Uploader(object):
 
         # check whether the object is publicly readable
         is_public_read = self.is_key_public(key)
-
-        cache_url = self._cache_get(key)
-        # use cache only if the visibility is still correct
-        if cache_url and is_public_read != _is_presigned_url(cache_url):
-            log.debug('Returning cached URL for path %s', key)
-            return cache_url
-        else:
-            log.debug('No cache found for %s; generating a new URL', key)
-
         params = {'Bucket': self.bucket_name,
                   'Key': key}
         if not is_public_read and metadata['ContentType'] != 'application/pdf':
@@ -330,13 +327,16 @@ class BaseS3Uploader(object):
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
 
         if is_public_read:
-            #Ensure valid encoded url so newrelic does not complain
+            # Ensure valid encoded URL so newrelic does not complain
             data = urlencode({'ETag': metadata['ETag'].replace("\"", "")})
             if hasattr(six, 'ensure_text'):
                 data = six.ensure_text(data)
             url = url.split('?')[0] + '?' + data
+            cache_expiry = self.public_url_cache_window
+        else:
+            cache_expiry = self.signed_url_cache_window
 
-        self._cache_put_url(key, url)
+        self._cache_put(key, url, expiry=cache_expiry)
         return url
 
     def as_clean_dict(self, dict):
@@ -677,8 +677,8 @@ class S3ResourceUploader(BaseS3Uploader):
                 client.put_object_acl(
                     Bucket=self.bucket_name, Key=upload_key, ACL=acl)
                 self._cache_delete(upload_key)
-                self._cache_put_acl(upload_key + VISIBILITY_CACHE_PATH, acl)
-        self._cache_put_acl(current_key + VISIBILITY_CACHE_PATH + '/all', target_acl)
+                self._cache_put(upload_key + VISIBILITY_CACHE_PATH, acl, expiry=self.acl_cache_window)
+        self._cache_put(current_key + VISIBILITY_CACHE_PATH + '/all', target_acl, expiry=self.acl_cache_window)
 
     def upload(self, id, max_size=10):
         '''Upload the file to S3.'''
