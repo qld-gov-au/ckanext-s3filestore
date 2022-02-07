@@ -1,6 +1,7 @@
 # encoding: utf-8
-import os
+
 import logging
+import six
 
 from ckan import plugins
 import ckantoolkit as toolkit
@@ -9,6 +10,8 @@ from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload,\
     get_resource_uploader
 
 import ckanext.s3filestore.tasks as tasks
+
+from ckanext.s3filestore.redis_helper import RedisHelper
 
 LOG = logging.getLogger(__name__)
 
@@ -79,11 +82,23 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
 
     def after_update(self, context, pkg_dict):
         ''' Update the access of each S3 object to match the package.
-                '''
+        '''
         pkg_id = pkg_dict['id']
-        is_private = pkg_dict.get('private', False)
         LOG.debug("after_update: Package %s has been updated, notifying resources", pkg_id)
 
+        is_private = pkg_dict.get('private', False)
+        is_private_str = six.text_type(is_private)
+
+        redis = RedisHelper()
+        cache_private = redis.get(pkg_id + '/private')
+        redis.put(pkg_id + '/private', is_private_str)
+        # compare current and previous 'private' flags so we know
+        # if visibility has changed
+        if cache_private is not None and cache_private == is_private_str:
+            LOG.debug("Package %s is already in correct state", pkg_id)
+            return
+
+        # visibility has changed; update associated S3 objects
         visibility_level = 'private' if is_private else 'public-read'
         async_update = self.async_visibility_update
         if async_update:
@@ -119,7 +134,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         title = "s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id
         rq_kwargs = {
             'on_failure': tasks.s3_afterUpdatePackageFailure,
-            'ttl': 24 * 60 * 60, # 24 hour ttl.
+            'ttl': 24 * 60 * 60,  # 24 hour ttl.
             'failure_ttl': 24 * 60 * 60,  # 24hours of 60mins of 60 seconds.
             'title': title
         }
@@ -128,7 +143,6 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         if queue:
             kwargs['queue'] = queue
 
-        #jobs.enqueue(fn, args=None, kwargs=None, title=None, queue=DEFAULT_QUEUE_NAME, rq_kwargs=None)
         toolkit.enqueue_job(fn=tasks.s3_afterUpdatePackage, args=args, kwargs=kwargs, title=title, queue=queue, rq_kwargs=rq_kwargs)
         LOG.debug("enqueue_resource_visibility_update_job: Package %s has been enqueued",
                   pkg_id)

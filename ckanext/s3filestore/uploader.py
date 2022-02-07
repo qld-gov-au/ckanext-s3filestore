@@ -7,6 +7,7 @@ import logging
 import mimetypes
 import magic
 import os
+import pytz as timezone
 import re
 import six
 
@@ -16,14 +17,14 @@ from botocore.client import Config
 from botocore.exceptions import ClientError
 import ckantoolkit as toolkit
 import ckan.lib.helpers as h
-from ckan.lib.redis import connect_to_redis
 from six.moves.urllib.parse import urlencode
 
-from ckan.common import g
-from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as DefaultUpload
-
-import ckan.model as model
 from ckan.lib import munge
+from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as DefaultUpload
+from ckan import model
+from ckan.plugins.toolkit import g
+
+from ckanext.s3filestore.redis_helper import RedisHelper
 
 if toolkit.check_ckan_version(min_version='2.7.0'):
     from werkzeug.datastructures import FileStorage as FlaskFileStorage
@@ -39,17 +40,9 @@ _max_resource_size = None
 _max_image_size = None
 
 URL_HOST = re.compile('^https?://[^/]*/')
-REDIS_PREFIX = 'ckanext-s3filestore:'
+VISIBILITY_CACHE_PATH = '/visibility'
 PUBLIC_ACL = 'public-read'
 PRIVATE_ACL = 'private'
-
-
-def _get_cache_key(path):
-    return REDIS_PREFIX + path
-
-
-def _get_visibility_cache_key(path):
-    return _get_cache_key(path) + '/visibility'
 
 
 def _get_underlying_file(wrapper):
@@ -77,6 +70,12 @@ def ensure_ascii(text):
     if not isinstance(text, six.text_type):
         text = six.text_type(text, 'utf-8')
     return text.encode('ascii', 'xmlcharrefreplace').decode()
+
+
+def _get_object_age_days(upload):
+    """ Calculates the age of an uploaded S3 object, in days, rounded down.
+    """
+    return (datetime.datetime.now(timezone.utc) - upload['LastModified']).days
 
 
 class S3FileStoreException(Exception):
@@ -111,42 +110,16 @@ class BaseS3Uploader(object):
         self.download_proxy = config.get('ckanext.s3filestore.download_proxy')
         self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry', '3600'))
         self.signed_url_cache_window = int(config.get('ckanext.s3filestore.signed_url_cache_window', '1800'))
-        self.signed_url_cache_enabled = self.signed_url_cache_window > 0 and self.signed_url_expiry > 0
+        self.public_url_cache_window = int(config.get('ckanext.s3filestore.public_url_cache_window', '86400'))
+        self.acl_cache_window = int(config.get('ckanext.s3filestore.acl_cache_window', '86400'))
         self.acl = config.get('ckanext.s3filestore.acl', PUBLIC_ACL)
+        self.non_current_acl = config.get('ckanext.s3filestore.non_current_acl', PRIVATE_ACL)
         self.addressing_style = config.get('ckanext.s3filestore.addressing_style', 'auto')
         if is_path_addressing():
             self.host_name = config.get('ckanext.s3filestore.host_name')
         else:
             self.host_name = None
-
-    def _cache_get(self, key):
-        ''' Get a value from the cache, if enabled, otherwise return None.
-        Returned values will be converted to text type instead of bytes.
-        '''
-        if not self.signed_url_cache_enabled:
-            return None
-        redis_conn = connect_to_redis()
-        cache_key = _get_cache_key(key)
-        cache_value = redis_conn.get(cache_key)
-        if cache_value is not None and hasattr(six, 'ensure_text'):
-            cache_value = six.ensure_text(cache_value)
-        return cache_value
-
-    def _cache_put(self, key, value):
-        ''' Set a value in the cache, if enabled, with an appropriate expiry.
-        '''
-        cache_key = _get_cache_key(key)
-        if self.signed_url_cache_enabled:
-            redis_conn = connect_to_redis()
-            redis_conn.set(cache_key, value, ex=self.signed_url_cache_window)
-
-    def _cache_delete(self, key):
-        ''' Delete a value from the cache, if enabled.
-        '''
-        cache_key = _get_cache_key(key)
-        if self.signed_url_cache_enabled:
-            redis_conn = connect_to_redis()
-            redis_conn.delete(cache_key)
+        self.redis = RedisHelper()
 
     def get_directory(self, id, storage_path):
         directory = os.path.join(storage_path, id)
@@ -229,8 +202,9 @@ class BaseS3Uploader(object):
 
             self.get_s3_resource().Object(self.bucket_name, filepath).put(**kwargs)
             log.info("Successfully uploaded %s to S3!", filepath)
-            self._cache_delete(filepath)
-            self._cache_put(_get_visibility_cache_key(filepath), acl)
+            self.redis.delete(filepath)
+            self.redis.delete(filepath + VISIBILITY_CACHE_PATH + '/all')
+            self.redis.put(filepath + VISIBILITY_CACHE_PATH, acl, expiry=self.acl_cache_window)
         except Exception as e:
             log.error('Something went very very wrong when uploading to [%s]: %s', filepath, e)
             raise e
@@ -240,8 +214,8 @@ class BaseS3Uploader(object):
         try:
             self.get_s3_resource().Object(self.bucket_name, filepath).delete()
             log.info("Removed %s from S3", filepath)
-            self._cache_delete(filepath)
-            self._cache_delete(_get_visibility_cache_key(filepath))
+            self.redis.delete(filepath)
+            self.redis.delete(filepath + VISIBILITY_CACHE_PATH)
         except Exception as e:
             raise e
 
@@ -249,8 +223,8 @@ class BaseS3Uploader(object):
         ''' Check whether an S3 object key is publicly readable.
         May cache results to reduce API calls.
         '''
-        acl_key = _get_visibility_cache_key(key)
-        acl = self._cache_get(acl_key)
+        acl_key = key + VISIBILITY_CACHE_PATH
+        acl = self.redis.get(acl_key)
         if acl == PUBLIC_ACL:
             return True
         if acl == PRIVATE_ACL:
@@ -263,7 +237,7 @@ class BaseS3Uploader(object):
             and grant['Grantee'].get('URI', '').endswith('AllUsers')
             for grant in client.get_object_acl(Bucket=self.bucket_name, Key=key)['Grants']
         ) else PRIVATE_ACL
-        self._cache_put(acl_key, acl)
+        self.redis.put(acl_key, acl, expiry=self.acl_cache_window)
         return acl == PUBLIC_ACL
 
     def get_signed_url_to_key(self, key, extra_params={}):
@@ -278,23 +252,24 @@ class BaseS3Uploader(object):
         be configured to set the Host header back to the true value when
         forwarding the request (CloudFront does this automatically).
         '''
-        client = self.get_s3_client()
-
-        # check whether the object exists in S3
-        log.debug('Checking that S3 object %s exists', key)
-        metadata = client.head_object(Bucket=self.bucket_name, Key=key)
-
-        # check whether the object is publicly readable
-        is_public_read = self.is_key_public(key)
-
-        cache_url = self._cache_get(key)
-        # use cache only if the visibility is still correct
-        if cache_url and is_public_read != _is_presigned_url(cache_url):
+        cache_url = self.redis.get(key)
+        if cache_url:
             log.debug('Returning cached URL for path %s', key)
             return cache_url
         else:
             log.debug('No cache found for %s; generating a new URL', key)
 
+        client = self.get_s3_client()
+
+        # check whether the object exists in S3
+        log.debug('Checking that S3 object %s exists', key)
+        try:
+            metadata = client.head_object(Bucket=self.bucket_name, Key=key)
+        except ClientError:
+            raise toolkit.ObjectNotFound("Unable to retrieve metadata for object [{}]".format(key))
+
+        # check whether the object is publicly readable
+        is_public_read = self.is_key_public(key)
         params = {'Bucket': self.bucket_name,
                   'Key': key}
         if not is_public_read and metadata['ContentType'] != 'application/pdf':
@@ -308,13 +283,16 @@ class BaseS3Uploader(object):
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
 
         if is_public_read:
-            #Ensure valid encoded url so newrelic does not complain
+            # Ensure valid encoded URL so newrelic does not complain
             data = urlencode({'ETag': metadata['ETag'].replace("\"", "")})
             if hasattr(six, 'ensure_text'):
                 data = six.ensure_text(data)
             url = url.split('?')[0] + '?' + data
+            cache_expiry = self.public_url_cache_window
+        else:
+            cache_expiry = self.signed_url_cache_window
 
-        self._cache_put(key, url)
+        self.redis.put(key, url, expiry=cache_expiry)
         return url
 
     def as_clean_dict(self, dict):
@@ -524,6 +502,7 @@ class S3ResourceUploader(BaseS3Uploader):
         super(S3ResourceUploader, self).__init__()
 
         self.use_filename = toolkit.asbool(config.get('ckanext.s3filestore.use_filename', False))
+        self.delete_non_current_days = int(config.get('ckanext.s3filestore.delete_non_current_days', '-1'))
         path = config.get('ckanext.s3filestore.aws_storage_path', '')
         self.storage_path = os.path.join(path, 'resources')
         self.filename = None
@@ -619,7 +598,8 @@ class S3ResourceUploader(BaseS3Uploader):
 
         client = self.get_s3_client()
 
-        all_visibility = self._cache_get(_get_visibility_cache_key(id + '/all'))
+        current_key = self.get_path(id)
+        all_visibility = self.redis.get(current_key + VISIBILITY_CACHE_PATH + '/all')
         if all_visibility is not None and all_visibility == target_acl:
             log.debug("update_visibility: id: %s already set and found in cache as %s", id, target_acl)
             return
@@ -634,15 +614,27 @@ class S3ResourceUploader(BaseS3Uploader):
             return
 
         for upload in resource_objects['Contents']:
-            is_public_read = self.is_key_public(upload['Key'])
+            upload_key = upload['Key']
+            log.debug("Setting visibility for key [%s], current object is [%s]", upload_key, current_key)
+            if upload_key == current_key:
+                acl = target_acl
+            elif self.delete_non_current_days >= 0 and _get_object_age_days(upload) >= self.delete_non_current_days:
+                self.clear_key(upload_key)
+                continue
+            elif self.non_current_acl == 'auto':
+                acl = target_acl
+            else:
+                acl = self.non_current_acl
+
+            is_public_read = self.is_key_public(upload_key)
             # if the ACL status doesn't match what we want, update it
-            if (target_acl == PUBLIC_ACL) != is_public_read:
-                log.debug("Updating ACL for object %s to %s", upload['Key'], target_acl)
+            if (acl == PUBLIC_ACL) != is_public_read:
+                log.debug("Updating ACL for object %s to %s", upload_key, acl)
                 client.put_object_acl(
-                    Bucket=self.bucket_name, Key=upload['Key'], ACL=target_acl)
-                self._cache_delete(upload['Key'])
-                self._cache_put(_get_visibility_cache_key(upload['Key']), target_acl)
-        self._cache_put(_get_visibility_cache_key(id + '/all'), target_acl)
+                    Bucket=self.bucket_name, Key=upload_key, ACL=acl)
+                self.redis.delete(upload_key)
+                self.redis.put(upload_key + VISIBILITY_CACHE_PATH, acl, expiry=self.acl_cache_window)
+        self.redis.put(current_key + VISIBILITY_CACHE_PATH + '/all', target_acl, expiry=self.acl_cache_window)
 
     def upload(self, id, max_size=10):
         '''Upload the file to S3.'''
