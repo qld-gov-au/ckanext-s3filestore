@@ -115,11 +115,11 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         kwargs = {
             'args': args,
             'title': "s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id,
-
         }
         title = "s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id
         rq_kwargs = {
             'on_failure': tasks.s3_afterUpdatePackageFailure,
+            'ttl': 24 * 60 * 60, # 24 hour ttl.
             'failure_ttl': 24 * 60 * 60,  # 24hours of 60mins of 60 seconds.
             'title': title
         }
@@ -128,9 +128,8 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         if queue:
             kwargs['queue'] = queue
 
-        #toolkit.enqueue_job(fn, args=None, kwargs=None, title=None, queue=DEFAULT_QUEUE_NAME,
-        #    rq_kwargs=None)
-        toolkit.enqueue_job(fn=tasks.s3_afterUpdatePackage, args=args, kwargs=kwargs, title=title, rq_kwargs=rq_kwargs)
+        #jobs.enqueue(fn, args=None, kwargs=None, title=None, queue=DEFAULT_QUEUE_NAME, rq_kwargs=None)
+        toolkit.enqueue_job(fn=tasks.s3_afterUpdatePackage, args=args, kwargs=kwargs, title=title, queue=queue, rq_kwargs=rq_kwargs)
         LOG.debug("enqueue_resource_visibility_update_job: Package %s has been enqueued",
                   pkg_id)
 
