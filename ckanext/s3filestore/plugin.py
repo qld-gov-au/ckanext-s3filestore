@@ -89,9 +89,9 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         # compare current and previous 'private' flags so we know
         # if visibility has changed
         redis = RedisHelper()
+        is_private = pkg_dict.get('private', False)
         was_private = redis.get(pkg_id + '/private')
         if was_private is not None:
-            is_private = pkg_dict.get('private', False)
             is_private_str = six.text_type(is_private)
             redis.put(pkg_id + '/private', is_private_str)
             if was_private == is_private_str:
