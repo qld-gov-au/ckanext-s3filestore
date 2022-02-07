@@ -106,6 +106,7 @@ class BaseS3Uploader(object):
         self.download_proxy = config.get('ckanext.s3filestore.download_proxy')
         self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry', '3600'))
         self.signed_url_cache_window = int(config.get('ckanext.s3filestore.signed_url_cache_window', '1800'))
+        self.public_url_cache_window = int(config.get('ckanext.s3filestore.public_url_cache_window', '86400'))
         self.acl_cache_window = int(config.get('ckanext.s3filestore.acl_cache_window', '86400'))
         self.signed_url_cache_enabled = self.signed_url_cache_window > 0 and self.signed_url_expiry > 0
         self.acl = config.get('ckanext.s3filestore.acl', PUBLIC_ACL)
@@ -134,8 +135,12 @@ class BaseS3Uploader(object):
         '''
         cache_key = _get_cache_key(key)
         if self.signed_url_cache_enabled:
+            if _is_presigned_url(value):
+                expiry = self.signed_url_cache_window
+            else:
+                expiry = self.public_url_cache_window
             redis_conn = connect_to_redis()
-            redis_conn.set(cache_key, value, ex=self.signed_url_cache_window)
+            redis_conn.set(cache_key, value, ex=expiry)
 
     def _cache_put_acl(self, key, value):
         ''' Set an ACL value in the cache, with an appropriate expiry.

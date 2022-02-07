@@ -127,8 +127,10 @@ Optional::
     # The expiry should be longer than the window (not equal);
     # otherwise, a URL may expire before a new one is available.
     # If either value is zero or negative, then URL caching is disabled.
+    # 'public_url_cache_window': How long a public (unsigned) URL will be reused.
     ckanext.s3filestore.signed_url_expiry = 3600
     ckanext.s3filestore.signed_url_cache_window = 1800
+    ckanext.s3filestore.public_url_cache_window = 86400
 
     # Control how long the ACL of an S3 object will be held in cache.
     # Uploading a new file overrides this. Default is 86400.
