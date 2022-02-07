@@ -86,16 +86,17 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         pkg_id = pkg_dict['id']
         LOG.debug("after_update: Package %s has been updated, notifying resources", pkg_id)
 
+        is_private = pkg_dict.get('private', False)
+        is_private_str = six.text_type(is_private)
+
+        redis = RedisHelper()
+        cache_private = redis.get(pkg_id + '/private')
+        redis.put(pkg_id + '/private', is_private_str)
         # compare current and previous 'private' flags so we know
         # if visibility has changed
-        redis = RedisHelper()
-        is_private = pkg_dict.get('private', False)
-        was_private = redis.get(pkg_id + '/private')
-        if was_private is not None:
-            is_private_str = six.text_type(is_private)
-            redis.put(pkg_id + '/private', is_private_str)
-            if was_private == is_private_str:
-                return
+        if cache_private is not None and cache_private == is_private_str:
+            LOG.debug("Package %s is already in correct state", pkg_id)
+            return
 
         # visibility has changed; update associated S3 objects
         visibility_level = 'private' if is_private else 'public-read'
