@@ -630,7 +630,7 @@ class S3ResourceUploader(BaseS3Uploader):
         for upload in resource_objects['Contents']:
             upload_key = upload['Key']
             log.debug("Setting visibility for key [%s], current object is [%s]", upload_key, current_key)
-            if upload_key == current_key:
+            if upload_key == current_key or self.non_current_acl == 'auto':
                 acl = target_acl
             else:
                 acl = self.non_current_acl
