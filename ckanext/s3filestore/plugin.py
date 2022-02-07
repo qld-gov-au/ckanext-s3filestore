@@ -1,6 +1,7 @@
 # encoding: utf-8
 
 import logging
+import six
 
 from ckan import plugins
 import ckantoolkit as toolkit
@@ -9,6 +10,8 @@ from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload,\
     get_resource_uploader
 
 import ckanext.s3filestore.tasks as tasks
+
+from redis import RedisHelper
 
 LOG = logging.getLogger(__name__)
 
@@ -83,7 +86,19 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         pkg_id = pkg_dict['id']
         LOG.debug("after_update: Package %s has been updated, notifying resources", pkg_id)
 
-        visibility_level = 'private' if pkg_dict.get('private', False) else 'public-read'
+        # compare current and previous 'private' flags so we know
+        # if visibility has changed
+        redis = RedisHelper()
+        was_private = redis.get(pkg_id + '/private')
+        if was_private is not None:
+            is_private = pkg_dict.get('private', False)
+            is_private_str = six.text_type(is_private)
+            redis.put(pkg_id + '/private', is_private_str)
+            if was_private == is_private_str:
+                return
+
+        # visibility has changed; update associated S3 objects
+        visibility_level = 'private' if is_private else 'public-read'
         async_update = self.async_visibility_update
         if async_update:
             try:
