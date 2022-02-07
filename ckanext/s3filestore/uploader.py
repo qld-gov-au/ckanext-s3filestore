@@ -299,7 +299,10 @@ class BaseS3Uploader(object):
 
         # check whether the object exists in S3
         log.debug('Checking that S3 object %s exists', key)
-        metadata = client.head_object(Bucket=self.bucket_name, Key=key)
+        try:
+            metadata = client.head_object(Bucket=self.bucket_name, Key=key)
+        except ClientError:
+            raise toolkit.ObjectNotFound("Unable to retrieve metadata for object [{}]".format(key))
 
         # check whether the object is publicly readable
         is_public_read = self.is_key_public(key)
