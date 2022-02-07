@@ -11,6 +11,7 @@ from nose.tools import (assert_equal,
                         assert_false,
                         assert_in,
                         assert_is_none,
+                        assert_raises,
                         with_setup)
 
 from botocore.exceptions import ClientError
@@ -384,6 +385,54 @@ class TestS3ResourceUploader():
         )
         url = uploader.get_signed_url_to_key(key)
         assert_true(_is_presigned_url(url), "Expected [{}] to use private URL but was {}".format(key, url))
+
+    @helpers.change_config('ckanext.s3filestore.acl', 'auto')
+    @helpers.change_config('ckanext.s3filestore.delete_non_current_days', '0')
+    def test_delete_non_current_objects_after_expiry(self):
+        ''' Tests that prior versions of a resource, with different
+        filenames, are deleted after the configured expiry.
+        '''
+        dataset = self._test_dataset(private=False)
+        resource = self._upload_test_resource(dataset)
+        file_path = os.path.join(os.path.dirname(__file__), 'data.txt')
+        resource = helpers.call_action(
+            'resource_patch',
+            id=resource['id'],
+            upload=FlaskFileStorage(io.open(file_path, 'rb')),
+            url='data.txt')
+
+        uploader = S3ResourceUploader(resource)
+
+        key = uploader.get_path(resource['id'])
+        assert uploader.get_signed_url_to_key(key) is not None
+
+        key = uploader.get_path(resource['id'], 'data.csv')
+        with assert_raises(toolkit.ObjectNotFound):
+            assert uploader.get_signed_url_to_key(key) is not None
+
+    @helpers.change_config('ckanext.s3filestore.acl', 'auto')
+    @helpers.change_config('ckanext.s3filestore.delete_non_current_days', '2')
+    def test_do_not_delete_non_current_objects_before_expiry(self):
+        ''' Tests that prior versions of a resource, with different
+        filenames, are deleted after the configured expiry.
+        '''
+        dataset = self._test_dataset(private=False)
+        resource = self._upload_test_resource(dataset)
+        file_path = os.path.join(os.path.dirname(__file__), 'data.txt')
+        resource = helpers.call_action(
+            'resource_patch',
+            id=resource['id'],
+            upload=FlaskFileStorage(io.open(file_path, 'rb')),
+            url='data.txt')
+
+        uploader = S3ResourceUploader(resource)
+
+        key = uploader.get_path(resource['id'])
+        url = uploader.get_signed_url_to_key(key)
+
+        key = uploader.get_path(resource['id'], 'data.csv')
+        url = uploader.get_signed_url_to_key(key)
+        assert_false(_is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(key, url))
 
     def test_assembling_object_metadata_headers(self):
         ''' Tests that text fields from the package are passed to S3.

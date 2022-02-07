@@ -74,6 +74,12 @@ def ensure_ascii(text):
     return text.encode('ascii', 'xmlcharrefreplace').decode()
 
 
+def _get_object_age_days(upload):
+    """ Calculates the age of an uploaded S3 object, in days, rounded down.
+    """
+    return (datetime.datetime.now() - upload['LastModified']).days
+
+
 class S3FileStoreException(Exception):
     pass
 
@@ -530,6 +536,7 @@ class S3ResourceUploader(BaseS3Uploader):
         super(S3ResourceUploader, self).__init__()
 
         self.use_filename = toolkit.asbool(config.get('ckanext.s3filestore.use_filename', False))
+        self.delete_non_current_days = int(config.get('ckanext.s3filestore.delete_non_current_days', '-1'))
         path = config.get('ckanext.s3filestore.aws_storage_path', '')
         self.storage_path = os.path.join(path, 'resources')
         self.filename = None
@@ -643,10 +650,16 @@ class S3ResourceUploader(BaseS3Uploader):
         for upload in resource_objects['Contents']:
             upload_key = upload['Key']
             log.debug("Setting visibility for key [%s], current object is [%s]", upload_key, current_key)
-            if upload_key == current_key or self.non_current_acl == 'auto':
+            if upload_key == current_key:
+                acl = target_acl
+            elif self.delete_non_current_days >= 0 and _get_object_age_days(upload) >= self.delete_non_current_days:
+                self.clear_key(upload_key)
+                continue
+            elif self.non_current_acl == 'auto':
                 acl = target_acl
             else:
                 acl = self.non_current_acl
+
             is_public_read = self.is_key_public(upload_key)
             # if the ACL status doesn't match what we want, update it
             if (acl == PUBLIC_ACL) != is_public_read:

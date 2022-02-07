@@ -136,6 +136,11 @@ Optional::
     # Uploading a new file overrides this. Default is 86400.
     ckanext.s3filestore.acl_cache_window = 2592000
 
+    # If set, then prior objects uploaded for a resource may be deleted
+    # after the specified number of days. If less than zero, nothing
+    # is deleted. Defaults to -1.
+    ckanext.s3filestore.delete_non_current_days = 90
+
     # Queue used by s3 plugin, if not set, default queue is used
     ckanext.s3filestore.queue = bulk
 
