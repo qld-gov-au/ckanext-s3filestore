@@ -7,6 +7,7 @@ import logging
 import mimetypes
 import magic
 import os
+import pytz as timezone
 import re
 import six
 
@@ -77,7 +78,7 @@ def ensure_ascii(text):
 def _get_object_age_days(upload):
     """ Calculates the age of an uploaded S3 object, in days, rounded down.
     """
-    return (datetime.datetime.now() - upload['LastModified']).days
+    return (datetime.datetime.now(timezone.utc) - upload['LastModified']).days
 
 
 class S3FileStoreException(Exception):
