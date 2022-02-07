@@ -133,15 +133,24 @@ Optional::
     ckanext.s3filestore.public_url_cache_window = 86400
 
     # Control how long the ACL of an S3 object will be held in cache.
-    # Uploading a new file overrides this. Default is 86400.
+    # Uploading a new file overrides this. Default is 86400 (24 hours).
     ckanext.s3filestore.acl_cache_window = 2592000
 
-    # If set, then prior objects uploaded for a resource may be deleted
-    # after the specified number of days. If less than zero, nothing
-    # is deleted. Defaults to -1.
+    # If set, then prior objects uploaded not matching current filename for a
+    #  resource may be deleted after the specified number of days from uploaded date.
+    # If less than zero, nothing is deleted. Defaults to -1.
+    #
+    # I.e. delete_non_current_days is set to 90 days
+    #  If resource was uploaded 91 days ago, it will be marked for deletion
+    #  If resource was uploaded 10 days ago, it will be deleted after 80 days time
+    #    until next job on dataset/resource is run.
+    #
+    # Note: If S3 Versioning is enabled, then file can be recovered per external policy.
+    #          Similar to same filename being used.
+    #       If S3 Versioning is not enabled, then file is not recoverable.
     ckanext.s3filestore.delete_non_current_days = 90
 
-    # Queue used by s3 plugin, if not set, default queue is used
+    # Queue used by s3 plugin, if not set, `default` queue is used
     ckanext.s3filestore.queue = bulk
 
 
