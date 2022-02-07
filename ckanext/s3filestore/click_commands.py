@@ -27,3 +27,8 @@ def upload(identifier):
         commands.upload_pairtree()
     else:
         commands.upload_single(identifier)
+
+
+@s3.command(short_help=u'Updates the visibility of all existing S3 objects to match current config')
+def update_all_visibility():
+    S3FilestoreCommands().update_all_visibility()
