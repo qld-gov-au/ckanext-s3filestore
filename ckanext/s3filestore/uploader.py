@@ -309,7 +309,9 @@ class BaseS3Uploader(object):
 
         if is_public_read:
             #Ensure valid encoded url so newrelic does not complain
-            data = six.ensure_text(urlencode({'ETag': metadata['ETag'].replace("\"", "")}))
+            data = urlencode({'ETag': metadata['ETag'].replace("\"", "")})
+            if hasattr(six, 'ensure_text'):
+                data = six.ensure_text(data)
             url = url.split('?')[0] + '?' + data
 
         self._cache_put(key, url)
