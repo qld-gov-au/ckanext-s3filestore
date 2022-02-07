@@ -106,6 +106,7 @@ class BaseS3Uploader(object):
         self.download_proxy = config.get('ckanext.s3filestore.download_proxy')
         self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry', '3600'))
         self.signed_url_cache_window = int(config.get('ckanext.s3filestore.signed_url_cache_window', '1800'))
+        self.acl_cache_window = int(config.get('ckanext.s3filestore.acl_cache_window', '86400'))
         self.signed_url_cache_enabled = self.signed_url_cache_window > 0 and self.signed_url_expiry > 0
         self.acl = config.get('ckanext.s3filestore.acl', PUBLIC_ACL)
         self.non_current_acl = config.get('ckanext.s3filestore.non_current_acl', PRIVATE_ACL)
@@ -128,13 +129,20 @@ class BaseS3Uploader(object):
             cache_value = six.ensure_text(cache_value)
         return cache_value
 
-    def _cache_put(self, key, value):
-        ''' Set a value in the cache, if enabled, with an appropriate expiry.
+    def _cache_put_url(self, key, value):
+        ''' Set a URL value in the cache, if enabled, with an appropriate expiry.
         '''
         cache_key = _get_cache_key(key)
         if self.signed_url_cache_enabled:
             redis_conn = connect_to_redis()
             redis_conn.set(cache_key, value, ex=self.signed_url_cache_window)
+
+    def _cache_put_acl(self, key, value):
+        ''' Set an ACL value in the cache, with an appropriate expiry.
+        '''
+        cache_key = _get_cache_key(key)
+        redis_conn = connect_to_redis()
+        redis_conn.set(cache_key, value, ex=self.acl_cache_window)
 
     def _cache_delete(self, key):
         ''' Delete a value from the cache, if enabled.
@@ -227,7 +235,7 @@ class BaseS3Uploader(object):
             log.info("Successfully uploaded %s to S3!", filepath)
             self._cache_delete(filepath)
             self._cache_delete(filepath + VISIBILITY_CACHE_PATH + '/all')
-            self._cache_put(filepath + VISIBILITY_CACHE_PATH, acl)
+            self._cache_put_acl(filepath + VISIBILITY_CACHE_PATH, acl)
         except Exception as e:
             log.error('Something went very very wrong when uploading to [%s]: %s', filepath, e)
             raise e
@@ -260,7 +268,7 @@ class BaseS3Uploader(object):
             and grant['Grantee'].get('URI', '').endswith('AllUsers')
             for grant in client.get_object_acl(Bucket=self.bucket_name, Key=key)['Grants']
         ) else PRIVATE_ACL
-        self._cache_put(acl_key, acl)
+        self._cache_put_acl(acl_key, acl)
         return acl == PUBLIC_ACL
 
     def get_signed_url_to_key(self, key, extra_params={}):
@@ -307,7 +315,7 @@ class BaseS3Uploader(object):
         if is_public_read:
             url = url.split('?')[0] + '?ETag=' + metadata['ETag']
 
-        self._cache_put(key, url)
+        self._cache_put_url(key, url)
         return url
 
     def as_clean_dict(self, dict):
@@ -641,8 +649,8 @@ class S3ResourceUploader(BaseS3Uploader):
                 client.put_object_acl(
                     Bucket=self.bucket_name, Key=upload_key, ACL=acl)
                 self._cache_delete(upload_key)
-                self._cache_put(upload_key + VISIBILITY_CACHE_PATH, acl)
-        self._cache_put(current_key + VISIBILITY_CACHE_PATH + '/all', target_acl)
+                self._cache_put_acl(upload_key + VISIBILITY_CACHE_PATH, acl)
+        self._cache_put_acl(current_key + VISIBILITY_CACHE_PATH + '/all', target_acl)
 
     def upload(self, id, max_size=10):
         '''Upload the file to S3.'''

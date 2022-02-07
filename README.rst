@@ -130,6 +130,10 @@ Optional::
     ckanext.s3filestore.signed_url_expiry = 3600
     ckanext.s3filestore.signed_url_cache_window = 1800
 
+    # Control how long the ACL of an S3 object will be held in cache.
+    # Uploading a new file overrides this. Default is 86400.
+    ckanext.s3filestore.acl_cache_window = 2592000
+
     # Queue used by s3 plugin, if not set, default queue is used
     ckanext.s3filestore.queue = bulk
 
