@@ -24,7 +24,7 @@ from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as
 from ckan import model
 from ckan.plugins.toolkit import g
 
-from redis import RedisHelper
+from ckanext.s3filestore.redis_helper import RedisHelper
 
 if toolkit.check_ckan_version(min_version='2.7.0'):
     from werkzeug.datastructures import FileStorage as FlaskFileStorage

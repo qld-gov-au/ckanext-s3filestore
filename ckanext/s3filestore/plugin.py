@@ -11,7 +11,7 @@ from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload,\
 
 import ckanext.s3filestore.tasks as tasks
 
-from redis import RedisHelper
+from ckanext.s3filestore.redis_helper import RedisHelper
 
 LOG = logging.getLogger(__name__)
 
