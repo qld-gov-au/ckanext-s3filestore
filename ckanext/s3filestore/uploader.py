@@ -10,12 +10,14 @@ import os
 import re
 import six
 
+
 import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError
 import ckantoolkit as toolkit
 import ckan.lib.helpers as h
 from ckan.lib.redis import connect_to_redis
+from six.moves.urllib.parse import urlencode
 
 from ckan.common import g
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as DefaultUpload
@@ -306,7 +308,9 @@ class BaseS3Uploader(object):
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
 
         if is_public_read:
-            url = url.split('?')[0] + '?ETag=' + metadata['ETag']
+            #Ensure valid encoded url so newrelic does not complain
+            data = urlencode({'ETag': metadata['ETag'].replace("\"", "")}).encode('utr-8')
+            url = url.split('?')[0] + '?' + data
 
         self._cache_put(key, url)
         return url
