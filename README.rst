@@ -77,8 +77,15 @@ Optional::
     # The ckan storage path option must also be set correctly for the fallback to work
     ckan.storage_path = path/to/storage/directory
 
-    # An optional setting to change the acl of the uploaded files. Default public-read.
+    # An optional setting to change the ACL of the uploaded files.
+    # Default 'public-read'.
     ckanext.s3filestore.acl = private
+
+    # An optional setting to change the ACL of files previously uploaded
+    # for the resource under different names.
+    # 'auto' means use the same visibility as the current version.
+    # Default 'private'.
+    ckanext.s3filestore.non_current_acl = auto
 
     # An optional setting to control whether the ACLs of uploaded files
     # are updated immediately when the dataset is updated, or queued

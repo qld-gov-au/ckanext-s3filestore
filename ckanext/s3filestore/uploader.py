@@ -108,6 +108,7 @@ class BaseS3Uploader(object):
         self.signed_url_cache_window = int(config.get('ckanext.s3filestore.signed_url_cache_window', '1800'))
         self.signed_url_cache_enabled = self.signed_url_cache_window > 0 and self.signed_url_expiry > 0
         self.acl = config.get('ckanext.s3filestore.acl', PUBLIC_ACL)
+        self.non_current_acl = config.get('ckanext.s3filestore.non_current_acl', PRIVATE_ACL)
         self.addressing_style = config.get('ckanext.s3filestore.addressing_style', 'auto')
         if is_path_addressing():
             self.host_name = config.get('ckanext.s3filestore.host_name')
@@ -632,7 +633,7 @@ class S3ResourceUploader(BaseS3Uploader):
             if upload_key == current_key:
                 acl = target_acl
             else:
-                acl = 'private'
+                acl = self.non_current_acl
             is_public_read = self.is_key_public(upload_key)
             # if the ACL status doesn't match what we want, update it
             if (acl == PUBLIC_ACL) != is_public_read:
