@@ -44,35 +44,3 @@ def s3_afterUpdatePackage(ckan_ini_filepath=None, visibility_level=None, pkg_id=
         log.error('Error s3_afterUpdatePackage task: package_id=%r, visibility_level=%s stackTrace: %s',
                   pkg_id, visibility_level, e)
         raise
-
-
-def s3_afterUpdatePackageFailure(*args, **kwargs):
-    u'''
-    After Update a package Failure, notify pagerduty if plugin is installed
-
-    :param list args: List of arguments to be passed to the function.
-
-    :param dict kwargs: Dict of keyword arguments to be passed to the function.
-        Expected Args:
-        'visibility_level'  : boolean, what visability should be set
-        'pkg_id'            : package id for resources to update
-    '''
-
-    log.info('Starting s3_afterUpdatePackageFailure task: package_id=%r, visibility_level=%s', kwargs['pkg_id'], kwargs['visibility_level'])
-
-    # Do all work in a sub-routine so it can be tested without a job queue.
-    # Also put try/except around it, as it is easier to monitor CKAN's log
-    # rather than a queue's task status.
-    try:
-
-        plugin = p.get_plugin("pagerduty_notify")
-        if plugin is None:
-            return
-
-        plugin.notify(*args, **kwargs)
-        log.info('Finished s3_afterUpdatePackageFailure task: package_id=%r, visibility_level=%s', kwargs['pkg_id'], kwargs['visibility_level'])
-
-    except Exception as e:
-        # record in logs, don't raise so it is off queue
-        log.error('Error s3_afterUpdatePackage task: package_id=%r, visibility_level=%s stackTrace: %s',
-                  kwargs['pkg_id'], kwargs['visibility_level'], e)
