@@ -3,6 +3,8 @@
 import mock
 from parameterized import parameterized
 
+from ckan.tests import helpers
+
 from ckanext.s3filestore import tasks
 from ckanext.s3filestore.plugin import S3FileStorePlugin
 
@@ -44,6 +46,7 @@ class TestS3Plugin():
                 mock_uploader.update_visibility.assert_called_once_with(
                     'test-resource', target_acl=expected_acl)
 
+    @helpers.change_config('ckan.jobs.timeout', '123')
     def test_enqueueing_visibility_update(self):
         ''' Asynchronous job is created to update object visibility.
         '''
@@ -57,5 +60,6 @@ class TestS3Plugin():
                 func=tasks.s3_afterUpdatePackage,
                 args=[],
                 kwargs={'visibility_level': 'private', 'pkg_id': 'abcde'},
+                timeout=123,
                 ttl=86400
             )
