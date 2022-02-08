@@ -105,7 +105,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
             try:
                 self.enqueue_resource_visibility_update_job(visibility_level, pkg_id)
             except Exception as e:
-                LOG.debug("after_update: Could not enqueue due to [%s], doing inline", e)
+                LOG.debug("after_update: Failed to enqueue, updating inline. Error: [%s]", e)
                 async_update = False
         if not async_update:
             if 'resources' not in pkg_dict:
