@@ -3,7 +3,7 @@
 import mock
 from parameterized import parameterized
 
-from ckan.lib.jobs import DEFAULT_JOB_TIMEOUT
+import ckantoolkit as toolkit
 
 from ckanext.s3filestore import tasks
 from ckanext.s3filestore.plugin import S3FileStorePlugin
@@ -55,10 +55,29 @@ class TestS3Plugin():
         # check that the args were actually passed in
         with mock.patch('rq.Queue.enqueue_call') as enqueue_call:
             self.plugin.enqueue_resource_visibility_update_job('private', 'abcde')
-            enqueue_call.assert_called_once_with(
-                func=tasks.s3_afterUpdatePackage,
-                args=[],
-                kwargs={'visibility_level': 'private', 'pkg_id': 'abcde'},
-                timeout=DEFAULT_JOB_TIMEOUT,
-                ttl=86400
-            )
+            if toolkit.check_ckan_version(max_version='2.7.99'):
+                enqueue_call.assert_called_once_with(
+                    func=tasks.s3_afterUpdatePackage,
+                    args=[],
+                    kwargs={'visibility_level': 'private', 'pkg_id': 'abcde'}
+                )
+            else:
+                from ckan.lib.jobs import DEFAULT_JOB_TIMEOUT
+                if toolkit.check_ckan_version('2.9'):
+                    enqueue_call.assert_called_once_with(
+                        func=tasks.s3_afterUpdatePackage,
+                        args=[],
+                        kwargs={'visibility_level': 'private', 'pkg_id': 'abcde'},
+                        timeout=DEFAULT_JOB_TIMEOUT,
+                        ttl=86400,
+                        failure_ttl=86400,
+                        on_failure=tasks.s3_afterUpdatePackageFailure
+                    )
+                else:
+                    enqueue_call.assert_called_once_with(
+                        func=tasks.s3_afterUpdatePackage,
+                        args=[],
+                        kwargs={'visibility_level': 'private', 'pkg_id': 'abcde'},
+                        timeout=DEFAULT_JOB_TIMEOUT,
+                        ttl=86400
+                    )
