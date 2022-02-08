@@ -125,20 +125,21 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         LOG.debug("after_update_resource_list_update: Package %s has been updated, notifying resources finished", pkg_id)
 
     def enqueue_resource_visibility_update_job(self, visibility_level, pkg_id):
-        ttl = 24 * 60 * 60  # 24 hour ttl.
-        rq_kwargs = {
-            'ttl': ttl
-        }
-        if toolkit.check_ckan_version('2.9'):
-            rq_kwargs['on_failure'] = tasks.s3_afterUpdatePackageFailure
-            rq_kwargs['failure_ttl'] = ttl
 
         enqueue_args = {
             'fn': tasks.s3_afterUpdatePackage,
             'title': "s3_afterUpdatePackage: setting {} on {}".format(visibility_level, pkg_id),
             'kwargs': {'visibility_level': visibility_level, 'pkg_id': pkg_id},
-            'rq_kwargs': rq_kwargs,
         }
+        if toolkit.check_ckan_version('2.8'):
+            ttl = 24 * 60 * 60  # 24 hour ttl.
+            rq_kwargs = {
+                'ttl': ttl
+            }
+            if toolkit.check_ckan_version('2.9'):
+                rq_kwargs['failure_ttl'] = ttl
+            enqueue_args['rq_kwargs'] = rq_kwargs
+
         # Optional variable, if not set, default queue is used
         queue = toolkit.config.get('ckanext.s3filestore.queue', None)
         if queue:

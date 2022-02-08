@@ -70,8 +70,7 @@ class TestS3Plugin():
                         kwargs={'visibility_level': 'private', 'pkg_id': 'abcde'},
                         timeout=DEFAULT_JOB_TIMEOUT,
                         ttl=86400,
-                        failure_ttl=86400,
-                        on_failure=tasks.s3_afterUpdatePackageFailure
+                        failure_ttl=86400
                     )
                 else:
                     enqueue_call.assert_called_once_with(
