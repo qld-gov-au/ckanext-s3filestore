@@ -91,7 +91,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
 
         redis = RedisHelper()
         cache_private = redis.get(pkg_id + '/private')
-        redis.put(pkg_id + '/private', is_private_str)
+        redis.put(pkg_id + '/private', is_private_str, expiry=86400)
         # compare current and previous 'private' flags so we know
         # if visibility has changed
         if cache_private is not None and cache_private == is_private_str:
