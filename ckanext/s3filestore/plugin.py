@@ -95,7 +95,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         # compare current and previous 'private' flags so we know
         # if visibility has changed
         if cache_private is not None and cache_private == is_private_str:
-            LOG.debug("Package %s is already in correct state", pkg_id)
+            LOG.debug("Package %s privacy is unchanged", pkg_id)
             return
 
         # visibility has changed; update associated S3 objects
@@ -105,7 +105,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
             try:
                 self.enqueue_resource_visibility_update_job(visibility_level, pkg_id)
             except Exception as e:
-                LOG.debug("after_update: Could not enqueue due to %s, doing inline", e)
+                LOG.debug("after_update: Could not enqueue due to [%s], doing inline", e)
                 async_update = False
         if not async_update:
             if 'resources' not in pkg_dict:
@@ -125,25 +125,26 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         LOG.debug("after_update_resource_list_update: Package %s has been updated, notifying resources finished", pkg_id)
 
     def enqueue_resource_visibility_update_job(self, visibility_level, pkg_id):
-
-        args = [visibility_level, pkg_id]
-        kwargs = {
-            'args': args,
-            'title': "s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id,
-        }
-        title = "s3_afterUpdatePackage: setting " + visibility_level + " on " + pkg_id
+        ttl = 24 * 60 * 60  # 24 hour ttl.
         rq_kwargs = {
-            'on_failure': tasks.s3_afterUpdatePackageFailure,
-            'ttl': 24 * 60 * 60,  # 24 hour ttl.
-            'failure_ttl': 24 * 60 * 60,  # 24hours of 60mins of 60 seconds.
-            'title': title
+            'ttl': ttl
+        }
+        if toolkit.check_ckan_version('2.9'):
+            rq_kwargs['on_failure'] = tasks.s3_afterUpdatePackageFailure
+            rq_kwargs['failure_ttl'] = ttl
+
+        enqueue_args = {
+            'fn': tasks.s3_afterUpdatePackage,
+            'title': "s3_afterUpdatePackage: setting {} on {}".format(visibility_level, pkg_id),
+            'kwargs': {'visibility_level': visibility_level, 'pkg_id': pkg_id},
+            'rq_kwargs': rq_kwargs,
         }
         # Optional variable, if not set, default queue is used
         queue = toolkit.config.get('ckanext.s3filestore.queue', None)
         if queue:
-            kwargs['queue'] = queue
+            enqueue_args['queue'] = queue
 
-        toolkit.enqueue_job(fn=tasks.s3_afterUpdatePackage, args=args, kwargs=kwargs, title=title, queue=queue, rq_kwargs=rq_kwargs)
+        toolkit.enqueue_job(**enqueue_args)
         LOG.debug("enqueue_resource_visibility_update_job: Package %s has been enqueued",
                   pkg_id)
 
