@@ -6,3 +6,4 @@ httpretty==0.9.7
 parameterized==0.8.1
 pytest-cov
 pytest-ckan
+six>=1.13.0
