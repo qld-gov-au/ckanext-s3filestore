@@ -179,6 +179,39 @@ class S3FilestoreCommands():
 
         _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths)
 
+    def update_all_visibility(self):
+        if config.get('ckanext.s3filestore.acl', None) != 'auto':
+            print("ckanext.s3filestore.acl must be set to 'auto' to execute update_all_visibility")
+            return
+
+        print("Updating the visibility of all datasets")
+
+        packages_ids = []
+
+        with DBConnection(config) as connection:
+
+            packages = connection.execute(text('''
+                    SELECT distinct package_id
+                    FROM resource
+                    WHERE state = 'active'
+                    AND url IS NOT NULL
+                    AND url <> ''
+                    AND url_type = 'upload'
+                '''))
+
+            if packages.rowcount:
+                for package in packages:
+                    # package[0] is expected to be the id within the tuple
+                    packages_ids.append(package[0])
+            else:
+                print("No resources found to make visible")
+
+        for package_id in packages_ids:
+            try:
+                get_action('package_patch')(data_dict={'id': package_id}, context={'ignore_auth': True})
+            except Exception as e:
+                print("Unable to package_patch on package_id '{}', exception {} ".format(package_id, e))
+
 
 def _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths):
     AWS_BUCKET_NAME = config.get('ckanext.s3filestore.aws_bucket_name')

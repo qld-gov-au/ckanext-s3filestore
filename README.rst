@@ -77,8 +77,15 @@ Optional::
     # The ckan storage path option must also be set correctly for the fallback to work
     ckan.storage_path = path/to/storage/directory
 
-    # An optional setting to change the acl of the uploaded files. Default public-read.
+    # An optional setting to change the ACL of the uploaded files.
+    # Default 'public-read'.
     ckanext.s3filestore.acl = private
+
+    # An optional setting to change the ACL of files previously uploaded
+    # for the resource under different names.
+    # 'auto' means use the same visibility as the current version.
+    # Default 'private'.
+    ckanext.s3filestore.non_current_acl = auto
 
     # An optional setting to control whether the ACLs of uploaded files
     # are updated immediately when the dataset is updated, or queued
@@ -120,10 +127,30 @@ Optional::
     # The expiry should be longer than the window (not equal);
     # otherwise, a URL may expire before a new one is available.
     # If either value is zero or negative, then URL caching is disabled.
+    # 'public_url_cache_window': How long a public (unsigned) URL will be reused.
     ckanext.s3filestore.signed_url_expiry = 3600
     ckanext.s3filestore.signed_url_cache_window = 1800
+    ckanext.s3filestore.public_url_cache_window = 86400
 
-    # Queue used by s3 plugin, if not set, default queue is used
+    # Control how long the ACL of an S3 object will be held in cache.
+    # Uploading a new file overrides this. Default is 86400 (24 hours).
+    ckanext.s3filestore.acl_cache_window = 2592000
+
+    # If set, then prior objects uploaded not matching current filename for a
+    #  resource may be deleted after the specified number of days from uploaded date.
+    # If less than zero, nothing is deleted. Defaults to -1.
+    #
+    # I.e. delete_non_current_days is set to 90 days
+    #  If resource was uploaded 91 days ago, it will be marked for deletion
+    #  If resource was uploaded 10 days ago, it will be deleted after 80 days time
+    #    until next job on dataset/resource is run.
+    #
+    # Note: If S3 Versioning is enabled, then file can be recovered per external policy.
+    #          Similar to same filename being used.
+    #       If S3 Versioning is not enabled, then file is not recoverable.
+    ckanext.s3filestore.delete_non_current_days = 90
+
+    # Queue used by s3 plugin, if not set, `default` queue is used
     ckanext.s3filestore.queue = bulk
 
 

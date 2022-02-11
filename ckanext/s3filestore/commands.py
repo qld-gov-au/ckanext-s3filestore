@@ -12,6 +12,10 @@ class TestConnection(toolkit.CkanCommand, S3FilestoreCommands):
 
     Usage:
 
+        s3 update-all-visibility
+
+            Updates the visibility of all existing S3 objects to match current config
+
         s3 check-config
 
             Checks if the configuration entered in the ini file is correct
@@ -43,6 +47,8 @@ class TestConnection(toolkit.CkanCommand, S3FilestoreCommands):
         self._load_config()
         if self.args[0] == 'check-config':
             self.check_config()
+        elif self.args[0] == 'update-all-visibility':
+            self.update_all_visibility()
         elif self.args[0] == 'upload':
             if len(self.args) < 2 or self.args[1] == 'all':
                 self.upload_all()

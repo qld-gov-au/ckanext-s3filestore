@@ -3,6 +3,9 @@
 import mock
 from parameterized import parameterized
 
+import ckantoolkit as toolkit
+
+from ckanext.s3filestore import tasks
 from ckanext.s3filestore.plugin import S3FileStorePlugin
 
 
@@ -27,7 +30,7 @@ class TestS3Plugin():
         (False, 'public-read')
     ])
     def test_package_after_update(self, is_private, expected_acl):
-        '''S3 object visibility is updated to match package'''
+        ''' S3 object visibility is updated to match package'''
         pkg_dict = {'id': 'test-package',
                     'resources': [{'id': 'test-resource'}]}
         if is_private is not None:
@@ -42,3 +45,38 @@ class TestS3Plugin():
                 self.plugin.after_update({}, pkg_dict)
                 mock_uploader.update_visibility.assert_called_once_with(
                     'test-resource', target_acl=expected_acl)
+
+    def test_enqueueing_visibility_update(self):
+        ''' Asynchronous job is created to update object visibility.
+        '''
+        # ensure that we don't trigger errors
+        self.plugin.enqueue_resource_visibility_update_job('private', 'abcde')
+
+        # check that the args were actually passed in
+        with mock.patch('rq.Queue.enqueue_call') as enqueue_call:
+            self.plugin.enqueue_resource_visibility_update_job('private', 'abcde')
+            if toolkit.check_ckan_version(max_version='2.7.99'):
+                enqueue_call.assert_called_once_with(
+                    func=tasks.s3_afterUpdatePackage,
+                    args=[],
+                    kwargs={'visibility_level': 'private', 'pkg_id': 'abcde'}
+                )
+            else:
+                from ckan.lib.jobs import DEFAULT_JOB_TIMEOUT
+                if toolkit.check_ckan_version('2.9'):
+                    enqueue_call.assert_called_once_with(
+                        func=tasks.s3_afterUpdatePackage,
+                        args=[],
+                        kwargs={'visibility_level': 'private', 'pkg_id': 'abcde'},
+                        timeout=DEFAULT_JOB_TIMEOUT,
+                        ttl=86400,
+                        failure_ttl=86400
+                    )
+                else:
+                    enqueue_call.assert_called_once_with(
+                        func=tasks.s3_afterUpdatePackage,
+                        args=[],
+                        kwargs={'visibility_level': 'private', 'pkg_id': 'abcde'},
+                        timeout=DEFAULT_JOB_TIMEOUT,
+                        ttl=86400
+                    )
