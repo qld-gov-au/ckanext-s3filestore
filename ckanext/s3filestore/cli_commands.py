@@ -199,7 +199,16 @@ def _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths):
             print("{} is already in S3, skipping".format(key))
             continue
         except ClientError:
-            s3_connection.put_object(Bucket=AWS_BUCKET_NAME, Key=key, Body=open(resource_ids_and_paths[resource_id]), ACL=AWS_S3_ACL)
+            upload_file = open(resource_ids_and_paths[resource_id])
+
+            acl = AWS_S3_ACL
+            if acl == 'auto':
+                package_id = get_action('resource_show')({'ignore_auth': True}, {'id': resource_id})['package_id']
+                package = get_action('package_show')({'ignore_auth': True}, {'id': package_id})
+                acl = 'private' if package['private'] else 'public-read'
+
+            print("Uploading {} to S3 bucket {} under key {} with ACL {}".format(upload_file, AWS_BUCKET_NAME, key, acl))
+            s3_connection.put_object(Bucket=AWS_BUCKET_NAME, Key=key, Body=upload_file, ACL=acl)
             uploaded_resources.append(resource_id)
             print('Uploaded resource {0} ({1}) to S3'.format(resource_id, file_name))
             try:
