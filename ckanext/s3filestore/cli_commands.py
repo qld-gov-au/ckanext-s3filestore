@@ -112,12 +112,14 @@ class S3FilestoreCommands():
         print('{0} resources matched on the database'.format(
             len(resource_ids_and_names.keys())))
 
-        BASE_PATH = config.get('ckan.storage_path', '/var/lib/ckan/default/resources')
+        BASE_PATH = os.path.join(config.get('ckan.storage_path', '/var/lib/ckan/default/'), 'resources')
         resource_ids_and_paths = {}
         for resource_id in resource_ids_and_names.keys():
-            path = '{}/{}/{}/{}'.format(BASE_PATH, resource_id[0:2], resource_id[3:5], resource[6:])
+            path = '{}/{}/{}/{}'.format(BASE_PATH, resource_id[0:3], resource_id[3:6], resource_id[6:])
             if os.path.isfile(path):
                 resource_ids_and_paths[resource_id] = path
+            else:
+                print("[{}] not found on the file system".format(path))
 
         print('Found {0} resource files in the file system'.format(
             len(resource_ids_and_paths.keys())))
