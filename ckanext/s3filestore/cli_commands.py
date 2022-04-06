@@ -6,9 +6,9 @@ import sys
 
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
-from ckan.plugins.toolkit import config
+from ckan.lib import munge
+from ckan.plugins.toolkit import config, get_action, ValidationError
 from ckanext.s3filestore import uploader
-from ckan.logic import get_action, ValidationError
 from ckanext.s3filestore.uploader import get_s3_session, S3FileStoreException
 
 
@@ -190,6 +190,7 @@ def _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths):
     context = {'ignore_auth': True}
     uploaded_resources = []
     for resource_id, file_name in resource_ids_and_names.iteritems():
+        file_name = munge.munge_filename(file_name)
         key = 'resources/{resource_id}/{file_name}'.format(
             resource_id=resource_id, file_name=file_name)
 
