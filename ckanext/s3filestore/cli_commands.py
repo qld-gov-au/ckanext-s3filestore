@@ -6,9 +6,9 @@ import sys
 
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
-from ckan.plugins.toolkit import config
+from ckan.lib import munge
+from ckan.plugins.toolkit import config, get_action, ValidationError
 from ckanext.s3filestore import uploader
-from ckan.logic import get_action, ValidationError
 from ckanext.s3filestore.uploader import get_s3_session, S3FileStoreException
 
 
@@ -112,12 +112,14 @@ class S3FilestoreCommands():
         print('{0} resources matched on the database'.format(
             len(resource_ids_and_names.keys())))
 
-        BASE_PATH = config.get('ckan.storage_path', '/var/lib/ckan/default/resources')
+        BASE_PATH = os.path.join(config.get('ckan.storage_path', '/var/lib/ckan/default/'), 'resources')
         resource_ids_and_paths = {}
         for resource_id in resource_ids_and_names.keys():
-            path = '{}/{}/{}/{}'.format(BASE_PATH, resource_id[0:2], resource_id[3:5], resource[6:])
+            path = '{}/{}/{}/{}'.format(BASE_PATH, resource_id[0:3], resource_id[3:6], resource_id[6:])
             if os.path.isfile(path):
                 resource_ids_and_paths[resource_id] = path
+            else:
+                print("[{}] not found on the file system".format(path))
 
         print('Found {0} resource files in the file system'.format(
             len(resource_ids_and_paths.keys())))
@@ -221,6 +223,7 @@ def _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths):
     context = {'ignore_auth': True}
     uploaded_resources = []
     for resource_id, file_name in resource_ids_and_names.iteritems():
+        file_name = munge.munge_filename(file_name)
         key = 'resources/{resource_id}/{file_name}'.format(
             resource_id=resource_id, file_name=file_name)
 
@@ -229,7 +232,16 @@ def _upload_files_to_s3(resource_ids_and_names, resource_ids_and_paths):
             print("{} is already in S3, skipping".format(key))
             continue
         except ClientError:
-            s3_connection.put_object(Bucket=AWS_BUCKET_NAME, Key=key, Body=open(resource_ids_and_paths[resource_id]), ACL=AWS_S3_ACL)
+            upload_file = open(resource_ids_and_paths[resource_id])
+
+            acl = AWS_S3_ACL
+            if acl == 'auto':
+                package_id = get_action('resource_show')({'ignore_auth': True}, {'id': resource_id})['package_id']
+                package = get_action('package_show')({'ignore_auth': True}, {'id': package_id})
+                acl = 'private' if package['private'] else 'public-read'
+
+            print("Uploading {} to S3 bucket {} under key {} with ACL {}".format(upload_file, AWS_BUCKET_NAME, key, acl))
+            s3_connection.put_object(Bucket=AWS_BUCKET_NAME, Key=key, Body=upload_file, ACL=acl)
             uploaded_resources.append(resource_id)
             print('Uploaded resource {0} ({1}) to S3'.format(resource_id, file_name))
             try:
