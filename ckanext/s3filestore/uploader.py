@@ -78,14 +78,6 @@ def _get_object_age_days(upload):
     return (datetime.datetime.now(timezone.utc) - upload['LastModified']).days
 
 
-def _get_package(resource_id):
-    context = {'ignore_auth': True}
-    resource = toolkit.get_action('resource_show')(
-        context=context, data_dict={'id': resource_id})
-    return toolkit.get_action('package_show')(
-        context=context, data_dict={'id': resource['package_id']})
-
-
 class S3FileStoreException(Exception):
     pass
 
@@ -570,6 +562,16 @@ class S3ResourceUploader(BaseS3Uploader):
             self.old_filename = old_resource.url
             resource['url_type'] = ''
 
+    def _get_package(self, resource_id=None):
+        context = {'ignore_auth': True}
+        if resource_id:
+            resource = toolkit.get_action('resource_show')(
+                context=context, data_dict={'id': resource_id})
+        else:
+            resource = self.resource
+        return toolkit.get_action('package_show')(
+            context=context, data_dict={'id': resource.get('package_id')})
+
     def get_path(self, id, filename=None):
         '''Return the key used for this resource in S3.
 
@@ -590,7 +592,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
     def _get_target_acl(self, resource_id):
         if self.acl == 'auto':
-            package = _get_package(resource_id)
+            package = self._get_package(resource_id)
             return PRIVATE_ACL if package['private'] else PUBLIC_ACL
         else:
             return self.acl
@@ -669,7 +671,7 @@ class S3ResourceUploader(BaseS3Uploader):
         to be added to the S3 object.
         '''
         username = g.user if 'user' in dir(g) else '__anonymous__'
-        package = _get_package(self.resource['id'])
+        package = self._get_package()
         metadata = {
             'package_' + field: ensure_ascii(package[field]) for field in package.keys()
             if field != 'notes' and isinstance(package[field], six.string_types)
