@@ -78,6 +78,14 @@ def _get_object_age_days(upload):
     return (datetime.datetime.now(timezone.utc) - upload['LastModified']).days
 
 
+def _get_package(resource_id):
+    context = {'ignore_auth': True}
+    resource = toolkit.get_action('resource_show')(
+        context=context, data_dict={'id': resource_id})
+    return toolkit.get_action('package_show')(
+        context=context, data_dict={'id': resource['package_id']})
+
+
 class S3FileStoreException(Exception):
     pass
 
@@ -582,7 +590,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
     def _get_target_acl(self, resource_id):
         if self.acl == 'auto':
-            package = toolkit.get_action('package_show')({'ignore_auth': True}, {'id': self.resource['package_id']})
+            package = _get_package(resource_id)
             return PRIVATE_ACL if package['private'] else PUBLIC_ACL
         else:
             return self.acl
@@ -661,8 +669,7 @@ class S3ResourceUploader(BaseS3Uploader):
         to be added to the S3 object.
         '''
         username = g.user if 'user' in dir(g) else '__anonymous__'
-        package = toolkit.get_action('package_show')(
-            context={'ignore_auth': True}, data_dict={'id': self.resource['package_id']})
+        package = _get_package(self.resource['id'])
         metadata = {
             'package_' + field: ensure_ascii(package[field]) for field in package.keys()
             if field != 'notes' and isinstance(package[field], six.string_types)
