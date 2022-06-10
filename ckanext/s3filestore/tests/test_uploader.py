@@ -219,6 +219,27 @@ class TestS3ResourceUploader():
         data = obj['Body'].read()
         assert_equal(data, io.open(file_path, 'rb').read())
 
+    def test_package_update(self):
+        ''' Test a typical package_update API call.
+        '''
+        dataset = self._test_dataset()
+        test_resource = self._upload_test_resource(dataset)
+        pkg_dict = helpers.call_action('package_show', id=dataset['id'])
+        # package_update calls won't necessarily provide package ID
+        # on each resource
+        for resource in pkg_dict['resources']:
+            resource['description'] = 'updated description'
+            del resource['package_id']
+
+        helpers.call_action(
+            'package_update',
+            context={'user': self.sysadmin['name']},
+            **pkg_dict
+        )
+        assert helpers.call_action(
+            'resource_show', id=test_resource['id']
+        )['description'] == 'updated description'
+
     def test_uploader_get_path(self):
         '''Uploader get_path returns as expected'''
         dataset = factories.Dataset()
