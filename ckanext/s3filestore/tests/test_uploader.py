@@ -190,18 +190,18 @@ class TestS3ResourceUploader():
             author=author,
             owner_org=self.organisation['id'])
 
-    def _upload_test_resource(self, dataset=None):
+    def _upload_test_resource(self, dataset=None, filename='data.csv'):
         ''' Creates a test resource in the specified dataset
         by uploading a file.
         '''
         if not dataset:
             dataset = self._test_dataset()
-        file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
+        file_path = os.path.join(os.path.dirname(__file__), filename)
         return helpers.call_action(
             'resource_create',
             package_id=dataset['id'],
             upload=FlaskFileStorage(io.open(file_path, 'rb')),
-            url='data.csv')
+            url=filename)
 
     def test_resource_upload(self):
         '''Test a basic resource file upload'''
@@ -498,6 +498,11 @@ class TestS3ResourceUploader():
                 uploader.upload(resource['id'])
                 mock_upload_to_key.assert_not_called()
                 mock_update_visibility.assert_called_once_with(resource['id'])
+
+    def test_detect_office_document_type(self):
+        dataset = self._test_dataset()
+        resource = self._upload_test_resource(dataset, 'example.docx')
+        assert_equal(resource['mimetype'], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
 
     if toolkit.check_ckan_version(max_version='2.8.99'):
 
