@@ -542,8 +542,18 @@ class S3ResourceUploader(BaseS3Uploader):
             self.mimetype = resource.get('mimetype')
             if not self.mimetype:
                 try:
-                    # 512 bytes should be enough for a mimetype check
-                    self.mimetype = resource['mimetype'] = mime.from_buffer(self.upload_file.read(512))
+                    try:
+                        # Get type from file extension if we recognise it
+                        self.mimetype = mimetypes.guess_type(self.filename, strict=False)[0]
+                    except Exception:
+                        pass
+                    if not self.mimetype:
+                        try:
+                            # 2048 bytes are needed to detect Office docs
+                            self.mimetype = mime.from_buffer(self.upload_file.read(2048))
+                        except Exception:
+                            pass
+                    resource['mimetype'] = self.mimetype
 
                     # additional check on text/plain mimetypes for
                     # more reliable result, if None continue with text/plain
