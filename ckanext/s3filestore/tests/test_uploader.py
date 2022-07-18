@@ -207,6 +207,7 @@ class TestS3ResourceUploader():
         '''Test a basic resource file upload'''
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
         resource = self._upload_test_resource()
+        assert_equal(resource['mimetype'], 'text/csv')
 
         key = _get_object_key(resource)
 
