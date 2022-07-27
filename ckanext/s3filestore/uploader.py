@@ -436,7 +436,7 @@ class S3Uploader(BaseS3Uploader):
 
         try:
             url = self.get_signed_url_to_key(key)
-            h.redirect_to(url)
+            return h.redirect_to(url)
         except ClientError as ex:
             if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                 if config.get(
@@ -720,7 +720,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
         try:
             url = self.get_signed_url_to_key(key_path)
-            h.redirect_to(url)
+            return h.redirect_to(url)
         except ClientError as ex:
             if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                 # attempt fallback
