@@ -68,7 +68,7 @@ jobs:
           - "5000"
 
       solr:
-        image: ckan/ckan-solr-dev:${{ matrix.ckan-version }}
+        image: ckan/ckan-solr:${{ matrix.ckan-version }}
 
     env:
       CKAN_SQLALCHEMY_URL: postgresql://ckan_default:pass@postgresql/ckan_test
