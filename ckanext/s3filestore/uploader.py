@@ -1,6 +1,5 @@
 # encoding: utf-8
 
-import cgi
 import datetime
 import errno
 import logging
@@ -26,11 +25,15 @@ from ckan.plugins.toolkit import g
 
 from ckanext.s3filestore.redis_helper import RedisHelper
 
-if toolkit.check_ckan_version(min_version='2.7.0'):
-    from werkzeug.datastructures import FileStorage as FlaskFileStorage
-    ALLOWED_UPLOAD_TYPES = (cgi.FieldStorage, FlaskFileStorage)
+if toolkit.check_ckan_version(min_version='2.8'):
+    from ckan.lib.uploader import ALLOWED_UPLOAD_TYPES
 else:
-    ALLOWED_UPLOAD_TYPES = (cgi.FieldStorage)
+    from cgi import FieldStorage
+    if toolkit.check_ckan_version(min_version='2.7.0'):
+        from werkzeug.datastructures import FileStorage as FlaskFileStorage
+        ALLOWED_UPLOAD_TYPES = (FieldStorage, FlaskFileStorage)
+    else:
+        ALLOWED_UPLOAD_TYPES = (FieldStorage)
 
 config = toolkit.config
 log = logging.getLogger(__name__)
@@ -46,7 +49,7 @@ PRIVATE_ACL = 'private'
 
 
 def _get_underlying_file(wrapper):
-    if isinstance(wrapper, FlaskFileStorage):
+    if hasattr(wrapper, 'stream'):
         return wrapper.stream
     return wrapper.file
 
