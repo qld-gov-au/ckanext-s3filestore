@@ -365,7 +365,7 @@ class S3Uploader(BaseS3Uploader):
             self.filename = self.upload_field_storage.filename
             if not self.preserve_filename:
                 self.filename = str(datetime.datetime.utcnow()) + self.filename
-            self.filename = munge.munge_filename_legacy(self.filename)
+            self.filename = munge.munge_filename(self.filename)
             self.filepath = os.path.join(self.storage_path, self.filename)
             if hasattr(self.upload_field_storage, 'mimetype'):
                 self.mimetype = self.upload_field_storage.mimetype
@@ -412,7 +412,7 @@ class S3Uploader(BaseS3Uploader):
 
     def delete(self, filename):
         ''' Delete file we are pointing at'''
-        filename = munge.munge_filename_legacy(filename)
+        filename = munge.munge_filename(filename)
         key_path = os.path.join(self.storage_path, filename)
         try:
             self.clear_key(key_path)
@@ -427,7 +427,7 @@ class S3Uploader(BaseS3Uploader):
         downloading the uploaded file from S3.
         '''
 
-        filename = munge.munge_filename_legacy(filename)
+        filename = munge.munge_filename(filename)
         key = os.path.join(self.storage_path, filename)
 
         if filename is None:
@@ -455,7 +455,7 @@ class S3Uploader(BaseS3Uploader):
         Returns a dict that includes 'ContentType', 'ContentLength', 'Hash', and 'LastModified',
         and may include other keys depending on the implementation.
         '''
-        filename = munge.munge_filename_legacy(filename)
+        filename = munge.munge_filename(filename)
         key_path = os.path.join(self.storage_path, filename)
 
         if filename is None:
