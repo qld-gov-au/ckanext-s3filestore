@@ -340,7 +340,7 @@ class S3Uploader(BaseS3Uploader):
         return os.path.join(path, 'storage', 'uploads', upload_to)
 
     def update_data_dict(self, data_dict, url_field, file_field, clear_field):
-        log.debug("ckanext.s3filestore.uploader: update_data_dic: %s, url %s, file %s, clear %s",
+        log.debug("ckanext.s3filestore.uploader: update_data_dict: %s, url %s, file %s, clear %s",
                   data_dict, url_field, file_field, clear_field)
         '''Manipulate data from the data_dict. This needs to be called before it
         reaches any validators.
@@ -389,8 +389,8 @@ class S3Uploader(BaseS3Uploader):
                 data_dict[url_field] = ''
         else:
             log.debug(
-                "ckanext.s3filestore.uploader: is not allowed upload type: filename: %s, upload_file: %s, data_dict: %s",
-                self.filename, self.upload_file, data_dict)
+                "ckanext.s3filestore.uploader: is not allowed upload type: upload_field_storage: %s, data_dict: %s",
+                self.upload_field_storage, data_dict)
 
     def upload(self, max_size=2):
         log.debug(
