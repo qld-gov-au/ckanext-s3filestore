@@ -32,19 +32,9 @@ def setup_function(self):
 
 
 def _test_org():
-    try:
-        return helpers.call_action('organization_show', id='test-org')
-    except toolkit.ObjectNotFound:
-        user = factories.Sysadmin()
-        context = {
-            u"user": user["name"]
-        }
-        return helpers.call_action(
-            'organization_create',
-            context=context,
-            name=u"test-org",
-            upload_field_name="image_upload",
-            image_upload=FlaskFileStorage(six.BytesIO(b"\0\0\0"), u"image.png"))
+    return factories.Organization(image_upload=FlaskFileStorage(
+        six.BytesIO(b"\0\0\0"), filename=u"image.png", name=u"upload",
+        content_type="application/octet-stream", content_length=3))
 
 
 @with_setup(setup_function, teardown_function)
