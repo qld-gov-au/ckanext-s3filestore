@@ -62,13 +62,18 @@ class TestS3Plugin():
                     kwargs={'visibility_level': 'private', 'pkg_id': 'abcde'}
                 )
             else:
-                from ckan.lib.jobs import DEFAULT_JOB_TIMEOUT
+                if toolkit.check_ckan_version('2.10'):
+                    timeout = toolkit.config.normalized('ckan.jobs.timeout')
+                else:
+                    from ckan.lib.jobs import DEFAULT_JOB_TIMEOUT
+                    timeout = DEFAULT_JOB_TIMEOUT
+
                 if toolkit.check_ckan_version('2.9'):
                     enqueue_call.assert_called_once_with(
                         func=tasks.s3_afterUpdatePackage,
                         args=[],
                         kwargs={'visibility_level': 'private', 'pkg_id': 'abcde'},
-                        timeout=DEFAULT_JOB_TIMEOUT,
+                        timeout=timeout,
                         ttl=86400,
                         failure_ttl=86400
                     )
@@ -77,6 +82,6 @@ class TestS3Plugin():
                         func=tasks.s3_afterUpdatePackage,
                         args=[],
                         kwargs={'visibility_level': 'private', 'pkg_id': 'abcde'},
-                        timeout=DEFAULT_JOB_TIMEOUT,
+                        timeout=timeout,
                         ttl=86400
                     )

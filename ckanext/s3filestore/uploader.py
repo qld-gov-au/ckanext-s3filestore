@@ -1,6 +1,5 @@
 # encoding: utf-8
 
-import cgi
 import datetime
 import errno
 import logging
@@ -26,11 +25,15 @@ from ckan.plugins.toolkit import g
 
 from ckanext.s3filestore.redis_helper import RedisHelper
 
-if toolkit.check_ckan_version(min_version='2.7.0'):
-    from werkzeug.datastructures import FileStorage as FlaskFileStorage
-    ALLOWED_UPLOAD_TYPES = (cgi.FieldStorage, FlaskFileStorage)
+if toolkit.check_ckan_version(min_version='2.8'):
+    from ckan.lib.uploader import ALLOWED_UPLOAD_TYPES
 else:
-    ALLOWED_UPLOAD_TYPES = (cgi.FieldStorage)
+    from cgi import FieldStorage
+    if toolkit.check_ckan_version(min_version='2.7.0'):
+        from werkzeug.datastructures import FileStorage as FlaskFileStorage
+        ALLOWED_UPLOAD_TYPES = (FieldStorage, FlaskFileStorage)
+    else:
+        ALLOWED_UPLOAD_TYPES = (FieldStorage)
 
 config = toolkit.config
 log = logging.getLogger(__name__)
@@ -46,7 +49,7 @@ PRIVATE_ACL = 'private'
 
 
 def _get_underlying_file(wrapper):
-    if isinstance(wrapper, FlaskFileStorage):
+    if hasattr(wrapper, 'stream'):
         return wrapper.stream
     return wrapper.file
 
@@ -337,7 +340,7 @@ class S3Uploader(BaseS3Uploader):
         return os.path.join(path, 'storage', 'uploads', upload_to)
 
     def update_data_dict(self, data_dict, url_field, file_field, clear_field):
-        log.debug("ckanext.s3filestore.uploader: update_data_dic: %s, url %s, file %s, clear %s",
+        log.debug("ckanext.s3filestore.uploader: update_data_dict: %s, url %s, file %s, clear %s",
                   data_dict, url_field, file_field, clear_field)
         '''Manipulate data from the data_dict. This needs to be called before it
         reaches any validators.
@@ -365,7 +368,7 @@ class S3Uploader(BaseS3Uploader):
             self.filename = self.upload_field_storage.filename
             if not self.preserve_filename:
                 self.filename = str(datetime.datetime.utcnow()) + self.filename
-            self.filename = munge.munge_filename_legacy(self.filename)
+            self.filename = munge.munge_filename(self.filename)
             self.filepath = os.path.join(self.storage_path, self.filename)
             if hasattr(self.upload_field_storage, 'mimetype'):
                 self.mimetype = self.upload_field_storage.mimetype
@@ -386,8 +389,8 @@ class S3Uploader(BaseS3Uploader):
                 data_dict[url_field] = ''
         else:
             log.debug(
-                "ckanext.s3filestore.uploader: is not allowed upload type: filename: %s, upload_file: %s, data_dict: %s",
-                self.filename, self.upload_file, data_dict)
+                "ckanext.s3filestore.uploader: is not allowed upload type: upload_field_storage: %s, data_dict: %s",
+                self.upload_field_storage, data_dict)
 
     def upload(self, max_size=2):
         log.debug(
@@ -412,7 +415,7 @@ class S3Uploader(BaseS3Uploader):
 
     def delete(self, filename):
         ''' Delete file we are pointing at'''
-        filename = munge.munge_filename_legacy(filename)
+        filename = munge.munge_filename(filename)
         key_path = os.path.join(self.storage_path, filename)
         try:
             self.clear_key(key_path)
@@ -427,7 +430,7 @@ class S3Uploader(BaseS3Uploader):
         downloading the uploaded file from S3.
         '''
 
-        filename = munge.munge_filename_legacy(filename)
+        filename = munge.munge_filename(filename)
         key = os.path.join(self.storage_path, filename)
 
         if filename is None:
@@ -455,7 +458,7 @@ class S3Uploader(BaseS3Uploader):
         Returns a dict that includes 'ContentType', 'ContentLength', 'Hash', and 'LastModified',
         and may include other keys depending on the implementation.
         '''
-        filename = munge.munge_filename_legacy(filename)
+        filename = munge.munge_filename(filename)
         key_path = os.path.join(self.storage_path, filename)
 
         if filename is None:

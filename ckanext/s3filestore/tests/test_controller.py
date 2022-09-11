@@ -6,9 +6,7 @@ import os
 import requests
 import six
 
-from nose.tools import (assert_equal,
-                        assert_in,
-                        with_setup)
+from nose.tools import (with_setup)
 
 from werkzeug.datastructures import FileStorage as FlaskFileStorage
 
@@ -28,7 +26,7 @@ log = logging.getLogger(__name__)
 def setup_function(self):
     self.sysadmin = factories.Sysadmin(apikey="my-test-key")
 
-    assert_equal(config.get('ckanext.s3filestore.signature_version'), 's3v4')
+    assert config.get('ckanext.s3filestore.signature_version') == 's3v4'
     self.bucket_name = config.get(u'ckanext.s3filestore.aws_bucket_name')
     uploader.BaseS3Uploader().get_s3_bucket(self.bucket_name)
 
@@ -67,24 +65,24 @@ class TestS3Controller(object):
 
         site_url = config.get('ckan.site_url')
         resource = self._upload_resource()
-        assert_in('url', resource)
+        assert 'url' in resource
 
         # does resource_show have the expected resource file url?
         resource_show = helpers.call_action('resource_show', id=resource['id'])
-        assert_in('url', resource_show)
+        assert 'url' in resource_show
 
         expected_url = site_url + '/dataset/{0}/resource/{1}/download/data.csv' \
             .format(resource['package_id'], resource['id'])
 
-        assert_equal(resource['url'], expected_url)
-        assert_equal(resource_show['url'], expected_url)
+        assert resource['url'] == expected_url
+        assert resource_show['url'] == expected_url
 
     def test_resource_download_s3(self):
         '''A resource uploaded to S3 can be downloaded.'''
 
         resource = self._upload_resource()
         resource_show = helpers.call_action('resource_show', id=resource['id'])
-        assert_in('url', resource_show)
+        assert 'url' in resource_show
         location = resource_show['url']
 
         status_code, location = self._get_expecting_redirect(location)
@@ -95,8 +93,8 @@ class TestS3Controller(object):
             content_type = file_response.content_type
         else:
             content_type = file_response.headers.get('Content-Type')
-        assert_equal(content_type, "text/csv")
-        assert_in('date,price', _get_response_body(file_response))
+        assert content_type == "text/csv"
+        assert 'date,price' in _get_response_body(file_response)
 
     def test_resource_download_wrong_filename(self):
         '''A resource downloaded with the wrong filename gives 404.'''
@@ -108,7 +106,7 @@ class TestS3Controller(object):
         app = helpers._get_test_app()
         file_response = app.get(resource_file_url, expect_errors=True)
         log.info("ckanext.s3filestore.tests: response is: %s", file_response)
-        assert_equal(_get_status_code(file_response), 404)
+        assert _get_status_code(file_response) == 404
 
     def test_resource_download_s3_no_filename(self):
         '''A resource uploaded to S3 can be downloaded when no filename in
@@ -123,7 +121,7 @@ class TestS3Controller(object):
         file_response = requests.get(location)
         log.info("ckanext.s3filestore.tests: response is: {0}, {1}".format(location, file_response))
 
-        assert_in('date,price', _get_response_body(file_response))
+        assert 'date,price' in _get_response_body(file_response)
 
     def test_resource_download_url_link(self):
         '''A resource with a url (not file) is redirected correctly.'''
@@ -134,13 +132,13 @@ class TestS3Controller(object):
             package_id=dataset['id'],
             url='http://example')
         resource_show = helpers.call_action('resource_show', id=resource['id'])
-        assert_equal(resource_show['url'], 'http://example')
+        assert resource_show['url'] == 'http://example'
 
         resource_file_url = '/dataset/{0}/resource/{1}/download' \
             .format(resource['package_id'], resource['id'])
         # attempt redirect to linked url
         status_code, location = self._get_expecting_redirect(resource_file_url)
-        assert_equal(location, 'http://example')
+        assert location == 'http://example'
 
     def test_resource_download_url(self):
         u'''The resource url is expected for uploaded resource file.'''
@@ -199,8 +197,8 @@ class TestS3Controller(object):
                 app = helpers._get_test_app()
             response = app.get(url, follow_redirects=False)
             status_code = _get_status_code(response)
-            assert_in(status_code, [301, 302],
-                      "%s resulted in %s instead of a redirect" % (url, response.status))
+            assert status_code in [301, 302], \
+                "%s resulted in %s instead of a redirect" % (url, response.status)
             return status_code, response.location
 
         def test_resource_download(self):
@@ -254,8 +252,8 @@ class TestS3Controller(object):
                 app = helpers._get_test_app()
             response = app.get(url)
             status_code = _get_status_code(response)
-            assert_in(status_code, [301, 302],
-                      "%s resulted in %s instead of a redirect" % (url, response.status))
+            assert status_code in [301, 302], \
+                "%s resulted in %s instead of a redirect" % (url, response.status)
             return status_code, response.headers['Location']
 
         def test_resource_upload_with_url_and_clear(self):
