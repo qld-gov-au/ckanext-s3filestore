@@ -54,17 +54,6 @@ def _get_underlying_file(wrapper):
     return wrapper.file
 
 
-def is_path_addressing():
-    if config.get('ckanext.s3filestore.download_proxy'):
-        return False
-    configured_style = config.get('ckanext.s3filestore.addressing_style', 'auto')
-    if configured_style == 'path':
-        return True
-    if configured_style == 'auto':
-        return config.get('ckanext.s3filestore.signature_version') == 's3v4'
-    return False
-
-
 def ensure_ascii(text):
     """ Returns a version of the specified text that contains
     only ASCII characters. 'text' should be UTF-8 encoded.
@@ -118,10 +107,11 @@ class BaseS3Uploader(object):
         self.acl = config.get('ckanext.s3filestore.acl', PUBLIC_ACL)
         self.non_current_acl = config.get('ckanext.s3filestore.non_current_acl', PRIVATE_ACL)
         self.addressing_style = config.get('ckanext.s3filestore.addressing_style', 'auto')
-        if is_path_addressing():
-            self.host_name = config.get('ckanext.s3filestore.host_name')
-        else:
-            self.host_name = None
+        # Fall back to standard endpoint if not specified.
+        # NB Boto will automatically add bucket name and key to the endpoint,
+        # according to the addressing style in use.
+        self.host_name = config.get('ckanext.s3filestore.host_name',
+                                    'https://s3.{}.amazonaws.com'.format(self.region))
         self.redis = RedisHelper()
 
     def get_directory(self, id, storage_path):
