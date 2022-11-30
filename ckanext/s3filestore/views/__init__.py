@@ -8,6 +8,7 @@ from botocore.exceptions import ClientError
 from ckan import model
 from ckan.lib import uploader
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload
+from ckan.plugins import toolkit
 from ckan.plugins.toolkit import abort, config, _, g, get_action,\
     NotAuthorized, ObjectNotFound, url_for, redirect_to
 
@@ -36,8 +37,14 @@ def resource_download(id, resource_id, filename=None):
     elif rsc.get('url_type') == 'upload':
         upload = uploader.get_resource_uploader(rsc)
 
+        db_filename = os.path.basename(rsc['url'])
         if filename is None:
-            filename = os.path.basename(rsc['url'])
+            filename = db_filename
+        else:
+            # verify they should be able to see older file version
+            if filename != db_filename and not _user_has_admin_access(True):
+                filename = db_filename
+
         key_path = upload.get_path(rsc['id'], filename)
 
         if filename is None:
@@ -114,3 +121,18 @@ def uploaded_file_redirect(upload_to, filename):
             raise ex
 
     return redirect_to(url)
+
+
+def _user_has_admin_access(include_editor_access):
+    user = toolkit.c.userobj
+    # If user is "None" - they are not logged in.
+    if user is None:
+        return False
+    if user.sysadmin:
+        return True
+
+    groups_admin = user.get_groups('organization', 'admin')
+    groups_editor = user.get_groups('organization', 'editor') if include_editor_access else []
+    groups_list = groups_admin + groups_editor
+    organisation_list = [g for g in groups_list if g.type == 'organization']
+    return len(organisation_list) > 0
