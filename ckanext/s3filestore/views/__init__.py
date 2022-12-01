@@ -85,7 +85,11 @@ def filesystem_resource_download(id, resource_id, filename=None):
         except NotAuthorized:
             return abort(401, _('Unauthorised to read resource %s') % resource_id)
         upload = DefaultResourceUpload(rsc)
-        return upload.download(rsc['id'], filename)
+        try:
+            return upload.download(rsc['id'], filename)
+        except (IOError, OSError):
+            # probably file not found
+            return abort(404, _('Resource data not found'))
     else:
         try:
             from ckan.views.resource import download
