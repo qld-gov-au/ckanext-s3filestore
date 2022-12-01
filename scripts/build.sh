@@ -12,9 +12,8 @@ if [ "$CKAN_GIT_ORG" != "ckan" ]; then
 #  PIP_SRC=${SRC_DIR}
   pushd ${APP_DIR}
     echo "pip install -e git+https://github.com/${CKAN_GIT_ORG}/ckan.git@${CKAN_GIT_VERSION}#egg=ckan"
-    echo "do manually as its already a git pip installed module"
+    echo "update manually as its already a git pip installed module"
     sudo git config --global --add safe.directory "$SRC_DIR/ckan"
-    #sudo pip install -e git+https://github.com/${CKAN_GIT_ORG}/ckan.git@${CKAN_GIT_VERSION}#egg=ckan
   popd
 
   pushd ${SRC_DIR}/ckan
@@ -35,4 +34,5 @@ pip install -r requirements.txt
 pip install -r dev-requirements.txt
 pip install -e .
 # Replace default path to CKAN core config file with the one on the container
-sed -i -e 's/use = config:.*/use = config:\/srv\/app\/src\/ckan\/test-core.ini/' test.ini
+sed -i -e "s|use = config:.*|use = config:${SRC_DIR}/ckan/test-core.ini|" test.ini
+
