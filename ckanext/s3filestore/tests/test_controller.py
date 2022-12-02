@@ -58,6 +58,7 @@ class TestS3Controller(object):
             'resource_create',
             package_id=dataset['id'],
             upload=FlaskFileStorage(io.open(file_path, 'rb')))
+
         return resource
 
     def test_resource_show_url(self):
