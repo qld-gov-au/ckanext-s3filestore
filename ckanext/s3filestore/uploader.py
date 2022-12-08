@@ -496,7 +496,10 @@ class S3ResourceUploader(BaseS3Uploader):
 
         super(S3ResourceUploader, self).__init__()
 
+        # Allow incoming filenames to lookup files vs what is in the database
         self.use_filename = toolkit.asbool(config.get('ckanext.s3filestore.use_filename', False))
+        # Restrict non-current files to group/sysadmin's only (set to false so everyone can retrive old files)
+        self.restrict_non_current = toolkit.asbool(config.get('ckanext.s3filestore.restrict_non_current', True))
         self.delete_non_current_days = int(config.get('ckanext.s3filestore.delete_non_current_days', '-1'))
         path = config.get('ckanext.s3filestore.aws_storage_path', '')
         self.storage_path = os.path.join(path, 'resources')
@@ -698,20 +701,24 @@ class S3ResourceUploader(BaseS3Uploader):
                         key_path, self.bucket_name)
             pass
 
-    def download(self, id, filename=None):
+    def download(self, id, filename=None):  # TODO: rename id to resource_id
         '''
         Provide a download by either redirecting the user to the url stored or
         downloading the uploaded file from S3.
         '''
+        db_filename = os.path.basename(self.url)
 
         if not self.use_filename or filename is None:
+            filename = db_filename
+
+        # If Restrict flag is true, default to db filename.
+        if self.restrict_non_current and \
+                filename != db_filename and \
+                not self._user_has_admin_access(True):
             filename = os.path.basename(self.url)
+
         filename = munge.munge_filename(filename)
         key_path = self.get_path(id, filename)
-
-        if filename is None:
-            log.warning("Key '%s' not found in bucket '%s'",
-                        filename, self.bucket_name)
 
         try:
             url = self.get_signed_url_to_key(key_path)
@@ -780,3 +787,17 @@ class S3ResourceUploader(BaseS3Uploader):
 
             # Uploader interface does not know about s3 errors
             raise OSError(errno.ENOENT)
+
+    def _user_has_admin_access(self, include_editor_access):
+        user = toolkit.c.userobj
+        # If user is "None" - they are not logged in.
+        if user is None:
+            return False
+        if user.sysadmin:
+            return True
+
+        groups_admin = user.get_groups('organization', 'admin')
+        groups_editor = user.get_groups('organization', 'editor') if include_editor_access else []
+        groups_list = groups_admin + groups_editor
+        organisation_list = [g for g in groups_list if g.type == 'organization']
+        return len(organisation_list) > 0

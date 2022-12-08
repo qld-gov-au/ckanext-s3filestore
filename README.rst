@@ -117,6 +117,14 @@ Optional::
     # Defaults to False.
     ckanext.s3filestore.use_filename = True
 
+    # To allow non-admin's to see previously uploaded files
+    # Since s3 files which have filenames replaced, old files can still be
+    # looked up, setting this to false will allow everyone to find old files
+    # If True, only group admins and sysadmins can download previous files
+    # The newest file will be served even if old file is requested.
+    # If False, the filename will be used when use_filename is true.
+    ckanext.s3filestore.restrict_non_current = False (Default True)
+
     # To mask the S3 endpoint with your own domain/endpoint when serving URLs to end users.
     # This endpoint should be capable of serving S3 objects as if it were an actual bucket.
     # The real S3 endpoint will still be used for uploading files.
