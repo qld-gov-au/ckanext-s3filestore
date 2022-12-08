@@ -97,8 +97,8 @@ class TestS3Controller(object):
         assert content_type == "text/csv"
         assert 'date,price' in _get_response_body(file_response)
 
-    def test_resource_download_wrong_filename(self):
-        '''A resource downloaded with the wrong filename gives 404.'''
+    def test_resource_download_wrong_filename_as_sysadmin(self):
+        '''A resource downloaded with the wrong filename gives 404 as Sysadmin.'''
 
         resource = self._upload_resource()
         resource_file_url = '/dataset/{0}/resource/{1}/fs_download/foo.txt' \
@@ -108,6 +108,29 @@ class TestS3Controller(object):
         file_response = app.get(resource_file_url, expect_errors=True)
         log.info("ckanext.s3filestore.tests: response is: %s", file_response)
         assert _get_status_code(file_response) == 404
+
+    def test_resource_download_wrong_filename_as_anon(self):
+        '''A resource downloaded with the wrong filename gives 404 as Anon.'''
+
+        resource = self._upload_resource()
+        resource_file_url = '/dataset/{0}/resource/{1}/fs_download/foo.txt' \
+            .format(resource['package_id'], resource['id'])
+
+        app = helpers._get_test_app()
+        # provide REMOTE_ADDR to identify as remote user, see
+        # ckan.views.identify_user() for details
+        file_response = app.get(resource_file_url,
+                                extra_environ={'REMOTE_ADDR': '127.0.0.1'},
+                                expect_errors=False)
+        log.info("ckanext.s3filestore.tests: response is: %s", file_response)
+        assert _get_status_code(file_response) != 404
+
+        if hasattr(file_response, 'content_type'):
+            content_type = file_response.content_type
+        else:
+            content_type = file_response.headers.get('Content-Type')
+        assert content_type == "text/csv"
+        assert 'date,price' in _get_response_body(file_response)
 
     def test_resource_download_s3_no_filename(self):
         '''A resource uploaded to S3 can be downloaded when no filename in
