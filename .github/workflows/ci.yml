@@ -43,10 +43,10 @@ jobs:
             ckan-git-version: 'ckan-2.8.8-qgov.5'
             ckan-git-org: 'qld-gov-au'
           - ckan-version: '2.9'
-            ckan-git-version: 'ckan-2.9.5-qgov.9'
+            ckan-git-version: 'ckan-2.9.5-qgov.10'
             ckan-git-org: 'qld-gov-au'
           - ckan-version: '2.9'
-            ckan-git-version: 'ckan-2.9.7-qgov'
+            ckan-git-version: 'qgov-master-2.9.7'
             ckan-git-org: 'qld-gov-au'
 
       fail-fast: false
