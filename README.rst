@@ -18,7 +18,9 @@ Use Amazon S3 or Minio<https://minio.io/> as a filestore for resources.
 Requirements
 ------------
 
-Requires CKAN 2.8+
+Requires CKAN 2.7+
+
+GitHub Actions tested: 2.7, 2.8, 2.9, 2.10
 
 
 ------------
