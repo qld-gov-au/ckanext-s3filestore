@@ -259,6 +259,8 @@ class BaseS3Uploader(object):
         try:
             metadata = client.head_object(Bucket=self.bucket_name, Key=key)
         except ClientError:
+            log.warning("Key '%s' not found in bucket '%s'",
+                        key, self.bucket_name)
             raise toolkit.ObjectNotFound("Unable to retrieve metadata for object [{}]".format(key))
 
         # check whether the object is publicly readable
@@ -717,11 +719,23 @@ class S3ResourceUploader(BaseS3Uploader):
         except ClientError as ex:
             if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
                 # attempt fallback
-                default_resource_upload = DefaultResourceUpload(self.resource)
-                return default_resource_upload.download(id, self.filename)
-            else:
-                # Controller will raise 404 for us
-                raise OSError(errno.ENOENT)
+                if config.get(
+                        'ckanext.s3filestore.filesystem_download_fallback',
+                        False):
+                    log.info('Attempting filesystem fallback for resource %s',
+                             id)
+                    url = h.url_for(
+                        u's3_resource.filesystem_resource_download',
+                        id=id,
+                        resource_id=id,
+                        filename=filename)
+                    return h.redirect_to(url)
+
+            # else:
+            #     # Controller will raise 404 for us
+            log.info('Exception raised id: %s key_path: %s',
+                     id, key_path, ex)
+            raise OSError(errno.ENOENT)
 
     def metadata(self, id, filename=None):
         if filename is None:
