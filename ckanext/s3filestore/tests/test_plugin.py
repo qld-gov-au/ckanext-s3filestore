@@ -63,7 +63,7 @@ class TestS3Plugin():
                 )
             else:
                 if toolkit.check_ckan_version('2.10'):
-                    timeout = toolkit.config.get_value('ckan.jobs.timeout')
+                    timeout = toolkit.config.get('ckan.jobs.timeout')
                 else:
                     from ckan.lib.jobs import DEFAULT_JOB_TIMEOUT
                     timeout = DEFAULT_JOB_TIMEOUT
