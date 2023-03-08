@@ -11,7 +11,7 @@ s3_uploads = Blueprint(
     __name__
 )
 
-
+# Intercept the uploaded file links (e.g. group images)
 s3_uploads.add_url_rule(u'/uploads/<upload_to>/<filename>', view_func=uploaded_file_redirect)
 
 
