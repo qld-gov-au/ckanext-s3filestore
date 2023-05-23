@@ -437,7 +437,7 @@ class S3Uploader(BaseS3Uploader):
                 if config.get(
                         'ckanext.s3filestore.filesystem_download_fallback',
                         False):
-                    log.info('Attempting filesystem fallback for resource %s', id)
+                    log.info('Attempting filesystem fallback for resource %s', filename)
                     default_upload = DefaultUpload(self.upload_to)
                     return default_upload.download(filename)
 
@@ -470,7 +470,7 @@ class S3Uploader(BaseS3Uploader):
                 if config.get(
                         'ckanext.s3filestore.filesystem_download_fallback',
                         False):
-                    log.info('Attempting filesystem fallback for resource %s', id)
+                    log.info('Attempting filesystem fallback for resource %s', filename)
 
                     default_upload = DefaultUpload(self.upload_to)
                     return default_upload.metadata(filename)
