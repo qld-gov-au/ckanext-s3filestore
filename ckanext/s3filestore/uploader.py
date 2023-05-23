@@ -115,7 +115,7 @@ class BaseS3Uploader(object):
         self.redis = RedisHelper()
 
     def get_directory(self, id, storage_path):
-        directory = os.path.join(storage_path, id)
+        directory = os.path.join(storage_path, munge.munge_filename(id))
         return directory
 
     def _get_s3_config(self):
