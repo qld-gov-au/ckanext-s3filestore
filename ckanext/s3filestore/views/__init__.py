@@ -11,7 +11,7 @@ from ckan.common import request
 
 from ckanext.s3filestore import uploader
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload
-from ckan.plugins.toolkit import abort, _, g, get_action,\
+from ckan.plugins.toolkit import abort, _, g, get_action, \
     NotAuthorized, ObjectNotFound, redirect_to
 
 from ckanext.s3filestore.uploader import S3Uploader, BaseS3Uploader

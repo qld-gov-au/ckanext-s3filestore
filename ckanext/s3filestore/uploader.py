@@ -660,7 +660,7 @@ class S3ResourceUploader(BaseS3Uploader):
             filepath = self.get_path(id, self.filename)
             self.upload_to_key(filepath, self.upload_file, acl=self._get_target_acl(id),
                                extra_metadata=self._get_resource_metadata())
-        self.update_visibility(id)
+            self.update_visibility(id)
 
         # The resource form only sets self.clear (via the input clear_upload)
         # to True when an uploaded file is not replaced by another uploaded
