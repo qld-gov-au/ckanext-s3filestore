@@ -498,7 +498,7 @@ class TestS3ResourceUploader():
                     mock.patch('ckanext.s3filestore.uploader.S3ResourceUploader.upload_to_key') as mock_upload_to_key:
                 uploader.upload(resource['id'])
                 mock_upload_to_key.assert_not_called()
-                mock_update_visibility.assert_called_once_with(resource['id'])
+                mock_update_visibility.assert_not_called()
 
     def test_detect_office_document_type(self):
         dataset = self._test_dataset()
