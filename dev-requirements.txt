@@ -1,3 +1,4 @@
+mock
 moto==5.0.1
 ckanapi==4.3
 flask>2
