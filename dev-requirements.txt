@@ -1,5 +1,6 @@
 moto==5.0.1
 ckanapi==4.3
+flask-login==0.6.3
 
 #1.0.2 is python3 only
 httpretty==0.9.7
