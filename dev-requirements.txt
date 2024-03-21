@@ -1,9 +1,18 @@
-moto==2.0.1
+mock
+moto==5.0.1
 ckanapi==4.3
+flask>2,<2.1
+flask-login==0.6.3
 
 #1.0.2 is python3 only
 httpretty==0.9.7
+jinja2>=3
 parameterized==0.8.1
 pytest-cov
 pytest-ckan
 six>=1.13.0
+certifi>=2023.7.22 # not directly required, pinned by Snyk to avoid a vulnerability
+cryptography>=41.0.6 # not directly required, pinned by Snyk to avoid a vulnerability
+requests>=2.31.0 # not directly required, pinned by Snyk to avoid a vulnerability
+rsa>=4.7 # not directly required, pinned by Snyk to avoid a vulnerability
+werkzeug>=2.2.3,<3 # not directly required, pinned by Snyk to avoid a vulnerability
