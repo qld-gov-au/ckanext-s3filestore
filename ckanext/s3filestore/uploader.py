@@ -332,8 +332,6 @@ class S3Uploader(BaseS3Uploader):
         return os.path.join(path, 'storage', 'uploads', upload_to)
 
     def update_data_dict(self, data_dict, url_field, file_field, clear_field):
-        log.debug("ckanext.s3filestore.uploader: update_data_dict: %s, url %s, file %s, clear %s",
-                  data_dict, url_field, file_field, clear_field)
         '''Manipulate data from the data_dict. This needs to be called before it
         reaches any validators.
 
@@ -371,8 +369,8 @@ class S3Uploader(BaseS3Uploader):
                     pass
             data_dict[url_field] = self.filename
             self.upload_file = _get_underlying_file(self.upload_field_storage)
-            log.debug("ckanext.s3filestore.uploader: is allowed upload type: filename: %s, upload_file: %s, data_dict: %s",
-                      self.filename, self.upload_file, data_dict)
+            log.debug("ckanext.s3filestore.uploader: is allowed upload type: filename: %s, upload_file: %s",
+                      self.filename, self.upload_file)
         # keep the file if there has been no change
         elif self.old_filename and not self.old_filename.startswith('http'):
             if not self.clear:
@@ -381,8 +379,8 @@ class S3Uploader(BaseS3Uploader):
                 data_dict[url_field] = ''
         else:
             log.debug(
-                "ckanext.s3filestore.uploader: is not allowed upload type: upload_field_storage: %s, data_dict: %s",
-                self.upload_field_storage, data_dict)
+                "ckanext.s3filestore.uploader: is not allowed upload type: upload_field_storage: %s",
+                self.upload_field_storage)
 
     def upload(self, max_size=2):
         log.debug(
@@ -647,6 +645,7 @@ class S3ResourceUploader(BaseS3Uploader):
                 log.debug("Updating ACL for object %s to %s", upload_key, acl)
                 client.put_object_acl(
                     Bucket=self.bucket_name, Key=upload_key, ACL=acl)
+                # Drop the cached URL since it will likely need to change
                 self.redis.delete(upload_key)
                 self.redis.put(upload_key + VISIBILITY_CACHE_PATH, acl, expiry=self.acl_cache_window)
         self.redis.put(current_key + VISIBILITY_CACHE_PATH + '/all', target_acl, expiry=self.acl_cache_window)
