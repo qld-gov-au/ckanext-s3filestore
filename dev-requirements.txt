@@ -8,3 +8,4 @@ pytest-cov
 pytest-ckan
 six>=1.13.0
 urllib3>=1.26.19 # not directly required, pinned to avoid a vulnerability
+zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability

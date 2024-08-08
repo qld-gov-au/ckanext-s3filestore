@@ -36,17 +36,14 @@ jobs:
     needs: code_quality
     strategy:
       matrix:
-        ckan-version: ['2.10', '2.9', '2.9-py2', '2.8', '2.7']
+        ckan-version: ['2.10', '2.9']
         ckan-git-org: ['ckan']
         include:
-          - ckan-version: '2.8'
-            ckan-git-version: 'ckan-2.8.8-qgov.5'
+          - ckan-version: '2.9'
+            ckan-git-version: 'ckan-2.9.9-qgov.4'
             ckan-git-org: 'qld-gov-au'
           - ckan-version: '2.9'
-            ckan-git-version: 'ckan-2.9.5-qgov.10'
-            ckan-git-org: 'qld-gov-au'
-          - ckan-version: '2.9'
-            ckan-git-version: 'qgov-master-2.9.7'
+            ckan-git-version: 'qgov-master-2.9.9'
             ckan-git-org: 'qld-gov-au'
 
       fail-fast: false
