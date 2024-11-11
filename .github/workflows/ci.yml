@@ -37,6 +37,7 @@ jobs:
     strategy:
       matrix:
         ckan-version: ['2.11', '2.10', '2.9']
+        experimental: [false]
         ckan-git-org: ['ckan']
         include:
           - ckan-version: '2.9'
@@ -45,6 +46,10 @@ jobs:
           - ckan-version: '2.9'
             ckan-git-version: 'qgov-master-2.9.9'
             ckan-git-org: 'qld-gov-au'
+          - ckan-version: 'master'
+            ckan-git-org: 'ckan'
+            ckan-git-version: 'master'
+            experimental: true  #master is unstable, good to know if we are compatible or not
 
       fail-fast: false
 
@@ -101,17 +106,18 @@ jobs:
         timeout-minutes: 2
 
       - name: Install requirements
+        continue-on-error: ${{ matrix.experimental }}
         run: |
           chmod u+x ./scripts/*
           ./scripts/build.sh
         timeout-minutes: 15
 
       - name: Setup CKAN
-        run: |
-          ./scripts/init.sh
+        continue-on-error: ${{ matrix.experimental }}
+        run: ./scripts/init.sh
         timeout-minutes: 15
 
       - name: Run tests
-        run: |
-          ./scripts/test.sh
+        continue-on-error: ${{ matrix.experimental }}
+        run: ./scripts/test.sh
         timeout-minutes: 30
