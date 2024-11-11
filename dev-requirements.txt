@@ -1,9 +1,8 @@
-moto==2.0.1
+moto==5.0.20
 ckanapi==4.3
 
-#1.0.2 is python3 only
-httpretty==0.9.7
-parameterized==0.8.1
+httpretty==1.1.4
+parameterized==0.9.0
 pytest-cov
 pytest-ckan
 six>=1.13.0
