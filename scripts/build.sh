@@ -4,6 +4,9 @@
 #
 set -ex
 
+if [ "$CKAN_VERSION" = "2.9" ]; then
+    pip install "setuptools>=44.1.0,<71"
+fi
 if [ "$CKAN_GIT_ORG" != "ckan" ]; then
   SRC_DIR=/srv/app/src
   APP_DIR=/srv/app
