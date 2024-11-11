@@ -1,6 +1,9 @@
 # encoding: utf-8
 
-import mock
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 from parameterized import parameterized
 
 import ckantoolkit as toolkit
@@ -11,7 +14,7 @@ from ckanext.s3filestore.plugin import S3FileStorePlugin
 
 class TestS3Plugin():
 
-    def setup(self):
+    def setup_method(self, test_method):
         self.plugin = S3FileStorePlugin()
 
     def test_update_config(self):

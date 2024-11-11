@@ -6,7 +6,7 @@ import os
 import requests
 import six
 
-from nose.tools import (with_setup)
+import pytest
 
 from werkzeug.datastructures import FileStorage as FlaskFileStorage
 
@@ -18,17 +18,9 @@ from ckan.tests import factories
 
 from ckanext.s3filestore import uploader
 
-from . import _get_status_code, _get_response_body, teardown_function
+from . import _get_status_code, _get_response_body
 
 log = logging.getLogger(__name__)
-
-
-def setup_function(self):
-    self.sysadmin = factories.Sysadmin(apikey="my-test-key")
-
-    assert config.get('ckanext.s3filestore.signature_version') == 's3v4'
-    self.bucket_name = config.get(u'ckanext.s3filestore.aws_bucket_name')
-    uploader.BaseS3Uploader().get_s3_bucket(self.bucket_name)
 
 
 def _test_org():
@@ -47,8 +39,15 @@ def _test_org():
             image_upload=FlaskFileStorage(six.BytesIO(b"\0\0\0"), u"image.png"))
 
 
-@with_setup(setup_function, teardown_function)
+@pytest.mark.usefixtures("clean_db", "with_plugins")
 class TestS3Controller(object):
+
+    def setup_method(self, test_method):
+        self.sysadmin = factories.Sysadmin(apikey="my-test-key")
+
+        assert config.get('ckanext.s3filestore.signature_version') == 's3v4'
+        self.bucket_name = config.get(u'ckanext.s3filestore.aws_bucket_name')
+        uploader.BaseS3Uploader().get_s3_bucket(self.bucket_name)
 
     def _upload_resource(self):
         dataset = factories.Dataset(name="my-dataset")
