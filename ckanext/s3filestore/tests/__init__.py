@@ -1,7 +1,5 @@
 # encoding: utf-8
 
-from ckan.tests import helpers
-
 
 def _get_status_code(response):
     """ Get the status code from a HTTP response.
@@ -20,7 +18,3 @@ def _get_response_body(response):
         return response.text
     else:
         return response.body
-
-
-def teardown_function(self=None):
-    helpers.reset_db()

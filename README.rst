@@ -215,7 +215,7 @@ apt-get install sudo systemd postgresql-10 git python python-pip
 export PGVERSION=10 && export CKAN_BRANCH=qgov-master && export CKAN_GIT_REPO=qld-gov-au/ckan
 cd /build
 bash bin/travis-build.bash
-nosetests --ckan  --with-pylons=subdir/test.ini --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests
+pytest --ckan-ini=test.ini --cov=ckanext.s3filestore
 
 ---------------------------------------
 Registering ckanext-s3filestore on PyPI

@@ -11,11 +11,11 @@ jobs:
   code_quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         timeout-minutes: 2
 
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.x'
         timeout-minutes: 5
@@ -36,7 +36,7 @@ jobs:
     needs: code_quality
     strategy:
       matrix:
-        ckan-version: ['2.10', '2.9']
+        ckan-version: ['2.11', '2.10', '2.9']
         ckan-git-org: ['ckan']
         include:
           - ckan-version: '2.9'
@@ -50,7 +50,7 @@ jobs:
 
     name: CKAN ${{ matrix.ckan-version }} ${{ matrix.ckan-git-org }} ${{ matrix.ckan-git-version }}
     container:
-      image: openknowledge/ckan-dev:${{ matrix.ckan-version }}
+      image: ckan/ckan-dev:${{ matrix.ckan-version }}
 
     services:
       postgresql:
@@ -83,7 +83,7 @@ jobs:
           - "5000"
 
       solr:
-        image: ckan/ckan-solr:${{ matrix.ckan-version }}
+        image: ckan/ckan-solr:${{ matrix.ckan-version }}-solr9
 
     env:
       CKAN_SQLALCHEMY_URL: postgresql://ckan_default:pass@postgresql/ckan_test
