@@ -121,3 +121,9 @@ jobs:
         continue-on-error: ${{ matrix.experimental }}
         run: ./scripts/test.sh
         timeout-minutes: 30
+
+      - name: Test Summary
+        uses: test-summary/action@v2
+        with:
+          paths: "/tmp/artifacts/junit/results.xml"
+        if: always()
