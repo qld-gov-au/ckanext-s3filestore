@@ -123,6 +123,9 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
 
         LOG.debug("after_update_resource_list_update: Package %s has been updated, notifying resources", pkg_id)
         for resource in pkg_dict['resources']:
+            if 'id' not in resource:
+                # skip new resources as they would already have correct visibility
+                continue
             uploader = get_resource_uploader(resource)
             if hasattr(uploader, 'update_visibility'):
                 uploader.update_visibility(
