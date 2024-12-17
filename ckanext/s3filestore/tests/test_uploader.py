@@ -5,14 +5,12 @@ import io
 import os
 import six
 
-import mock
-from nose.tools import (assert_equal,
-                        assert_true,
-                        assert_false,
-                        assert_in,
-                        assert_is_none,
-                        assert_raises,
-                        with_setup)
+try:
+    from unittest import mock
+except ImportError:
+    import mock
+
+import pytest
 
 from botocore.exceptions import ClientError
 
@@ -45,10 +43,6 @@ def _setup_function(self):
     uploader.get_s3_bucket(self.bucket_name)
 
 
-def _resource_setup_function(self):
-    _setup_function(self)
-
-
 def _get_object_key(resource):
     ''' Determine the S3 object key for the specified resource.
     '''
@@ -58,34 +52,36 @@ def _get_object_key(resource):
 
 
 def _assert_public(resource, url, uploader):
-    assert_false(_is_presigned_url(url), "Expected {} [{}] to use public URL but was {}".format(
-        resource, uploader.get_path(resource['id']), url))
+    assert not _is_presigned_url(url), "Expected {} [{}] to use public URL but was {}".format(
+        resource, uploader.get_path(resource['id']), url)
 
 
 def _assert_private(resource, url, uploader):
-    assert_true(_is_presigned_url(url), "Expected {} [{}] to use private URL but was {}".format(
-        resource, uploader.get_path(resource['id']), url))
+    assert _is_presigned_url(url), "Expected {} [{}] to use private URL but was {}".format(
+        resource, uploader.get_path(resource['id']), url)
 
 
-@with_setup(_setup_function)
 class TestS3Uploader():
+
+    def setup_method(self, test_method):
+        _setup_function(self)
 
     def test_get_bucket(self):
         '''S3Uploader retrieves bucket as expected'''
         uploader = S3Uploader('')
-        assert_true(uploader.get_s3_bucket(self.bucket_name))
+        assert uploader.get_s3_bucket(self.bucket_name)
 
     def test_clean_dict(self):
         '''S3Uploader retrieves bucket as expected'''
         uploader = S3Uploader('')
         date_dict = {'key': datetime.datetime(1970, 1, 2, 3, 4, 5, 6)}
         clean_dict = uploader.as_clean_dict(date_dict)
-        assert_equal(clean_dict['key'], '1970-01-02T03:04:05.000006')
+        assert clean_dict['key'] == '1970-01-02T03:04:05.000006'
 
     def test_uploader_storage_path(self):
         '''S3Uploader get_storage_path returns as expected'''
         returned_path = S3Uploader.get_storage_path('myfiles')
-        assert_equal(returned_path, 'my-path/storage/uploads/myfiles')
+        assert returned_path == 'my-path/storage/uploads/myfiles'
 
     def test_group_image_upload(self):
         '''Test a group image file upload'''
@@ -116,9 +112,9 @@ class TestS3Uploader():
         # attempt redirect to linked url
         image_file_url = '/uploads/group/2001-01-29-000000{0}'.format(file_name)
         status_code, location = self._get_expecting_redirect(self.app, image_file_url)
-        assert_equal(location.split('?')[0],
-                     '{0}/my-bucket/my-path/storage/uploads/group/2001-01-29-000000{1}'
-                     .format(self.endpoint_url, file_name))
+        assert location.split('?')[0] == \
+            '{0}/my-bucket/my-path/storage/uploads/group/2001-01-29-000000{1}'.format(
+                self.endpoint_url, file_name)
 
     def test_group_image_upload_then_clear(self):
         '''Test that clearing an upload removes the S3 key'''
@@ -153,18 +149,18 @@ class TestS3Uploader():
         try:
             self.s3.head_object(Bucket=self.bucket_name, Key=key)
             # broken by https://github.com/ckan/ckan/commit/48afb9da4d
-            # assert_false(True, "file '{}' should not exist".format(key))
+            # assert False, "file '{}' should not exist".format(key)
         except ClientError:
             # passed
-            assert_true(True, "passed")
+            assert True, "passed"
 
     if toolkit.check_ckan_version('2.9'):
 
         def _get_expecting_redirect(self, app, url):
             response = app.get(url, follow_redirects=False)
             status_code = _get_status_code(response)
-            assert_in(status_code, [301, 302],
-                      "%s resulted in %s instead of a redirect" % (url, status_code))
+            assert status_code in [301, 302], \
+                "%s resulted in %s instead of a redirect" % (url, status_code)
             return status_code, response.location
 
     else:
@@ -172,13 +168,15 @@ class TestS3Uploader():
         def _get_expecting_redirect(self, app, url):
             response = app.get(url)
             status_code = _get_status_code(response)
-            assert_in(status_code, [301, 302],
-                      "%s resulted in %s instead of a redirect" % (url, status_code))
+            assert status_code in [301, 302], \
+                "%s resulted in %s instead of a redirect" % (url, status_code)
             return status_code, response.headers['Location']
 
 
-@with_setup(_resource_setup_function)
 class TestS3ResourceUploader():
+
+    def setup_method(self, test_method):
+        _setup_function(self)
 
     def _test_dataset(self, private=False, title='Test Dataset', author='test'):
         ''' Creates a test dataset.
@@ -207,7 +205,7 @@ class TestS3ResourceUploader():
         '''Test a basic resource file upload'''
         file_path = os.path.join(os.path.dirname(__file__), 'data.csv')
         resource = self._upload_test_resource()
-        assert_equal(resource['mimetype'], 'text/csv')
+        assert resource['mimetype'] == 'text/csv'
 
         key = _get_object_key(resource)
 
@@ -218,7 +216,7 @@ class TestS3ResourceUploader():
         # test the file contains what's expected
         obj = self.s3.get_object(Bucket=self.bucket_name, Key=key)
         data = obj['Body'].read()
-        assert_equal(data, io.open(file_path, 'rb').read())
+        assert data == io.open(file_path, 'rb').read()
 
     def test_package_update(self):
         ''' Test a typical package_update API call.
@@ -248,13 +246,12 @@ class TestS3ResourceUploader():
 
         uploader = S3ResourceUploader(resource)
         returned_path = uploader.get_path(resource['id'], 'myfile.txt')
-        assert_equal(returned_path,
-                     'my-path/resources/{0}/myfile.txt'.format(resource['id']))
+        assert returned_path == 'my-path/resources/{0}/myfile.txt'.format(resource['id'])
 
     def test_is_presigned_url(self):
         ''' Tests that presigned URLs are correctly recognised.'''
-        assert_true(_is_presigned_url('https://example.s3.amazonaws.com/resources/foo?AWSAccessKeyId=SomeKey&Expires=9999999999Signature=hb7%2F%2Bz1H%2B8wdEy0pCsX7bZG%2BuPU%3D'))
-        assert_false(_is_presigned_url('https://example.s3.amazonaws.com/resources/foo'))
+        assert _is_presigned_url('https://example.s3.amazonaws.com/resources/foo?AWSAccessKeyId=SomeKey&Expires=9999999999Signature=hb7%2F%2Bz1H%2B8wdEy0pCsX7bZG%2BuPU%3D')
+        assert not _is_presigned_url('https://example.s3.amazonaws.com/resources/foo')
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
     def test_resource_url_unsigned_for_public_dataset(self):
@@ -267,7 +264,7 @@ class TestS3ResourceUploader():
         url = uploader.get_signed_url_to_key(key)
 
         _assert_public(resource, url, uploader)
-        assert_in('ETag=', url)
+        assert 'ETag=' in url
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
     def test_resource_url_signed_for_private_dataset(self):
@@ -294,7 +291,7 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         _assert_public(resource, url, uploader)
-        assert_in('ETag=', url)
+        assert 'ETag=' in url
 
         helpers.call_action('package_patch',
                             context={'user': self.sysadmin['name']},
@@ -324,7 +321,7 @@ class TestS3ResourceUploader():
 
         url = uploader.get_signed_url_to_key(key)
         _assert_public(resource, url, uploader)
-        assert_in('ETag=', url)
+        assert 'ETag=' in url
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
     def test_non_current_objects_are_private(self):
@@ -344,11 +341,11 @@ class TestS3ResourceUploader():
 
         key = uploader.get_path(resource['id'])
         url = uploader.get_signed_url_to_key(key)
-        assert_false(_is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(key, url))
+        assert not _is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(key, url)
 
         key = uploader.get_path(resource['id'], 'data.csv')
         url = uploader.get_signed_url_to_key(key)
-        assert_true(_is_presigned_url(url), "Expected [{}] to use private URL but was {}".format(key, url))
+        assert _is_presigned_url(url), "Expected [{}] to use private URL but was {}".format(key, url)
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
     @helpers.change_config('ckanext.s3filestore.non_current_acl', 'public-read')
@@ -369,11 +366,11 @@ class TestS3ResourceUploader():
 
         key = uploader.get_path(resource['id'])
         url = uploader.get_signed_url_to_key(key)
-        assert_false(_is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(key, url))
+        assert not _is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(key, url)
 
         key = uploader.get_path(resource['id'], 'data.csv')
         url = uploader.get_signed_url_to_key(key)
-        assert_false(_is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(key, url))
+        assert not _is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(key, url)
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
     @helpers.change_config('ckanext.s3filestore.non_current_acl', 'auto')
@@ -394,11 +391,11 @@ class TestS3ResourceUploader():
 
         key = uploader.get_path(resource['id'])
         url = uploader.get_signed_url_to_key(key)
-        assert_false(_is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(key, url))
+        assert not _is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(key, url)
 
         key = uploader.get_path(resource['id'], 'data.csv')
         url = uploader.get_signed_url_to_key(key)
-        assert_false(_is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(key, url))
+        assert not _is_presigned_url(url), "Expected [{}] to use public URL but was {}".format(key, url)
 
         helpers.call_action(
             'package_patch',
@@ -406,7 +403,7 @@ class TestS3ResourceUploader():
             private=True
         )
         url = uploader.get_signed_url_to_key(key)
-        assert_true(_is_presigned_url(url), "Expected [{}] to use private URL but was {}".format(key, url))
+        assert _is_presigned_url(url), "Expected [{}] to use private URL but was {}".format(key, url)
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
     @helpers.change_config('ckanext.s3filestore.delete_non_current_days', '0')
@@ -429,7 +426,7 @@ class TestS3ResourceUploader():
         assert uploader.get_signed_url_to_key(key) is not None
 
         key = uploader.get_path(resource['id'], 'data.csv')
-        with assert_raises(toolkit.ObjectNotFound):
+        with pytest.raises(toolkit.ObjectNotFound):
             assert uploader.get_signed_url_to_key(key) is not None
 
     @helpers.change_config('ckanext.s3filestore.acl', 'auto')
@@ -454,7 +451,7 @@ class TestS3ResourceUploader():
 
         key = uploader.get_path(resource['id'], 'data.csv')
         url = uploader.get_signed_url_to_key(key)
-        assert_true(_is_presigned_url(url), "Expected [{}] to use private URL but was {}".format(key, url))
+        assert _is_presigned_url(url), "Expected [{}] to use private URL but was {}".format(key, url)
 
     def test_assembling_object_metadata_headers(self):
         ''' Tests that text fields from the package are passed to S3.
@@ -464,8 +461,8 @@ class TestS3ResourceUploader():
         uploader = S3ResourceUploader(resource)
 
         object_metadata = uploader._get_resource_metadata()
-        assert_equal(object_metadata['package_id'], dataset['id'])
-        assert_false('notes' in object_metadata['package_id'])
+        assert object_metadata['package_id'] == dataset['id']
+        assert 'notes' not in object_metadata['package_id']
 
     def test_encoding_object_metadata_headers(self):
         ''' Tests that text fields from the package are passed to S3.
@@ -475,8 +472,8 @@ class TestS3ResourceUploader():
         uploader = S3ResourceUploader(resource)
 
         object_metadata = uploader._get_resource_metadata()
-        assert_equal(object_metadata['package_title'], 'Test Dataset&#8212;with em dash')
-        assert_equal(object_metadata['package_author'], '&#25836;&#35069; &#26263;&#24433;')
+        assert object_metadata['package_title'] == 'Test Dataset&#8212;with em dash'
+        assert object_metadata['package_author'] == '&#25836;&#35069; &#26263;&#24433;'
 
     def test_ignoring_non_uploads(self):
         ''' Tests that resources not containing an upload are ignored.
@@ -491,9 +488,9 @@ class TestS3ResourceUploader():
                      ]
         for resource in resources:
             uploader = S3ResourceUploader(resource)
-            assert_equal(resource['url'], 'https://example.com')
-            assert_is_none(getattr(uploader, 'filename', None))
-            assert_is_none(getattr(uploader, 'filesize', None))
+            assert resource['url'] == 'https://example.com'
+            assert getattr(uploader, 'filename', None) is None
+            assert getattr(uploader, 'filesize', None) is None
             with mock.patch('ckanext.s3filestore.uploader.S3ResourceUploader.update_visibility') as mock_update_visibility, \
                     mock.patch('ckanext.s3filestore.uploader.S3ResourceUploader.upload_to_key') as mock_upload_to_key:
                 uploader.upload(resource['id'])
@@ -503,7 +500,7 @@ class TestS3ResourceUploader():
     def test_detect_office_document_type(self):
         dataset = self._test_dataset()
         resource = self._upload_test_resource(dataset, 'example.docx')
-        assert_equal(resource['mimetype'], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        assert resource['mimetype'] == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
     if toolkit.check_ckan_version(max_version='2.8.99'):
 
@@ -531,7 +528,7 @@ class TestS3ResourceUploader():
             # key shouldn't exist
             try:
                 self.s3.head_object(Bucket=self.bucket_name, Key=key)
-                assert_false(True, "file should not exist")
+                assert False, "file should not exist"
             except ClientError:
                 # passed
-                assert_true(True, "passed")
+                assert True, "passed"
