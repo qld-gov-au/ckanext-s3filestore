@@ -37,9 +37,16 @@ To install ckanext-s3filestore:
 
      . /usr/lib/ckan/default/bin/activate
 
-2. Install the ckanext-s3filestore Python package into your virtual environment::
+2. Install the ckanext-s3filestore Python package into your virtual environment:
+
+ 2.1 From PyPI::
 
      pip install ckanext-s3filestore
+
+ 2.2 Alternatively, install from source::
+
+    pip install -e https://github.com/qld-gov-au/ckanext-s3filestore.git#egg=ckanext-s3filestore
+    pip install -r /usr/lib/ckan/default/src/ckanext-s3filestore/requirements.txt
 
 3. Add ``s3filestore`` to the ``ckan.plugins`` setting in your CKAN
    config file (by default the config file is located at
@@ -208,7 +215,7 @@ apt-get install sudo systemd postgresql-10 git python python-pip
 export PGVERSION=10 && export CKAN_BRANCH=qgov-master && export CKAN_GIT_REPO=qld-gov-au/ckan
 cd /build
 bash bin/travis-build.bash
-nosetests --ckan  --with-pylons=subdir/test.ini --with-coverage --cover-package=ckanext.s3filestore --cover-inclusive --cover-erase --cover-tests
+pytest --ckan-ini=test.ini --cov=ckanext.s3filestore
 
 ---------------------------------------
 Registering ckanext-s3filestore on PyPI

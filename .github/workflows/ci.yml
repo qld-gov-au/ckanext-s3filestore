@@ -11,11 +11,11 @@ jobs:
   code_quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         timeout-minutes: 2
 
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.x'
         timeout-minutes: 5
@@ -36,24 +36,26 @@ jobs:
     needs: code_quality
     strategy:
       matrix:
-        ckan-version: ['2.10', '2.9', '2.9-py2', '2.8', '2.7']
+        ckan-version: ['2.11', '2.10', '2.9']
+        experimental: [false]
         ckan-git-org: ['ckan']
         include:
-          - ckan-version: '2.8'
-            ckan-git-version: 'ckan-2.8.8-qgov.5'
+          - ckan-version: '2.9'
+            ckan-git-version: 'ckan-2.9.9-qgov.4'
             ckan-git-org: 'qld-gov-au'
           - ckan-version: '2.9'
-            ckan-git-version: 'ckan-2.9.5-qgov.10'
+            ckan-git-version: 'qgov-master-2.9.9'
             ckan-git-org: 'qld-gov-au'
-          - ckan-version: '2.9'
-            ckan-git-version: 'qgov-master-2.9.7'
-            ckan-git-org: 'qld-gov-au'
+          - ckan-version: 'master'
+            ckan-git-org: 'ckan'
+            ckan-git-version: 'master'
+            experimental: true  #master is unstable, good to know if we are compatible or not
 
       fail-fast: false
 
     name: CKAN ${{ matrix.ckan-version }} ${{ matrix.ckan-git-org }} ${{ matrix.ckan-git-version }}
     container:
-      image: openknowledge/ckan-dev:${{ matrix.ckan-version }}
+      image: ckan/ckan-dev:${{ matrix.ckan-version }}
 
     services:
       postgresql:
@@ -86,7 +88,7 @@ jobs:
           - "5000"
 
       solr:
-        image: ckan/ckan-solr:${{ matrix.ckan-version }}
+        image: ckan/ckan-solr:${{ matrix.ckan-version }}-solr9
 
     env:
       CKAN_SQLALCHEMY_URL: postgresql://ckan_default:pass@postgresql/ckan_test
@@ -100,21 +102,28 @@ jobs:
 
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         timeout-minutes: 2
 
       - name: Install requirements
+        continue-on-error: ${{ matrix.experimental }}
         run: |
           chmod u+x ./scripts/*
           ./scripts/build.sh
         timeout-minutes: 15
 
       - name: Setup CKAN
-        run: |
-          ./scripts/init.sh
+        continue-on-error: ${{ matrix.experimental }}
+        run: ./scripts/init.sh
         timeout-minutes: 15
 
       - name: Run tests
-        run: |
-          ./scripts/test.sh
+        continue-on-error: ${{ matrix.experimental }}
+        run: ./scripts/test.sh
         timeout-minutes: 30
+
+      - name: Test Summary
+        uses: test-summary/action@v2
+        with:
+          paths: "/tmp/artifacts/junit/results.xml"
+        if: always()

@@ -81,7 +81,12 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
 
     # IPackageController
 
+    # CKAN < 2.10
     def after_update(self, context, pkg_dict):
+        return self.after_dataset_update(context, pkg_dict)
+
+    # CKAN >= 2.10
+    def after_dataset_update(self, context, pkg_dict):
         ''' Update the access of each S3 object to match the package.
         '''
         pkg_id = pkg_dict['id']
@@ -118,6 +123,9 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
 
         LOG.debug("after_update_resource_list_update: Package %s has been updated, notifying resources", pkg_id)
         for resource in pkg_dict['resources']:
+            if 'id' not in resource:
+                # skip new resources as they would already have correct visibility
+                continue
             uploader = get_resource_uploader(resource)
             if hasattr(uploader, 'update_visibility'):
                 uploader.update_visibility(
