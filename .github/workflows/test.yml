@@ -27,27 +27,31 @@ jobs:
     needs: code_quality
     strategy:
       matrix:
-        solr-version: [9]
-        experimental: [false]
         include:
           - ckan-version: '2.11'
             ckan-git-version: 'ckan-2.11.1'
             ckan-git-org: 'ckan'
+            solr-version: 9
+            experimental: false
           - ckan-version: '2.10'
             ckan-git-version: 'ckan-2.10.6'
             ckan-git-org: 'ckan'
-            solr-version: '8'
+            solr-version: 8
+            experimental: false
           - ckan-version: '2.10'
             ckan-git-version: 'ckan-2.10.5-qgov.4'
             ckan-git-org: 'qld-gov-au'
-            solr-version: '8'
+            solr-version: 8
+            experimental: false
           - ckan-version: '2.9'
             ckan-git-version: 'ckan-2.9.9-qgov.4'
             ckan-git-org: 'qld-gov-au'
-            solr-version: '8'
+            solr-version: 8
+            experimental: false
           - ckan-version: 'master'
             ckan-git-org: 'ckan'
             ckan-git-version: 'master'
+            solr-version: 9
             experimental: true  # master is unstable, good to know if we are compatible or not
 
       fail-fast: false
