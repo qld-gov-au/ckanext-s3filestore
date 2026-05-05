@@ -25,13 +25,16 @@ from ckan.plugins.toolkit import g
 
 from ckanext.s3filestore.redis_helper import RedisHelper
 
-if toolkit.check_ckan_version(min_version='2.8'):
+try:
     from ckan.lib.uploader import ALLOWED_UPLOAD_TYPES
-else:
+except ImportError:
     from cgi import FieldStorage
     if toolkit.check_ckan_version(min_version='2.7.0'):
         from werkzeug.datastructures import FileStorage as FlaskFileStorage
-        ALLOWED_UPLOAD_TYPES = (FieldStorage, FlaskFileStorage)
+        if toolkit.check_ckan_version(min_version='2.11'):
+            ALLOWED_UPLOAD_TYPES = (FlaskFileStorage)
+        else:
+            ALLOWED_UPLOAD_TYPES = (FieldStorage, FlaskFileStorage)
     else:
         ALLOWED_UPLOAD_TYPES = (FieldStorage)
 
