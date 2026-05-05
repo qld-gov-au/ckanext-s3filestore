@@ -29,18 +29,18 @@ jobs:
       matrix:
         include:
           - ckan-version: '2.11'
-            ckan-git-version: 'ckan-2.11.1'
+            ckan-git-version: 'ckan-2.11.5'
             ckan-git-org: 'ckan'
             solr-version: 9
             experimental: false
-          - ckan-version: '2.10'
-            ckan-git-version: 'ckan-2.10.6'
-            ckan-git-org: 'ckan'
-            solr-version: 8
+          - ckan-version: '2.11'
+            ckan-git-version: 'ckan-2.11.5-qgov.2'
+            ckan-git-org: 'qld-gov-au'
+            solr-version: 9
             experimental: false
           - ckan-version: '2.10'
-            ckan-git-version: 'ckan-2.10.5-qgov.4'
-            ckan-git-org: 'qld-gov-au'
+            ckan-git-version: 'ckan-2.10.10'
+            ckan-git-org: 'ckan'
             solr-version: 8
             experimental: false
           - ckan-version: 'master'
