@@ -29,10 +29,8 @@ upload_types: 'list[typing.Any]'
 if hasattr(core_uploader, 'ALLOWED_UPLOAD_TYPES'):
     upload_types = getattr(core_uploader, 'ALLOWED_UPLOAD_TYPES')
 else:
-    upload_types = []
-    if toolkit.check_ckan_version(min_version='2.7.0'):
-        from werkzeug.datastructures import FileStorage as FlaskFileStorage
-        upload_types.append(FlaskFileStorage)
+    from werkzeug.datastructures import FileStorage as FlaskFileStorage
+    upload_types = [FlaskFileStorage]
     if toolkit.check_ckan_version(max_version='2.10.0'):
         from cgi import FieldStorage
         upload_types.append(FieldStorage)
