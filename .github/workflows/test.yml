@@ -28,19 +28,24 @@ jobs:
     strategy:
       matrix:
         include:
-          - ckan-version: '2.11'
-            ckan-git-version: 'ckan-2.11.1'
+          - ckan-version: '2.12'
+            ckan-git-version: '6a75534af2d50f506820e252c7f0c5d5c65a6b72'  # relatively stable version
             ckan-git-org: 'ckan'
             solr-version: 9
             experimental: false
-          - ckan-version: '2.10'
-            ckan-git-version: 'ckan-2.10.6'
+          - ckan-version: '2.11'
+            ckan-git-version: 'ckan-2.11.5'
             ckan-git-org: 'ckan'
-            solr-version: 8
+            solr-version: 9
+            experimental: false
+          - ckan-version: '2.11'
+            ckan-git-version: 'ckan-2.11.5-qgov.2'
+            ckan-git-org: 'qld-gov-au'
+            solr-version: 9
             experimental: false
           - ckan-version: '2.10'
-            ckan-git-version: 'ckan-2.10.5-qgov.4'
-            ckan-git-org: 'qld-gov-au'
+            ckan-git-version: 'ckan-2.10.7'
+            ckan-git-org: 'ckan'
             solr-version: 8
             experimental: false
           - ckan-version: 'master'
@@ -90,7 +95,7 @@ jobs:
 
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         timeout-minutes: 1
 
       - name: Install requirements
