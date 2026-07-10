@@ -9,7 +9,7 @@ import os
 import pytz as timezone
 import re
 import six
-
+import typing
 
 import boto3
 from botocore.client import Config
@@ -18,22 +18,26 @@ import ckantoolkit as toolkit
 import ckan.lib.helpers as h
 from six.moves.urllib.parse import urlencode
 
-from ckan.lib import munge
+from ckan.lib import munge, uploader as core_uploader
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as DefaultUpload
 from ckan import model
 from ckan.plugins.toolkit import g
 
 from ckanext.s3filestore.redis_helper import RedisHelper
 
-if toolkit.check_ckan_version(min_version='2.8'):
-    from ckan.lib.uploader import ALLOWED_UPLOAD_TYPES
+upload_types: 'list[typing.Any]'
+if hasattr(core_uploader, 'ALLOWED_UPLOAD_TYPES'):
+    upload_types = getattr(core_uploader, 'ALLOWED_UPLOAD_TYPES')
 else:
-    from cgi import FieldStorage
+    upload_types = []
     if toolkit.check_ckan_version(min_version='2.7.0'):
         from werkzeug.datastructures import FileStorage as FlaskFileStorage
-        ALLOWED_UPLOAD_TYPES = (FieldStorage, FlaskFileStorage)
-    else:
-        ALLOWED_UPLOAD_TYPES = (FieldStorage)
+        upload_types.append(FlaskFileStorage)
+    if toolkit.check_ckan_version(max_version='2.10.0'):
+        from cgi import FieldStorage
+        upload_types.append(FieldStorage)
+
+ALLOWED_UPLOAD_TYPES: 'tuple[typing.Any]' = tuple(upload_types)
 
 config = toolkit.config
 log = logging.getLogger(__name__)
