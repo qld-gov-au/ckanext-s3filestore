@@ -118,7 +118,8 @@ class BaseS3Uploader(object):
                                     'https://s3.{}.amazonaws.com'.format(self.region))
         self.redis = RedisHelper()
 
-    def get_directory(self, id, storage_path):
+    @classmethod
+    def get_directory(cls, id, storage_path):
         directory = os.path.join(storage_path, munge.munge_filename(id))
         return directory
 
@@ -500,8 +501,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
         self.use_filename = toolkit.asbool(config.get('ckanext.s3filestore.use_filename', False))
         self.delete_non_current_days = int(config.get('ckanext.s3filestore.delete_non_current_days', '-1'))
-        path = config.get('ckanext.s3filestore.aws_storage_path', '')
-        self.storage_path = os.path.join(path, 'resources')
+        self.storage_path = self.get_storage_path()
         self.filename = None
         self.old_filename = None
         self.url = resource['url']
@@ -578,6 +578,11 @@ class S3ResourceUploader(BaseS3Uploader):
             resource = self.resource
         return toolkit.get_action('package_show')(
             context=context, data_dict={'id': resource.get('package_id')})
+
+    @classmethod
+    def get_storage_path(cls):
+        path = config.get('ckanext.s3filestore.aws_storage_path', '')
+        return os.path.join(path, 'resources')
 
     def get_path(self, id, filename=None):
         '''Return the key used for this resource in S3.
@@ -690,9 +695,6 @@ class S3ResourceUploader(BaseS3Uploader):
     def delete(self, id, filename=None):
         ''' Delete file we are pointing at'''
 
-        if filename is None:
-            filename = os.path.basename(self.url)
-        filename = munge.munge_filename(filename)
         key_path = self.get_path(id, filename)
         try:
             self.clear_key(key_path)
