@@ -688,6 +688,8 @@ class S3ResourceUploader(BaseS3Uploader):
             if field != 'notes' and isinstance(package[field], six.string_types)
         }
         metadata['uploaded_by'] = ensure_ascii(username)
+        # Drop 'extras' since they risk exceeding the S3 size limit
+        metadata.pop('extras', None)
         return metadata
 
     def delete(self, id, filename=None):
