@@ -11,8 +11,8 @@ jobs:
   code_quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: '3.x'
       - name: Install requirements
@@ -28,19 +28,24 @@ jobs:
     strategy:
       matrix:
         include:
-          - ckan-version: '2.11'
-            ckan-git-version: 'ckan-2.11.1'
+          - ckan-version: '2.12'
+            ckan-git-version: 'dev-v2.12'
             ckan-git-org: 'ckan'
             solr-version: 9
             experimental: false
-          - ckan-version: '2.10'
-            ckan-git-version: 'ckan-2.10.6'
+          - ckan-version: '2.11'
+            ckan-git-version: 'ckan-2.11.5'
             ckan-git-org: 'ckan'
-            solr-version: 8
+            solr-version: 9
+            experimental: false
+          - ckan-version: '2.11'
+            ckan-git-version: 'ckan-2.11.5-qgov.2'
+            ckan-git-org: 'qld-gov-au'
+            solr-version: 9
             experimental: false
           - ckan-version: '2.10'
-            ckan-git-version: 'ckan-2.10.5-qgov.4'
-            ckan-git-org: 'qld-gov-au'
+            ckan-git-version: 'ckan-2.10.7'
+            ckan-git-org: 'ckan'
             solr-version: 8
             experimental: false
           - ckan-version: 'master'
@@ -90,7 +95,7 @@ jobs:
 
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         timeout-minutes: 1
 
       - name: Install requirements
@@ -112,7 +117,7 @@ jobs:
 
       - name: Test Summary
         continue-on-error: ${{ matrix.experimental }}
-        uses: test-summary/action@v2
+        uses: test-summary/action@37b508cfee6d4d080eedd00b5bb240a6a784a6a5  # v2.6Z
         with:
           paths: "/tmp/junit/results.xml"
         if: always()

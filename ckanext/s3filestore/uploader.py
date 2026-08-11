@@ -9,7 +9,7 @@ import os
 import pytz as timezone
 import re
 import six
-
+import typing
 
 import boto3
 from botocore.client import Config
@@ -18,22 +18,24 @@ import ckantoolkit as toolkit
 import ckan.lib.helpers as h
 from six.moves.urllib.parse import urlencode
 
-from ckan.lib import munge
+from ckan.lib import munge, uploader as core_uploader
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as DefaultUpload
 from ckan import model
 from ckan.plugins.toolkit import g
 
 from ckanext.s3filestore.redis_helper import RedisHelper
 
-if toolkit.check_ckan_version(min_version='2.8'):
-    from ckan.lib.uploader import ALLOWED_UPLOAD_TYPES
+upload_types: 'list[typing.Any]'
+if hasattr(core_uploader, 'ALLOWED_UPLOAD_TYPES'):
+    upload_types = getattr(core_uploader, 'ALLOWED_UPLOAD_TYPES')
 else:
-    from cgi import FieldStorage
-    if toolkit.check_ckan_version(min_version='2.7.0'):
-        from werkzeug.datastructures import FileStorage as FlaskFileStorage
-        ALLOWED_UPLOAD_TYPES = (FieldStorage, FlaskFileStorage)
-    else:
-        ALLOWED_UPLOAD_TYPES = (FieldStorage)
+    from werkzeug.datastructures import FileStorage as FlaskFileStorage
+    upload_types = [FlaskFileStorage]
+    if toolkit.check_ckan_version(max_version='2.10.0'):
+        from cgi import FieldStorage
+        upload_types.append(FieldStorage)
+
+ALLOWED_UPLOAD_TYPES: 'tuple[typing.Any]' = tuple(upload_types)
 
 config = toolkit.config
 log = logging.getLogger(__name__)
@@ -114,7 +116,8 @@ class BaseS3Uploader(object):
                                     'https://s3.{}.amazonaws.com'.format(self.region))
         self.redis = RedisHelper()
 
-    def get_directory(self, id, storage_path):
+    @classmethod
+    def get_directory(cls, id, storage_path):
         directory = os.path.join(storage_path, munge.munge_filename(id))
         return directory
 
@@ -496,8 +499,7 @@ class S3ResourceUploader(BaseS3Uploader):
 
         self.use_filename = toolkit.asbool(config.get('ckanext.s3filestore.use_filename', False))
         self.delete_non_current_days = int(config.get('ckanext.s3filestore.delete_non_current_days', '-1'))
-        path = config.get('ckanext.s3filestore.aws_storage_path', '')
-        self.storage_path = os.path.join(path, 'resources')
+        self.storage_path = self.get_storage_path()
         self.filename = None
         self.old_filename = None
         self.url = resource['url']
@@ -574,6 +576,11 @@ class S3ResourceUploader(BaseS3Uploader):
             resource = self.resource
         return toolkit.get_action('package_show')(
             context=context, data_dict={'id': resource.get('package_id')})
+
+    @classmethod
+    def get_storage_path(cls):
+        path = config.get('ckanext.s3filestore.aws_storage_path', '')
+        return os.path.join(path, 'resources')
 
     def get_path(self, id, filename=None):
         '''Return the key used for this resource in S3.
@@ -681,14 +688,13 @@ class S3ResourceUploader(BaseS3Uploader):
             if field != 'notes' and isinstance(package[field], six.string_types)
         }
         metadata['uploaded_by'] = ensure_ascii(username)
+        # Drop 'extras' since they risk exceeding the S3 size limit
+        metadata.pop('extras', None)
         return metadata
 
     def delete(self, id, filename=None):
         ''' Delete file we are pointing at'''
 
-        if filename is None:
-            filename = os.path.basename(self.url)
-        filename = munge.munge_filename(filename)
         key_path = self.get_path(id, filename)
         try:
             self.clear_key(key_path)
