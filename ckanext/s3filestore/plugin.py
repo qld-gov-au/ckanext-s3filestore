@@ -149,6 +149,14 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
 
     # IResourceController
 
+    def before_resource_update(self, context, current, resource):
+        """
+        Ensure that we have cached the resource visibility if needed.
+        """
+        if 'upload' in resource:
+            uploader = s3_uploader.S3ResourceUploader(current)
+            uploader.is_key_public(uploader.get_path(current['id']))
+
     def before_resource_delete(self, context, resource_id_dict, resources):
         """
         Delete the stored file from S3 when the CKAN resource is deleted.
