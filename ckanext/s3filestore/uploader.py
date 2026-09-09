@@ -105,7 +105,7 @@ class BaseS3Uploader(object):
         self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry', '3600'))
         self.signed_url_cache_window = int(config.get('ckanext.s3filestore.signed_url_cache_window', '1800'))
         self.public_url_cache_window = int(config.get('ckanext.s3filestore.public_url_cache_window', '86400'))
-        self.acl_cache_window = int(config.get('ckanext.s3filestore.acl_cache_window', '86400'))
+        self.acl_cache_window = int(config.get('ckanext.s3filestore.acl_cache_window', '604800'))
         self.acl = config.get('ckanext.s3filestore.acl', PUBLIC_ACL)
         self.non_current_acl = config.get('ckanext.s3filestore.non_current_acl', PRIVATE_ACL)
         self.addressing_style = config.get('ckanext.s3filestore.addressing_style', 'auto')
@@ -215,7 +215,7 @@ class BaseS3Uploader(object):
         except Exception as e:
             raise e
 
-    def is_key_public(self, key):
+    def is_key_public(self, key, default=None):
         ''' Check whether an S3 object key is publicly readable.
         May cache results to reduce API calls.
         '''
@@ -225,6 +225,8 @@ class BaseS3Uploader(object):
             return True
         if acl == PRIVATE_ACL:
             return False
+        if default is not None:
+            return default
 
         client = self.get_s3_client()
         # check if the object ACL grants any permission to all users
@@ -619,8 +621,8 @@ class S3ResourceUploader(BaseS3Uploader):
         client = self.get_s3_client()
 
         current_key = self.get_path(id)
-        all_visibility = self.redis.get(current_key + VISIBILITY_CACHE_PATH + '/all')
-        if all_visibility is not None and all_visibility == target_acl:
+        all_visibility_key = current_key + VISIBILITY_CACHE_PATH + '/all'
+        if self.redis.get(all_visibility_key) == target_acl:
             log.debug("update_visibility: id: %s already set and found in cache as %s", id, target_acl)
             return
         # iterate through every S3 object matching the resource ID
@@ -646,16 +648,18 @@ class S3ResourceUploader(BaseS3Uploader):
             else:
                 acl = self.non_current_acl
 
-            is_public_read = self.is_key_public(upload_key)
+            is_public_target = acl == PUBLIC_ACL
+            # treat an expired cache for non-current objects as being 'already satisfied'
+            is_public_read = self.is_key_public(upload_key, (upload_key == current_key) != is_public_target)
             # if the ACL status doesn't match what we want, update it
-            if (acl == PUBLIC_ACL) != is_public_read:
+            if is_public_target != is_public_read:
                 log.debug("Updating ACL for object %s to %s", upload_key, acl)
                 client.put_object_acl(
                     Bucket=self.bucket_name, Key=upload_key, ACL=acl)
                 # Drop the cached URL since it will likely need to change
                 self.redis.delete(upload_key)
                 self.redis.put(upload_key + VISIBILITY_CACHE_PATH, acl, expiry=self.acl_cache_window)
-        self.redis.put(current_key + VISIBILITY_CACHE_PATH + '/all', target_acl, expiry=self.acl_cache_window)
+        self.redis.put(all_visibility_key, target_acl, expiry=self.acl_cache_window)
 
     def upload(self, id, max_size=10):
         '''Upload the file to S3.'''
