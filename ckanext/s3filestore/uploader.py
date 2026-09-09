@@ -215,7 +215,7 @@ class BaseS3Uploader(object):
         except Exception as e:
             raise e
 
-    def is_key_public(self, key):
+    def is_key_public(self, key, default=None):
         ''' Check whether an S3 object key is publicly readable.
         May cache results to reduce API calls.
         '''
@@ -225,6 +225,8 @@ class BaseS3Uploader(object):
             return True
         if acl == PRIVATE_ACL:
             return False
+        if default is not None:
+            return default
 
         client = self.get_s3_client()
         # check if the object ACL grants any permission to all users
@@ -647,9 +649,11 @@ class S3ResourceUploader(BaseS3Uploader):
             else:
                 acl = self.non_current_acl
 
-            is_public_read = self.is_key_public(upload_key)
+            is_public_target = acl == PUBLIC_ACL
+            # treat an expired cache for non-current objects as being 'already satisfied'
+            is_public_read = self.is_key_public(upload_key, (upload_key == current_key) != is_public_target)
             # if the ACL status doesn't match what we want, update it
-            if (acl == PUBLIC_ACL) != is_public_read:
+            if is_public_target != is_public_read:
                 log.debug("Updating ACL for object %s to %s", upload_key, acl)
                 client.put_object_acl(
                     Bucket=self.bucket_name, Key=upload_key, ACL=acl)
