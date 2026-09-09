@@ -142,7 +142,7 @@ Optional::
     ckanext.s3filestore.public_url_cache_window = 86400
 
     # Control how long the ACL of an S3 object will be held in cache.
-    # Uploading a new file overrides this. Default is 86400 (24 hours).
+    # Uploading a new file overrides this. Default is 604800 (1 week).
     ckanext.s3filestore.acl_cache_window = 2592000
 
     # If set, then prior objects uploaded not matching current filename for a

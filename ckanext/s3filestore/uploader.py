@@ -105,7 +105,7 @@ class BaseS3Uploader(object):
         self.signed_url_expiry = int(config.get('ckanext.s3filestore.signed_url_expiry', '3600'))
         self.signed_url_cache_window = int(config.get('ckanext.s3filestore.signed_url_cache_window', '1800'))
         self.public_url_cache_window = int(config.get('ckanext.s3filestore.public_url_cache_window', '86400'))
-        self.acl_cache_window = int(config.get('ckanext.s3filestore.acl_cache_window', '86400'))
+        self.acl_cache_window = int(config.get('ckanext.s3filestore.acl_cache_window', '604800'))
         self.acl = config.get('ckanext.s3filestore.acl', PUBLIC_ACL)
         self.non_current_acl = config.get('ckanext.s3filestore.non_current_acl', PRIVATE_ACL)
         self.addressing_style = config.get('ckanext.s3filestore.addressing_style', 'auto')
@@ -619,9 +619,10 @@ class S3ResourceUploader(BaseS3Uploader):
         client = self.get_s3_client()
 
         current_key = self.get_path(id)
-        all_visibility = self.redis.get(current_key + VISIBILITY_CACHE_PATH + '/all')
-        if all_visibility is not None and all_visibility == target_acl:
+        all_visibility_key = current_key + VISIBILITY_CACHE_PATH + '/all'
+        if self.redis.get(all_visibility_key) == target_acl:
             log.debug("update_visibility: id: %s already set and found in cache as %s", id, target_acl)
+            self.redis.put(all_visibility_key, target_acl, expiry=self.acl_cache_window)
             return
         # iterate through every S3 object matching the resource ID
         log.debug("update_visibility: id: %s getting item list from store", id)
@@ -655,7 +656,7 @@ class S3ResourceUploader(BaseS3Uploader):
                 # Drop the cached URL since it will likely need to change
                 self.redis.delete(upload_key)
                 self.redis.put(upload_key + VISIBILITY_CACHE_PATH, acl, expiry=self.acl_cache_window)
-        self.redis.put(current_key + VISIBILITY_CACHE_PATH + '/all', target_acl, expiry=self.acl_cache_window)
+        self.redis.put(all_visibility_key, target_acl, expiry=self.acl_cache_window)
 
     def upload(self, id, max_size=10):
         '''Upload the file to S3.'''
