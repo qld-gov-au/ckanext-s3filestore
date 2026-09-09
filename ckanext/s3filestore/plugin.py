@@ -153,7 +153,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         """
         Ensure that we have cached the resource visibility if needed.
         """
-        if 'upload' in resource:
+        if current['url_type'] == 'upload' and 'upload' in resource:
             uploader = s3_uploader.S3ResourceUploader(current)
             uploader.is_key_public(uploader.get_path(current['id']))
 
