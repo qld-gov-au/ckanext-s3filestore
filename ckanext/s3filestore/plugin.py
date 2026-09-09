@@ -155,7 +155,11 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         """
         if current['url_type'] == 'upload' and 'upload' in resource:
             uploader = s3_uploader.S3ResourceUploader(current)
-            uploader.is_key_public(uploader.get_path(current['id']))
+            try:
+                uploader.is_key_public(uploader.get_path(current['id']))
+            except Exception:
+                # if we can't update the cache, then we don't need it.
+                pass
 
     def before_resource_delete(self, context, resource_id_dict, resources):
         """

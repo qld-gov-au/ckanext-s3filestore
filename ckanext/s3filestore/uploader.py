@@ -624,7 +624,6 @@ class S3ResourceUploader(BaseS3Uploader):
         all_visibility_key = current_key + VISIBILITY_CACHE_PATH + '/all'
         if self.redis.get(all_visibility_key) == target_acl:
             log.debug("update_visibility: id: %s already set and found in cache as %s", id, target_acl)
-            self.redis.put(all_visibility_key, target_acl, expiry=self.acl_cache_window)
             return
         # iterate through every S3 object matching the resource ID
         log.debug("update_visibility: id: %s getting item list from store", id)
