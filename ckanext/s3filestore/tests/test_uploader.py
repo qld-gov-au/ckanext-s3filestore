@@ -162,6 +162,7 @@ class TestS3Uploader():
         return status_code, response.location
 
 
+@helpers.change_config('ckanext.s3filestore.acl.async_update', 'False')
 class TestS3ResourceUploader():
 
     def setup_method(self, test_method):
