@@ -621,10 +621,6 @@ class S3ResourceUploader(BaseS3Uploader):
         client = self.get_s3_client()
 
         current_key = self.get_path(id)
-        all_visibility_key = current_key + VISIBILITY_CACHE_PATH + '/all'
-        if self.redis.get(all_visibility_key) == target_acl:
-            log.debug("update_visibility: id: %s already set and found in cache as %s", id, target_acl)
-            return
         # iterate through every S3 object matching the resource ID
         log.debug("update_visibility: id: %s getting item list from store", id)
         resource_objects = client.list_objects_v2(
@@ -659,7 +655,6 @@ class S3ResourceUploader(BaseS3Uploader):
                 # Drop the cached URL since it will likely need to change
                 self.redis.delete(upload_key)
                 self.redis.put(upload_key + VISIBILITY_CACHE_PATH, acl, expiry=self.acl_cache_window)
-        self.redis.put(all_visibility_key, target_acl, expiry=self.acl_cache_window)
 
     def upload(self, id, max_size=10):
         '''Upload the file to S3.'''
@@ -670,6 +665,7 @@ class S3ResourceUploader(BaseS3Uploader):
             filepath = self.get_path(id, self.filename)
             self.upload_to_key(filepath, self.upload_file, acl=self._get_target_acl(id),
                                extra_metadata=self._get_resource_metadata())
+            self.update_visibility(id)
 
         # The resource form only sets self.clear (via the input clear_upload)
         # to True when an uploaded file is not replaced by another uploaded
