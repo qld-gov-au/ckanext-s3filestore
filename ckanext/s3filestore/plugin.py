@@ -100,7 +100,7 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
         async_update = self.async_visibility_update
         if async_update:
             try:
-                self.enqueue_resource_visibility_update_job(visibility_level, pkg_id)
+                self._enqueue_package_visibility_update_job(visibility_level, pkg_id)
             except Exception as e:
                 LOG.debug("after_dataset_update: Failed to enqueue, updating inline. Error: [%s]", e)
                 async_update = False
@@ -124,13 +124,27 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
                     target_acl=visibility_level)
         LOG.debug("after_update_resource_list_update: Package %s has been updated, notifying resources finished", pkg_id)
 
-    def enqueue_resource_visibility_update_job(self, visibility_level, pkg_id):
-
+    def _enqueue_package_visibility_update_job(self, visibility_level, pkg_id):
         enqueue_args = {
             'fn': tasks.s3_afterUpdatePackage,
             'title': "s3_afterUpdatePackage: setting {} on {}".format(visibility_level, pkg_id),
             'kwargs': {'visibility_level': visibility_level, 'pkg_id': pkg_id},
         }
+        self._enqueue_job(enqueue_args)
+        LOG.debug("enqueue_package_visibility_update_job: Package %s has been enqueued",
+                  pkg_id)
+
+    def _enqueue_resource_visibility_update_job(self, resource_id):
+        enqueue_args = {
+            'fn': tasks.s3_afterUpdateResource,
+            'title': "s3_afterUpdateResource: refreshing visibility on {}".format(resource_id),
+            'kwargs': {'resource_id': resource_id},
+        }
+        self._enqueue_job(enqueue_args)
+        LOG.debug("enqueue_resource_visibility_update_job: Resource %s has been enqueued",
+                  resource_id)
+
+    def _enqueue_job(self, enqueue_args):
         ttl = 24 * 60 * 60  # 24 hour ttl.
         rq_kwargs = {
             'ttl': ttl,
@@ -144,8 +158,6 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
             enqueue_args['queue'] = queue
 
         toolkit.enqueue_job(**enqueue_args)
-        LOG.debug("enqueue_resource_visibility_update_job: Package %s has been enqueued",
-                  pkg_id)
 
     # IResourceController
 
@@ -160,6 +172,23 @@ class S3FileStorePlugin(plugins.SingletonPlugin):
             except Exception:
                 # if we can't update the cache, then we don't need it.
                 pass
+
+    def after_resource_update(self, context, resource):
+        """
+        Update the visibility of previous S3 objects if applicable.
+        """
+        if resource['url_type'] == 'upload':
+            async_update = self.async_visibility_update
+            if async_update:
+                try:
+                    self._enqueue_resource_visibility_update_job(resource['id'])
+                except Exception as e:
+                    LOG.debug("after_resource_update: Failed to enqueue, updating inline. Error: [%s]", e)
+                    async_update = False
+            if not async_update:
+                uploader = core_get_uploader(resource)
+                if hasattr(uploader, 'update_visibility'):
+                    uploader.update_visibility(resource['id'])
 
     def before_resource_delete(self, context, resource_id_dict, resources):
         """
