@@ -1,0 +1,22 @@
+name: Version check
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  version_update_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-tags: true
+      - name: Check that version is updated since latest tag
+        run: |
+          LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
+          CURRENT_VERSION=$(sed -n "s|.*version=[']\([^']\+\)['].*|\1|p" setup.py)
+          if [ "$LATEST_TAG" = "$CURRENT_VERSION" ]; then
+            echo "Version $LATEST_TAG has been tagged, update version when making changes"
+            exit 1
+          fi
