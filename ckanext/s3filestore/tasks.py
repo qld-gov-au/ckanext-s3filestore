@@ -59,7 +59,8 @@ def s3_afterUpdateResource(resource_id=None):
     # Also put try/except around it, as it is easier to monitor CKAN's log
     # rather than a queue's task status.
     try:
-        s3_uploader.update_visibility(resource_id)
+        resource = toolkit.get_action('resource_show')({'ignore_auth': True}, {'id': resource_id})
+        s3_uploader.S3ResourceUploader(resource).update_visibility(resource_id)
         log.info('Finished s3_afterUpdateResource task: resource_id=%r', resource_id)
 
     except Exception as e:
