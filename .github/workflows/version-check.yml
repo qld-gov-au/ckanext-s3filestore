@@ -1,10 +1,6 @@
 name: Version check
 
-on:
-  pull_request:
-    branches:
-      - master
-      - main
+on: pull_request
 
 jobs:
   version_update_check:
@@ -15,9 +11,16 @@ jobs:
           fetch-tags: true
       - name: Check that version is updated since latest tag
         run: |
-          LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
-          CURRENT_VERSION=$(sed -n "s|.*version=[']\([^']\+\)['].*|\1|p" setup.py)
-          if [ "$LATEST_TAG" = "$CURRENT_VERSION" ]; then
-            echo "Version $LATEST_TAG has been tagged, update version when making changes"
+          VERSION_REGEX=".*version *= *[\"']\([^'\"]\+\)['\"].*"
+          if [ -e pyproject.toml ]; then
+            CURRENT_VERSION=$(sed -n "s|$VERSION_REGEX|\1|p" pyproject.toml)
+          elif [ -e setup.py ]; then
+            CURRENT_VERSION=$(sed -n "s|$VERSION_REGEX|\1|p" setup.py)
+          fi
+          if [ "$CURRENT_VERSION" = "" ]; then
+            echo "Unable to find current version in project config"
+            exit 1
+          elif (git describe --tags "$CURRENT_VERSION"); then
+            echo "Version $CURRENT_VERSION has been tagged, update version when making changes"
             exit 1
           fi
