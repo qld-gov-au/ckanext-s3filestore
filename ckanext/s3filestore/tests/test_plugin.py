@@ -53,11 +53,11 @@ class TestS3Plugin():
         ''' Asynchronous job is created to update object visibility.
         '''
         # ensure that we don't trigger errors
-        self.plugin.enqueue_resource_visibility_update_job('private', 'abcde')
+        self.plugin._enqueue_package_visibility_update_job('private', 'abcde')
 
         # check that the args were actually passed in
         with mock.patch('rq.Queue.enqueue_call') as enqueue_call:
-            self.plugin.enqueue_resource_visibility_update_job('private', 'abcde')
+            self.plugin._enqueue_package_visibility_update_job('private', 'abcde')
             if toolkit.check_ckan_version(max_version='2.7.99'):
                 enqueue_call.assert_called_once_with(
                     func=tasks.s3_afterUpdatePackage,
