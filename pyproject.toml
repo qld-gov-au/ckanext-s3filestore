@@ -7,16 +7,15 @@ name = "ckanext-s3filestore"
 version = "0.11.0"
 description = "Host resource files using Amazon Web Service's S3 storage"
 requires-python = ">=3.9"
-keywords = ["CKAN", "S3", "AWS"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
 ]
-keywords = [ "CKAN", "extension", "s3filestore",]
+keywords = [ "CKAN", "extension", "s3filestore", "S3", "AWS"]
 
 dependencies = [
     "boto3>=1.14.17",
@@ -25,7 +24,7 @@ dependencies = [
 ]
 
 authors = [
-    {name = "Brook Elgie", email = "brook.elgie@okfn.org"}
+    {name = "Brook Elgie", email = "brook.elgie@okfn.org"},
     {name = "ThrawnCA", email = "carl.antuar@smartservice.qld.gov.au"},
     {name = "Queensland Online", email = "qol.development@smartservice.qld.gov.au"},
     {name = "William Dutton (duttonw)", email = "william.dutton@qld.gov.au"},
