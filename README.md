@@ -1,73 +1,52 @@
-.. You should enable this project on coveralls.io to make these badges
-   work. The necessary Coverage config file has been generated for you.
 
-.. image:: https://coveralls.io/repos/okfn/ckanext-s3filestore/badge.svg
-  :target: https://coveralls.io/r/okfn/ckanext-s3filestore
+# ckanext-s3filestore
 
+Use Amazon S3 or Minio\<<https://minio.io/>\> as a filestore for resources.
 
-===================
-ckanext-s3filestore
-===================
-
-.. Put a description of your extension here:
-
-Use Amazon S3 or Minio<https://minio.io/> as a filestore for resources.
-
-
-------------
-Requirements
-------------
+## Requirements
 
 Requires CKAN 2.10+
 
 GitHub Actions tested: 2.10, 2.11
 
-
-------------
-Installation
-------------
-
-.. Add any additional install steps to the list below.
-   For example installing any non-Python dependencies or adding any required
-   config settings.
+## Installation
 
 To install ckanext-s3filestore:
 
-1. Activate your CKAN virtual environment, for example::
+1. Activate your CKAN virtual environment, for example:
 
-     . /usr/lib/ckan/default/bin/activate
+        . /usr/lib/ckan/default/bin/activate
 
 2. Install the ckanext-s3filestore Python package into your virtual environment:
 
- 2.1 From PyPI (NB This repository does not currently push versions to PyPI)::
+2.1 From PyPI (NB This repository does not currently push versions to PyPI):
 
+```
      pip install ckanext-s3filestore
+```
+2.2 Alternatively, install from source:
+```
+     pip install -e 'git+https://github.com/qld-gov-au/ckanext-s3filestore.git#egg=ckanext-s3filestore'
+```
 
- 2.2 Alternatively, install from source::
+3. Add `s3filestore` to the `ckan.plugins` setting in your CKAN config
+    file (by default the config file is located at
+    `/etc/ckan/default/production.ini`).
 
-    pip install -e 'git+https://github.com/qld-gov-au/ckanext-s3filestore.git#egg=ckanext-s3filestore'
-    pip install -r /usr/lib/ckan/default/src/ckanext-s3filestore/requirements.txt
+4. Restart CKAN. For example if you've deployed CKAN with Apache on
+    Ubuntu:
 
-3. Add ``s3filestore`` to the ``ckan.plugins`` setting in your CKAN
-   config file (by default the config file is located at
-   ``/etc/ckan/default/production.ini``).
+        ```sudo service apache2 reload```
 
-4. Restart CKAN. For example if you've deployed CKAN with Apache on Ubuntu::
+## Config Settings
 
-     sudo service apache2 reload
-
-
----------------
-Config Settings
----------------
-
-Required::
+Required:
 
     ckanext.s3filestore.aws_bucket_name = a-bucket-to-store-your-stuff
     ckanext.s3filestore.region_name = region-name
     ckanext.s3filestore.signature_version = s3v4
 
-Conditional::
+Conditional:
 
     ckanext.s3filestore.aws_access_key_id = Your-Access-Key-ID
     ckanext.s3filestore.aws_secret_access_key = Your-Secret-Access-Key
@@ -76,7 +55,7 @@ Conditional::
 
     ckanext.s3filestore.aws_use_ami_role = true
 
-Optional::
+Optional:
 
     # An optional path to prepend to keys
     ckanext.s3filestore.aws_storage_path = my-site-name
@@ -162,161 +141,120 @@ Optional::
     # Queue used by s3 plugin, if not set, `default` queue is used
     ckanext.s3filestore.queue = bulk
 
+## CLI
 
------------------
-CLI
------------------
-
-To upload all local resources located in `ckan.storage_path` location dir to the configured S3 bucket use::
+To upload all local resources located in
+<span class="title-ref">ckan.storage_path</span> location dir to the
+configured S3 bucket use:
 
     ckan -c /etc/ckan/default/production.ini s3 upload all
 
+## Development Installation
 
-------------------------
-Development Installation
-------------------------
-
-To install ckanext-s3filestore for development, activate your CKAN virtualenv and
-do::
+To install ckanext-s3filestore for development, activate your CKAN
+virtualenv and do:
 
     git clone https://github.com/qld-gov-au/ckanext-s3filestore.git
     cd ckanext-s3filestore
-    python setup.py develop
-    pip install -r dev-requirements.txt
-    pip install -r requirements.txt
+    pip install -e '.[dev]'
+
+or
+
+    pip install -e 'git+https://github.com/qld-gov-au/ckanext-s3filestore.git#egg=ckanext-s3filestore[dev]'
 
 
------------------
-Running the Tests
------------------
+## Running the Tests
 
-To run the tests, do::
+To run the tests, do:
 
     pytest --ckan-ini=test.ini
 
 To run the tests and produce a coverage report, first make sure you have
-coverage installed in your virtualenv (``pip install coverage``) then run::
+coverage installed in your virtualenv (`pip install coverage`) then run:
 
     pytest --ckan-ini=test.ini --cov=ckanext.s3filestore
 
-------------------------
-Docker environment setup
-------------------------
+## Docker environment setup
 
 docker start up
 
-    docker run -it -v "`pwd`":/build ubuntu:bionic /bin/bash
+> docker run -it -v "<span class="title-ref">pwd</span>":/build
+> ubuntu:bionic /bin/bash
 
-commands before travis setup
-cd /build
-apt-get update
-apt-get install sudo systemd postgresql-10 git python python-pip
+commands before travis setup cd /build apt-get update apt-get install
+sudo systemd postgresql-10 git python python-pip
 
-export PGVERSION=10 && export CKAN_BRANCH=qgov-master && export CKAN_GIT_REPO=qld-gov-au/ckan
-cd /build
-bash bin/travis-build.bash
+export PGVERSION=10 && export CKAN_BRANCH=qgov-master && export
+CKAN_GIT_REPO=qld-gov-au/ckan cd /build bash bin/travis-build.bash
 pytest --ckan-ini=test.ini --cov=ckanext.s3filestore
 
----------------------------------------
-Registering ckanext-s3filestore on PyPI
----------------------------------------
 
-ckanext-s3filestore should be available on PyPI as
-https://pypi.python.org/pypi/ckanext-s3filestore. If that link doesn't work, then
-you can register the project on PyPI for the first time by following these
-steps:
+## Releasing a New Version of ckanext-s3filestore
 
-1. Create a source distribution of the project::
+ckanext-s3filestore is available on PyPI as
+<https://pypi.python.org/pypi/ckanext-s3filestore>. To publish a new
+version to PyPI follow these steps:
 
-     python setup.py sdist
+1.  Update the version number in the `project.toml` file. See [PEP
+    440](http://legacy.python.org/dev/peps/pep-0440/#public-version-identifiers)
+    for how to choose version numbers.
 
-2. Register the project::
-
-     python setup.py register
-
-3. Upload the source distribution to PyPI::
-
-     python setup.py sdist upload
-
-4. Tag the first release of the project on GitHub with the version number from
-   the ``setup.py`` file. For example if the version number in ``setup.py`` is
-   0.0.1 then do::
-
-       git tag 0.0.1
-       git push --tags
+2.  Push to repo qld-gov-au/ckanext-s3filestore
 
 
-----------------------------------------------
-Releasing a New Version of ckanext-s3filestore
-----------------------------------------------
+3.  Create a signed version and push to repo qld-gov-au/ckanext-s3filestore
 
-ckanext-s3filestore is available on PyPI as https://pypi.python.org/pypi/ckanext-s3filestore.
-To publish a new version to PyPI follow these steps:
+        git tag 0.0.2
+        git push 0.0.2
 
-1. Update the version number in the ``setup.py`` file.
-   See `PEP 440 <http://legacy.python.org/dev/peps/pep-0440/#public-version-identifiers>`_
-   for how to choose version numbers.
+   This will trigger the github actions auto deploy system.
 
-2. Create a source distribution of the new version::
 
-     python setup.py sdist
-
-3. Upload the source distribution to PyPI::
-
-     python setup.py sdist upload
-
-4. Tag the new release of the project on GitHub with the version number from
-   the ``setup.py`` file. For example if the version number in ``setup.py`` is
-   0.0.2 then do::
-
-       git tag 0.0.2
-       git push --tags
-
------------
-Change Log
------------
+## Change Log
 
 0.3.0
-   Update from boto to boto3
-   Update to Ckan version 2.8+
+Update from boto to boto3 Update to Ckan version 2.8+
 
 0.2.0
-   Support for AMI Roles
-   ACL for uploaded file can be configured
-   don't assume that error codes are numeric
-   fix filesystem fallback, resolves #28
-   set explicit ContentType on boto Put command and store the mimetype in CKAN resource table
+Support for AMI Roles
+ACL for uploaded file can be configured
+don't assume that error codes are numeric
+fix filesystem fallback, resolves \#28
+set explicit ContentType on boto Put command and store the mimetype in CKAN resource table
 
 0.1.1
-   Support for Flask-based requests
+Support for Flask-based requests
 
 0.1.0
-   Fix downloading large files
+Fix downloading large files
 
 0.0.9
-   Add populating of resources' last_modified field
+Add populating of resources' last_modified field
 
 0.0.8
-   Add option for fallback to local filesytem from s3
+Add option for fallback to local filesytem from s3
 
 0.0.7
-   redirect always get string intead of unicode
+redirect always get string intead of unicode
 
 0.0.6
-   Allow minio s3 like datastore
+Allow minio s3 like datastore
 
 0.0.5
-   Add boto to install requires
+Add boto to install requires
 
 0.0.4
-    Avoid exception when resources marked for clearing but not yet exist
-    New, not yet created resources can be marked for deletion (with `clear_upload`) if the user cancels an upload and enters a URL instead. Check if resources have an id or if an old name is provided before trying to clear a file.
+Avoid exception when resources marked for clearing but not yet exist
+New, not yet created resources can be marked for deletion (with
+<span class="title-ref">clear_upload</span>) if the user cancels an
+upload and enters a URL instead. Check if resources have an id or if an
+old name is provided before trying to clear a file.
 
 0.0.3
-   Requires CKAN 2.5+ as IUploader now in CKAN2.5
+Requires CKAN 2.5+ as IUploader now in CKAN2.5
 
 0.0.2
-   Change the resource file names to lower case
+Change the resource file names to lower case
 
 0.0.1
-   Alpha release of plugin
+Alpha release of plugin

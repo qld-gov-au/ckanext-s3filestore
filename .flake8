@@ -4,6 +4,7 @@
 exclude =
     ckan
     scripts
+    build
 
 # Extended output format.
 format = pylint
