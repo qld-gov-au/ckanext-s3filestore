@@ -27,8 +27,6 @@ if [ "$CKAN_GIT_ORG" != "ckan" ]; then
   popd
 fi
 
-pip install -r requirements.txt
-pip install -r dev-requirements.txt
-pip install -e .
+pip install -e '.[dev]'
 # Replace default path to CKAN core config file with the one on the container
 sed -i -e "s|use = config:.*|use = config:${SRC_DIR}/ckan/test-core.ini|" test.ini
