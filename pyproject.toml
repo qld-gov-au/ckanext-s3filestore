@@ -49,7 +49,7 @@ Homepage = "https://github.com/qld-gov-au/ckanext-s3filestore"
 [project.optional-dependencies]
 dev = [
     "moto==5.0.20",
-    "ckanapi==4.3",
+    "ckanapi==4.11",
     "httpretty==1.1.4",
     "parameterized==0.9.0",
     "pytest-cov",
