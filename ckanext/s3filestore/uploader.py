@@ -15,10 +15,10 @@ from six.moves.urllib.parse import urlencode
 import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError
-from werkzeug.datastructures import FileStorage as FlaskFileStorage
-
 import ckantoolkit as toolkit
 import ckan.lib.helpers as h
+
+from werkzeug.datastructures import FileStorage as FlaskFileStorage
 
 from ckan.lib import munge
 from ckan.lib.uploader import ResourceUpload as DefaultResourceUpload, Upload as DefaultUpload
@@ -27,7 +27,12 @@ from ckan.plugins.toolkit import g
 
 from ckanext.s3filestore.redis_helper import RedisHelper
 
-ALLOWED_UPLOAD_TYPES: 'tuple[typing.Any]' = (FlaskFileStorage,)
+upload_types: 'list[typing.Any]' = [FlaskFileStorage]
+if toolkit.check_ckan_version(max_version='2.10.0'):
+    from cgi import FieldStorage
+    upload_types.append(FieldStorage)
+
+ALLOWED_UPLOAD_TYPES: 'tuple[typing.Any]' = tuple(upload_types)
 
 config = toolkit.config
 log = logging.getLogger(__name__)
