@@ -28,7 +28,7 @@ from ckan.plugins.toolkit import g
 from ckanext.s3filestore.redis_helper import RedisHelper
 
 upload_types: 'list[typing.Any]' = [FlaskFileStorage]
-if toolkit.check_ckan_version(max_version='2.10.0'):
+if not toolkit.check_ckan_version('2.11'):
     from cgi import FieldStorage
     upload_types.append(FieldStorage)
 
