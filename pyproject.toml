@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ckanext-s3filestore"
-version = "0.11.1"
+version = "0.11.2"
 description = "Host resource files using Amazon Web Service's S3 storage"
 requires-python = ">=3.9"
 classifiers = [
@@ -48,7 +48,7 @@ Homepage = "https://github.com/qld-gov-au/ckanext-s3filestore"
 
 [project.optional-dependencies]
 dev = [
-    "moto==5.2.4",
+    "moto==5.2.5",
     "ckanapi==4.11",
     "httpretty==1.1.4",
     "parameterized==0.9.0",
