@@ -495,6 +495,7 @@ class S3ResourceUploader(BaseS3Uploader):
         '''
 
         super(S3ResourceUploader, self).__init__()
+        log.debug("Creating uploader for resource: %s", resource)
 
         self.use_filename = toolkit.asbool(config.get('ckanext.s3filestore.use_filename', False))
         self.delete_non_current_days = int(config.get('ckanext.s3filestore.delete_non_current_days', '-1'))
