@@ -163,6 +163,7 @@ class TestS3Uploader():
 
 
 @pytest.mark.ckan_config('ckanext.s3filestore.acl.async_update', 'False')
+@pytest.mark.usefixtures("with_plugins")
 class TestS3ResourceUploader():
 
     def setup_method(self, test_method):
