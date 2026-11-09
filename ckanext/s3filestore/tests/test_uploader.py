@@ -527,6 +527,12 @@ class TestS3ResourceUploader():
     def test_delete_resource(self):
         dataset = self._test_dataset()
         test_resource = self._upload_test_resource(dataset)
-        helpers.call_action('resource_delete', id=test_resource['id'])
-        dataset = helpers.call_action('package_show', id=dataset['id'])
-        assert dataset['resources'] == []
+        data_dict = {'id': test_resource['id']}
+
+        uploader = S3ResourceUploader(data_dict)
+        uploader.delete(data_dict)
+
+        key = _get_object_key(test_resource)
+        # key shouldn't exist
+        with pytest.raises(ClientError):
+            self.s3.head_object(Bucket=self.bucket_name, Key=key)
