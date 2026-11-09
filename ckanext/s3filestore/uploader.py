@@ -503,9 +503,6 @@ class S3ResourceUploader(BaseS3Uploader):
         self.filename = None
         self.old_filename = None
         self.url = resource.get('url')
-        if not self.url:
-            stored_resource = toolkit.get_action('resource_show')({'ignore_auth': True}, {'id': resource.get('id')})
-            self.url = stored_resource['url']
         # Hold onto resource just in case we need to fallback to Default ResourceUpload from core ckan.lib.uploader
         self.resource = resource
 
@@ -595,8 +592,10 @@ class S3ResourceUploader(BaseS3Uploader):
         my_storage_path/resources/165900ba-3c60-43c5-9e9c-9f8acd0aa93f/data.csv
         '''
 
-        if filename is None:
-            filename = os.path.basename(self.url)
+        if not filename:
+            filename = os.path.basename(
+                self.url or toolkit.get_action('resource_show')(
+                    {'ignore_auth': True}, {'id': id})['url'])
         filename = munge.munge_filename(filename)
 
         directory = self.get_directory(id, self.storage_path)
