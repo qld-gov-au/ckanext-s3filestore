@@ -522,3 +522,10 @@ class TestS3ResourceUploader():
             except ClientError:
                 # passed
                 assert True, "passed"
+
+    def test_delete_resource(self):
+        dataset = self._test_dataset()
+        test_resource = self._upload_test_resource(dataset)
+        helpers.call_action('resource_delete', id=test_resource['id'])
+        dataset = helpers.call_action('package_show', id=dataset['id'])
+        assert dataset['resources'] == []
