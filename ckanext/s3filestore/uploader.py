@@ -501,7 +501,7 @@ class S3ResourceUploader(BaseS3Uploader):
         self.storage_path = self.get_storage_path()
         self.filename = None
         self.old_filename = None
-        self.url = resource['url']
+        self.url = resource.get('url')
         # Hold onto resource just in case we need to fallback to Default ResourceUpload from core ckan.lib.uploader
         self.resource = resource
 
