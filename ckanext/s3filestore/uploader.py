@@ -495,13 +495,14 @@ class S3ResourceUploader(BaseS3Uploader):
         '''
 
         super(S3ResourceUploader, self).__init__()
+        log.debug("Creating uploader for resource: %s", resource)
 
         self.use_filename = toolkit.asbool(config.get('ckanext.s3filestore.use_filename', False))
         self.delete_non_current_days = int(config.get('ckanext.s3filestore.delete_non_current_days', '-1'))
         self.storage_path = self.get_storage_path()
         self.filename = None
         self.old_filename = None
-        self.url = resource['url']
+        self.url = resource.get('url')
         # Hold onto resource just in case we need to fallback to Default ResourceUpload from core ckan.lib.uploader
         self.resource = resource
 
@@ -591,8 +592,10 @@ class S3ResourceUploader(BaseS3Uploader):
         my_storage_path/resources/165900ba-3c60-43c5-9e9c-9f8acd0aa93f/data.csv
         '''
 
-        if filename is None:
-            filename = os.path.basename(self.url)
+        if not filename:
+            filename = os.path.basename(
+                self.url or toolkit.get_action('resource_show')(
+                    {'ignore_auth': True}, {'id': id})['url'])
         filename = munge.munge_filename(filename)
 
         directory = self.get_directory(id, self.storage_path)

@@ -162,7 +162,8 @@ class TestS3Uploader():
         return status_code, response.location
 
 
-@helpers.change_config('ckanext.s3filestore.acl.async_update', 'False')
+@pytest.mark.ckan_config('ckanext.s3filestore.acl.async_update', 'False')
+@pytest.mark.usefixtures("with_plugins")
 class TestS3ResourceUploader():
 
     def setup_method(self, test_method):
@@ -522,3 +523,16 @@ class TestS3ResourceUploader():
             except ClientError:
                 # passed
                 assert True, "passed"
+
+    def test_delete_resource(self):
+        dataset = self._test_dataset()
+        test_resource = self._upload_test_resource(dataset)
+        data_dict = {'id': test_resource['id']}
+
+        uploader = S3ResourceUploader(data_dict)
+        uploader.delete(test_resource['id'])
+
+        key = _get_object_key(test_resource)
+        # key shouldn't exist
+        with pytest.raises(ClientError):
+            self.s3.head_object(Bucket=self.bucket_name, Key=key)
