@@ -530,7 +530,7 @@ class TestS3ResourceUploader():
         data_dict = {'id': test_resource['id']}
 
         uploader = S3ResourceUploader(data_dict)
-        uploader.delete(data_dict)
+        uploader.delete(test_resource['id'])
 
         key = _get_object_key(test_resource)
         # key shouldn't exist
