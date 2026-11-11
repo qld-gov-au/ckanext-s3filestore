@@ -536,3 +536,25 @@ class TestS3ResourceUploader():
         # key shouldn't exist
         with pytest.raises(ClientError):
             self.s3.head_object(Bucket=self.bucket_name, Key=key)
+
+    def test_download_resource(self):
+        dataset = self._test_dataset()
+        test_resource = self._upload_test_resource(dataset)
+        resource_id = test_resource['id']
+        data_dict = {'id': resource_id}
+
+        uploader = S3ResourceUploader(data_dict)
+        response = uploader.download(resource_id)
+        assert resource_id in response.headers.get('Location')
+
+    def test_resource_metadata(self):
+        dataset = self._test_dataset()
+        test_resource = self._upload_test_resource(dataset)
+        resource_id = test_resource['id']
+        data_dict = {'id': resource_id}
+
+        uploader = S3ResourceUploader(data_dict)
+        metadata = uploader.metadata(resource_id)
+        assert 'content_type' in metadata
+        assert 'size' in metadata
+        assert 'hash' in metadata
