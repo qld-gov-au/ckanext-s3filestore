@@ -709,9 +709,8 @@ class S3ResourceUploader(BaseS3Uploader):
         downloading the uploaded file from S3.
         '''
 
-        key_path = self.get_path(id, filename)
-        # extract this second so we don't munge twice
         filename = self.get_filename(id, filename if self.use_filename else None)
+        key_path = self.get_path(id, filename)
 
         if filename is None:
             log.warning("Key '%s' not found in bucket '%s'",
@@ -742,9 +741,8 @@ class S3ResourceUploader(BaseS3Uploader):
             raise OSError(errno.ENOENT)
 
     def metadata(self, id, filename=None):
-        key_path = self.get_path(id, filename)
-        # extract this second so we don't munge twice
         filename = self.get_filename(id, filename if self.use_filename else None)
+        key_path = self.get_path(id, filename)
 
         if filename is None:
             log.warning("Key '%s' not found in bucket '%s'",
