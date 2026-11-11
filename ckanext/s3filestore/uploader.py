@@ -582,6 +582,13 @@ class S3ResourceUploader(BaseS3Uploader):
         path = config.get('ckanext.s3filestore.aws_storage_path', '')
         return os.path.join(path, 'resources')
 
+    def get_filename(self, id, filename=None):
+        if not filename:
+            filename = os.path.basename(
+                self.url or toolkit.get_action('resource_show')(
+                    {'ignore_auth': True}, {'id': id})['url'])
+        return munge.munge_filename(filename)
+
     def get_path(self, id, filename=None):
         '''Return the key used for this resource in S3.
 
@@ -591,12 +598,7 @@ class S3ResourceUploader(BaseS3Uploader):
         e.g.:
         my_storage_path/resources/165900ba-3c60-43c5-9e9c-9f8acd0aa93f/data.csv
         '''
-
-        if not filename:
-            filename = os.path.basename(
-                self.url or toolkit.get_action('resource_show')(
-                    {'ignore_auth': True}, {'id': id})['url'])
-        filename = munge.munge_filename(filename)
+        filename = self.get_filename(id, filename)
 
         directory = self.get_directory(id, self.storage_path)
         filepath = os.path.join(directory, filename)
@@ -707,10 +709,9 @@ class S3ResourceUploader(BaseS3Uploader):
         downloading the uploaded file from S3.
         '''
 
-        if not self.use_filename or filename is None:
-            filename = os.path.basename(self.url)
-        filename = munge.munge_filename(filename)
         key_path = self.get_path(id, filename)
+        # extract this second so we don't munge twice
+        filename = self.get_filename(id, filename if self.use_filename else None)
 
         if filename is None:
             log.warning("Key '%s' not found in bucket '%s'",
@@ -741,10 +742,9 @@ class S3ResourceUploader(BaseS3Uploader):
             raise OSError(errno.ENOENT)
 
     def metadata(self, id, filename=None):
-        if filename is None:
-            filename = os.path.basename(self.url)
-        filename = munge.munge_filename(filename)
         key_path = self.get_path(id, filename)
+        # extract this second so we don't munge twice
+        filename = self.get_filename(id, filename if self.use_filename else None)
 
         if filename is None:
             log.warning("Key '%s' not found in bucket '%s'",
